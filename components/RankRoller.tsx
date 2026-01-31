@@ -23,6 +23,7 @@ interface Milestone {
   description: string;
   requirement: (state: { rollCount: number; collectedRanks: Set<number> }) => boolean;
   reward: number;
+  luckBonus?: number;
 }
 
 const MILESTONES: Milestone[] = [
@@ -32,6 +33,14 @@ const MILESTONES: Milestone[] = [
     description: 'Roll 1,000 times',
     requirement: (state) => state.rollCount >= 1000,
     reward: 1000,
+  },
+  {
+    id: 'rolls_2500',
+    name: '2,500 Rolls',
+    description: 'Roll 2,500 times',
+    requirement: (state) => state.rollCount >= 2500,
+    reward: 0,
+    luckBonus: 1.5,
   },
 ];
 
@@ -221,8 +230,17 @@ export default function RankRoller() {
     saveGame();
   }, [saveGame]);
 
+  // Calculate milestone bonuses
+  const milestoneLuckBonus = MILESTONES.reduce((acc, m) => {
+    if (claimedMilestones.has(m.id) && m.luckBonus) {
+      return acc * m.luckBonus;
+    }
+    return acc;
+  }, 1);
+
   // Luck calculations
-  const luckMulti = Math.pow(1.1, luckLevel);
+  const baseLuckMulti = Math.pow(1.1, luckLevel);
+  const luckMulti = baseLuckMulti * milestoneLuckBonus;
   const luckUpgradeCost = Math.floor(100 * Math.pow(5, luckLevel));
   const canAffordLuckUpgrade = totalPoints >= luckUpgradeCost;
 
@@ -394,6 +412,25 @@ export default function RankRoller() {
         </button>
       </div>
 
+      {/* Stats Display - Next to Upgrades */}
+      <div style={styles.statsPanel}>
+        <h3 style={styles.statsPanelTitle}>Total Multipliers</h3>
+        <div style={styles.statsPanelList}>
+          <div style={styles.statsPanelItem}>
+            <span style={styles.statsPanelLabel}>Luck</span>
+            <span style={styles.statsPanelValue}>{luckMulti.toFixed(2)}x</span>
+          </div>
+          <div style={styles.statsPanelItem}>
+            <span style={styles.statsPanelLabel}>Points</span>
+            <span style={styles.statsPanelValue}>{pointsMulti.toFixed(2)}x</span>
+          </div>
+          <div style={styles.statsPanelItem}>
+            <span style={styles.statsPanelLabel}>Speed</span>
+            <span style={styles.statsPanelValue}>{speedMulti.toFixed(2)}x</span>
+          </div>
+        </div>
+      </div>
+
       {/* Upgrades Panel - Top Right */}
       <div style={styles.upgradesPanel}>
         <h3 style={styles.upgradesTitle}>Upgrades</h3>
@@ -479,7 +516,11 @@ export default function RankRoller() {
                       <div style={styles.milestoneName}>{milestone.name}</div>
                       <div style={styles.milestoneDesc}>{milestone.description}</div>
                       <div style={styles.milestoneReward}>
-                        Reward: {milestone.reward.toLocaleString()} pts
+                        {milestone.luckBonus ? (
+                          <>Reward: {milestone.luckBonus}x Luck</>
+                        ) : (
+                          <>Reward: {milestone.reward.toLocaleString()} pts</>
+                        )}
                       </div>
                     </div>
                     {isClaimed ? (
@@ -844,6 +885,45 @@ const styles: Record<string, React.CSSProperties> = {
     top: '20px',
     left: '20px',
     zIndex: 100,
+  },
+  statsPanel: {
+    position: 'fixed',
+    top: '20px',
+    right: '220px',
+    backgroundColor: 'rgba(30, 30, 50, 0.95)',
+    borderRadius: '12px',
+    padding: '15px',
+    minWidth: '140px',
+    border: '2px solid rgba(100, 200, 255, 0.3)',
+    boxShadow: '0 4px 20px rgba(0, 0, 0, 0.3)',
+    zIndex: 100,
+  },
+  statsPanelTitle: {
+    margin: '0 0 10px 0',
+    fontSize: '0.85rem',
+    color: '#64c8ff',
+    textAlign: 'center',
+    borderBottom: '1px solid rgba(100, 200, 255, 0.3)',
+    paddingBottom: '8px',
+  },
+  statsPanelList: {
+    display: 'flex',
+    flexDirection: 'column',
+    gap: '8px',
+  },
+  statsPanelItem: {
+    display: 'flex',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+  },
+  statsPanelLabel: {
+    fontSize: '0.8rem',
+    color: '#aaa',
+  },
+  statsPanelValue: {
+    fontSize: '0.95rem',
+    fontWeight: 'bold',
+    color: '#64c8ff',
   },
   upgradesPanel: {
     position: 'fixed',
