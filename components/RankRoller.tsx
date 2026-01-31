@@ -11,6 +11,7 @@ interface SaveData {
   highestRankRoll: number | null;
   collectedRanks: number[];
   luckLevel: number;
+  pointsMultiLevel: number;
 }
 
 function setCookie(name: string, value: string, days: number = 365) {
@@ -144,6 +145,7 @@ export default function RankRoller() {
   const [collectedRanks, setCollectedRanks] = useState<Set<number>>(new Set());
   const [expandedTiers, setExpandedTiers] = useState<Set<string>>(new Set());
   const [luckLevel, setLuckLevel] = useState(0);
+  const [pointsMultiLevel, setPointsMultiLevel] = useState(0);
   const [isLoaded, setIsLoaded] = useState(false);
 
   // Load save data from cookies on mount
@@ -160,6 +162,7 @@ export default function RankRoller() {
         setHighestRankRoll(data.highestRankRoll || null);
         setCollectedRanks(new Set(data.collectedRanks || []));
         setLuckLevel(data.luckLevel || 0);
+        setPointsMultiLevel(data.pointsMultiLevel || 0);
       } catch (e) {
         console.error('Failed to load save data:', e);
       }
@@ -178,9 +181,10 @@ export default function RankRoller() {
       highestRankRoll,
       collectedRanks: Array.from(collectedRanks),
       luckLevel,
+      pointsMultiLevel,
     };
     setCookie(SAVE_KEY, JSON.stringify(saveData));
-  }, [isLoaded, rollCount, totalPoints, highestRank, highestRankRoll, collectedRanks, luckLevel]);
+  }, [isLoaded, rollCount, totalPoints, highestRank, highestRankRoll, collectedRanks, luckLevel, pointsMultiLevel]);
 
   useEffect(() => {
     saveGame();
@@ -188,13 +192,25 @@ export default function RankRoller() {
 
   // Luck calculations
   const luckMulti = Math.pow(1.1, luckLevel);
-  const upgradeCost = Math.floor(100 * Math.pow(5, luckLevel));
-  const canAffordUpgrade = totalPoints >= upgradeCost;
+  const luckUpgradeCost = Math.floor(100 * Math.pow(5, luckLevel));
+  const canAffordLuckUpgrade = totalPoints >= luckUpgradeCost;
+
+  // Points multiplier calculations
+  const pointsMulti = Math.pow(1.1, pointsMultiLevel);
+  const pointsUpgradeCost = Math.floor(100 * Math.pow(5, pointsMultiLevel));
+  const canAffordPointsUpgrade = totalPoints >= pointsUpgradeCost;
 
   const handleUpgradeLuck = () => {
-    if (canAffordUpgrade) {
-      setTotalPoints((p) => p - upgradeCost);
+    if (canAffordLuckUpgrade) {
+      setTotalPoints((p) => p - luckUpgradeCost);
       setLuckLevel((l) => l + 1);
+    }
+  };
+
+  const handleUpgradePoints = () => {
+    if (canAffordPointsUpgrade) {
+      setTotalPoints((p) => p - pointsUpgradeCost);
+      setPointsMultiLevel((l) => l + 1);
     }
   };
 
@@ -251,7 +267,8 @@ export default function RankRoller() {
         setCurrentRoll(result);
         setRollCount((c) => c + 1);
 
-        const pointsGained = calculatePoints(result);
+        const basePoints = calculatePoints(result);
+        const pointsGained = Math.floor(basePoints * pointsMulti);
         setTotalPoints((p) => p + pointsGained);
         setLastPointsGained(pointsGained);
 
@@ -300,14 +317,33 @@ export default function RankRoller() {
             </div>
             <button
               onClick={handleUpgradeLuck}
-              disabled={!canAffordUpgrade}
+              disabled={!canAffordLuckUpgrade}
               style={{
                 ...styles.upgradeBtn,
-                opacity: canAffordUpgrade ? 1 : 0.5,
-                cursor: canAffordUpgrade ? 'pointer' : 'not-allowed',
+                opacity: canAffordLuckUpgrade ? 1 : 0.5,
+                cursor: canAffordLuckUpgrade ? 'pointer' : 'not-allowed',
               }}
             >
-              {upgradeCost.toLocaleString()}
+              {luckUpgradeCost.toLocaleString()}
+            </button>
+          </div>
+          {/* Points Multiplier Upgrade */}
+          <div style={styles.upgradeItem}>
+            <div style={styles.upgradeInfo}>
+              <span style={styles.upgradeName}>Points</span>
+              <span style={styles.upgradeValue}>{pointsMulti.toFixed(2)}x</span>
+              <span style={styles.upgradeLevel}>Lv.{pointsMultiLevel}</span>
+            </div>
+            <button
+              onClick={handleUpgradePoints}
+              disabled={!canAffordPointsUpgrade}
+              style={{
+                ...styles.upgradeBtn,
+                opacity: canAffordPointsUpgrade ? 1 : 0.5,
+                cursor: canAffordPointsUpgrade ? 'pointer' : 'not-allowed',
+              }}
+            >
+              {pointsUpgradeCost.toLocaleString()}
             </button>
           </div>
         </div>
