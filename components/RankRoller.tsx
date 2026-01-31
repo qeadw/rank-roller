@@ -16,6 +16,10 @@ interface SaveData {
   pointsMultiLevel: number;
   speedLevel: number;
   claimedMilestones: string[];
+  // Rune data
+  collectedRunes: number[];
+  runeRollCounts: Record<number, number>;
+  runeRollCount: number;
 }
 
 interface Milestone {
@@ -28,6 +32,80 @@ interface Milestone {
   pointsBonus?: number;
   speedBonus?: number;
   unlockAutoRoll?: boolean;
+}
+
+interface Rune {
+  index: number;
+  name: string;
+  color: string;
+  weight: number;
+  probability: number;
+}
+
+const RUNE_NAMES = [
+  'Rune of Beginning',
+  'Rune of Embers',
+  'Rune of Tides',
+  'Rune of Gales',
+  'Rune of Stone',
+  'Rune of Thunder',
+  'Rune of Frost',
+  'Rune of Shadow',
+  'Rune of Light',
+  'Rune of Eternity',
+];
+
+const RUNE_COLORS = [
+  '#808080',  // Beginning - gray
+  '#ff6b35',  // Embers - orange-red
+  '#0077be',  // Tides - blue
+  '#7fdbca',  // Gales - teal
+  '#8b4513',  // Stone - brown
+  '#ffd700',  // Thunder - gold
+  '#87ceeb',  // Frost - ice blue
+  '#4a0080',  // Shadow - dark purple
+  '#ffffff',  // Light - white
+  '#ff00ff',  // Eternity - magenta
+];
+
+function generateRunes(): Rune[] {
+  const runes: Rune[] = [];
+  let totalWeight = 0;
+
+  // First rune is 1/2, each subsequent is 12x rarer
+  for (let i = 0; i < 10; i++) {
+    const weight = 1 / Math.pow(12, i);
+    totalWeight += weight;
+
+    runes.push({
+      index: i,
+      name: RUNE_NAMES[i],
+      color: RUNE_COLORS[i],
+      weight,
+      probability: 0,
+    });
+  }
+
+  // Calculate probabilities
+  for (const rune of runes) {
+    rune.probability = rune.weight / totalWeight;
+  }
+
+  return runes;
+}
+
+function rollRune(runes: Rune[]): Rune {
+  const totalWeight = runes.reduce((sum, r) => sum + r.weight, 0);
+  let random = Math.random() * totalWeight;
+
+  for (let i = 0; i < runes.length; i++) {
+    random -= runes[i].weight;
+    if (random <= 0) {
+      return runes[i];
+    }
+  }
+
+  return runes[0];
 }
 
 // Helper to check if a tier is complete
@@ -323,6 +401,7 @@ function calculatePoints(rank: Rank): number {
 
 export default function RankRoller() {
   const ranks = useMemo(() => generateRanks(), []);
+  const runes = useMemo(() => generateRunes(), []);
   const [currentRoll, setCurrentRoll] = useState<Rank | null>(null);
   const [highestRank, setHighestRank] = useState<Rank | null>(null);
   const [highestRankRoll, setHighestRankRoll] = useState<number | null>(null);
@@ -345,6 +424,12 @@ export default function RankRoller() {
   const [showResetModal, setShowResetModal] = useState(false);
   const [resetInput, setResetInput] = useState('');
   const [showRunes, setShowRunes] = useState(false);
+  // Rune state
+  const [currentRuneRoll, setCurrentRuneRoll] = useState<Rune | null>(null);
+  const [collectedRunes, setCollectedRunes] = useState<Set<number>>(new Set());
+  const [runeRollCounts, setRuneRollCounts] = useState<Record<number, number>>({});
+  const [runeRollCount, setRuneRollCount] = useState(0);
+  const [isRollingRune, setIsRollingRune] = useState(false);
   const rollCountRef = useRef(rollCount);
 
   // Load save data from cookies on mount
@@ -366,6 +451,10 @@ export default function RankRoller() {
         setPointsMultiLevel(data.pointsMultiLevel || 0);
         setSpeedLevel(data.speedLevel || 0);
         setClaimedMilestones(new Set(data.claimedMilestones || []));
+        // Load rune data
+        setCollectedRunes(new Set(data.collectedRunes || []));
+        setRuneRollCounts(data.runeRollCounts || {});
+        setRuneRollCount(data.runeRollCount || 0);
       } catch (e) {
         console.error('Failed to load save data:', e);
       }
@@ -389,9 +478,13 @@ export default function RankRoller() {
       pointsMultiLevel,
       speedLevel,
       claimedMilestones: Array.from(claimedMilestones),
+      // Rune data
+      collectedRunes: Array.from(collectedRunes),
+      runeRollCounts,
+      runeRollCount,
     };
     setCookie(SAVE_KEY, JSON.stringify(saveData));
-  }, [isLoaded, rollCount, totalPoints, highestRank, highestRankRoll, collectedRanks, rankRollCounts, ascendedRanks, luckLevel, pointsMultiLevel, speedLevel, claimedMilestones]);
+  }, [isLoaded, rollCount, totalPoints, highestRank, highestRankRoll, collectedRanks, rankRollCounts, ascendedRanks, luckLevel, pointsMultiLevel, speedLevel, claimedMilestones, collectedRunes, runeRollCounts, runeRollCount]);
 
   useEffect(() => {
     saveGame();
@@ -553,11 +646,61 @@ export default function RankRoller() {
       setSpeedLevel(0);
       setClaimedMilestones(new Set());
       setAutoRollEnabled(false);
+      // Reset rune data
+      setCurrentRuneRoll(null);
+      setCollectedRunes(new Set());
+      setRuneRollCounts({});
+      setRuneRollCount(0);
       setCookie(SAVE_KEY, '');
       setShowResetModal(false);
       setResetInput('');
     }
   };
+
+  // Rune roll time (5 seconds base, not affected by speed)
+  const runeRollTime = 5000;
+  const runeAnimationInterval = 100; // Animation frame rate for runes
+  const runeRollCost = 1000;
+  const canAffordRuneRoll = totalPoints >= runeRollCost;
+
+  // Handle rune roll
+  const handleRuneRoll = useCallback(() => {
+    if (!canAffordRuneRoll || isRollingRune) return;
+
+    setTotalPoints((p) => p - runeRollCost);
+    setIsRollingRune(true);
+
+    const animationFrames = Math.floor(runeRollTime / runeAnimationInterval);
+    let animationCount = 0;
+
+    const rollTimer = setInterval(() => {
+      const simulatedRoll = rollRune(runes);
+      setCurrentRuneRoll(simulatedRoll);
+      animationCount++;
+
+      if (animationCount >= animationFrames) {
+        clearInterval(rollTimer);
+
+        // Final roll
+        const result = rollRune(runes);
+        setCurrentRuneRoll(result);
+        setRuneRollCount((c) => c + 1);
+
+        setCollectedRunes((prev) => {
+          const next = new Set(prev);
+          next.add(result.index);
+          return next;
+        });
+
+        setRuneRollCounts((prev) => ({
+          ...prev,
+          [result.index]: (prev[result.index] || 0) + 1,
+        }));
+
+        setIsRollingRune(false);
+      }
+    }, runeAnimationInterval);
+  }, [runes, canAffordRuneRoll, isRollingRune]);
 
   // Get total roll count for a tier
   const getTierRollCount = (tierIndex: number): number => {
@@ -659,6 +802,15 @@ export default function RankRoller() {
   const colors = currentRoll ? TIER_COLORS[currentRoll.tier] : null;
   const highestColors = highestRank ? TIER_COLORS[highestRank.tier] : null;
 
+  // Format rune probability
+  const formatRuneProbability = (prob: number): string => {
+    if (prob >= 0.01) {
+      return `${(prob * 100).toFixed(2)}%`;
+    }
+    const oneIn = Math.round(1 / prob);
+    return `1 in ${oneIn.toLocaleString()}`;
+  };
+
   // Runes Screen
   if (showRunes) {
     return (
@@ -669,10 +821,128 @@ export default function RankRoller() {
         >
           ← Back
         </button>
+
+        {/* Stats Panel for Runes */}
+        <div className="stats-panel" style={styles.statsPanel}>
+          <h3 className="stats-panel-title" style={styles.statsPanelTitle}>Total Stats</h3>
+          <div style={styles.statsPanelList}>
+            {luckMulti > 1.0 && (
+              <div style={styles.statsPanelItem}>
+                <span className="stats-panel-label" style={styles.statsPanelLabel}>Luck</span>
+                <span className="stats-panel-value" style={styles.statsPanelValue}>{luckMulti.toFixed(2)}x</span>
+              </div>
+            )}
+            {pointsMulti > 1.0 && (
+              <div style={styles.statsPanelItem}>
+                <span className="stats-panel-label" style={styles.statsPanelLabel}>Points</span>
+                <span className="stats-panel-value" style={styles.statsPanelValue}>{pointsMulti.toFixed(2)}x</span>
+              </div>
+            )}
+            {speedMulti > 1.0 && (
+              <div style={styles.statsPanelItem}>
+                <span className="stats-panel-label" style={styles.statsPanelLabel}>Speed</span>
+                <span className="stats-panel-value" style={styles.statsPanelValue}>{speedMulti.toFixed(2)}x</span>
+              </div>
+            )}
+            <div style={styles.statsPanelItem}>
+              <span className="stats-panel-label" style={styles.statsPanelLabel}>Roll Time</span>
+              <span className="stats-panel-value" style={styles.statsPanelValue}>{((animationInterval * 10) / 1000).toFixed(2)}s</span>
+            </div>
+            {autoRollUnlocked && (
+              <div style={styles.statsPanelItem}>
+                <span className="stats-panel-label" style={styles.statsPanelLabel}>Auto Roll</span>
+                <span className="stats-panel-value" style={styles.statsPanelValue}>{((animationInterval * 10 * 5) / 1000).toFixed(2)}s</span>
+              </div>
+            )}
+            <div style={styles.statsPanelItem}>
+              <span className="stats-panel-label" style={styles.statsPanelLabel}>Rune Roll</span>
+              <span className="stats-panel-value" style={styles.statsPanelValue}>{(runeRollTime / 1000).toFixed(1)}s</span>
+            </div>
+          </div>
+        </div>
+
         <h1 style={styles.runesTitle}>Runes</h1>
+
         <div style={styles.runesPointsDisplay}>
           <span style={styles.runesPointsLabel}>Points</span>
           <span style={styles.runesPointsValue}>{totalPoints.toLocaleString()}</span>
+        </div>
+
+        {/* Rune Roll Display */}
+        <div
+          style={{
+            ...styles.runeRollDisplay,
+            backgroundColor: currentRuneRoll ? currentRuneRoll.color : '#333',
+            color: currentRuneRoll && (currentRuneRoll.index === 8 || currentRuneRoll.index === 5) ? '#000' : '#fff',
+            boxShadow: currentRuneRoll ? `0 0 30px ${currentRuneRoll.color}80` : 'none',
+          }}
+        >
+          {currentRuneRoll ? (
+            <>
+              <div style={styles.runeRollName}>{currentRuneRoll.name}</div>
+              <div style={styles.runeRollProbability}>
+                {formatRuneProbability(currentRuneRoll.probability)}
+              </div>
+            </>
+          ) : (
+            <div style={styles.rollPlaceholder}>Roll a rune!</div>
+          )}
+        </div>
+
+        {/* Roll Button */}
+        <button
+          onClick={handleRuneRoll}
+          disabled={!canAffordRuneRoll || isRollingRune}
+          style={{
+            ...styles.runeRollButton,
+            opacity: !canAffordRuneRoll || isRollingRune ? 0.5 : 1,
+            cursor: !canAffordRuneRoll || isRollingRune ? 'not-allowed' : 'pointer',
+          }}
+        >
+          {isRollingRune ? 'Rolling...' : `ROLL RUNE (${runeRollCost.toLocaleString()} pts)`}
+        </button>
+
+        <div style={styles.runeStatsRow}>
+          <span>Rune Rolls: {runeRollCount}</span>
+          <span>Collected: {collectedRunes.size}/10</span>
+        </div>
+
+        {/* Rune Catalogue */}
+        <div style={styles.runeCatalogue}>
+          <h3 style={styles.catalogueTitle}>Rune Collection ({collectedRunes.size}/10)</h3>
+          <div style={styles.runeCatalogueGrid}>
+            {runes.map((rune) => {
+              const isCollected = collectedRunes.has(rune.index);
+              const rollCount = runeRollCounts[rune.index] || 0;
+              return (
+                <div
+                  key={rune.index}
+                  style={{
+                    ...styles.runeItem,
+                    backgroundColor: isCollected ? rune.color : '#222',
+                    color: isCollected && (rune.index === 8 || rune.index === 5) ? '#000' : '#fff',
+                    opacity: isCollected ? 1 : 0.4,
+                    boxShadow: isCollected ? `0 0 15px ${rune.color}60` : 'none',
+                  }}
+                >
+                  <div style={styles.runeItemName}>{rune.name}</div>
+                  <div style={styles.runeItemChance}>
+                    {formatRuneProbability(rune.probability)}
+                  </div>
+                  {isCollected && (
+                    <div style={styles.runeItemRolls}>
+                      Rolled: {rollCount.toLocaleString()}x
+                    </div>
+                  )}
+                  {isCollected && runeRollCount > 0 && (
+                    <div style={styles.runeItemPercent}>
+                      {((rollCount / runeRollCount) * 100).toFixed(3)}%
+                    </div>
+                  )}
+                </div>
+              );
+            })}
+          </div>
         </div>
       </div>
     );
@@ -1794,8 +2064,8 @@ const styles: Record<string, React.CSSProperties> = {
   },
   runesTitle: {
     fontSize: '3rem',
-    marginTop: '100px',
-    marginBottom: '50px',
+    marginTop: '60px',
+    marginBottom: '20px',
     textShadow: '0 0 20px rgba(163, 53, 238, 0.5)',
     color: '#a335ee',
   },
@@ -1803,15 +2073,91 @@ const styles: Record<string, React.CSSProperties> = {
     display: 'flex',
     flexDirection: 'column',
     alignItems: 'center',
-    gap: '10px',
+    gap: '5px',
+    marginBottom: '20px',
   },
   runesPointsLabel: {
-    fontSize: '1.2rem',
+    fontSize: '1rem',
     color: '#888',
   },
   runesPointsValue: {
-    fontSize: '2.5rem',
+    fontSize: '2rem',
     fontWeight: 'bold',
     color: '#fff',
+  },
+  runeRollDisplay: {
+    width: '280px',
+    height: '120px',
+    borderRadius: '16px',
+    display: 'flex',
+    flexDirection: 'column',
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginBottom: '15px',
+    transition: 'all 0.2s ease',
+  },
+  runeRollName: {
+    fontSize: '1.1rem',
+    fontWeight: 'bold',
+    textAlign: 'center',
+    padding: '0 10px',
+  },
+  runeRollProbability: {
+    fontSize: '0.9rem',
+    marginTop: '8px',
+    opacity: 0.9,
+  },
+  runeRollButton: {
+    padding: '14px 40px',
+    fontSize: '1.2rem',
+    fontWeight: 'bold',
+    backgroundColor: '#a335ee',
+    color: '#fff',
+    border: 'none',
+    borderRadius: '12px',
+    marginBottom: '15px',
+    transition: 'all 0.2s ease',
+    boxShadow: '0 4px 15px rgba(163, 53, 238, 0.4)',
+  },
+  runeStatsRow: {
+    display: 'flex',
+    gap: '30px',
+    marginBottom: '20px',
+    fontSize: '0.9rem',
+    color: '#aaa',
+  },
+  runeCatalogue: {
+    width: '100%',
+    maxWidth: '600px',
+  },
+  runeCatalogueGrid: {
+    display: 'grid',
+    gridTemplateColumns: 'repeat(auto-fill, minmax(150px, 1fr))',
+    gap: '10px',
+  },
+  runeItem: {
+    padding: '15px',
+    borderRadius: '10px',
+    textAlign: 'center',
+    transition: 'all 0.2s ease',
+  },
+  runeItemName: {
+    fontWeight: 'bold',
+    fontSize: '0.85rem',
+    marginBottom: '5px',
+  },
+  runeItemChance: {
+    fontSize: '0.75rem',
+    opacity: 0.8,
+  },
+  runeItemRolls: {
+    fontSize: '0.7rem',
+    marginTop: '5px',
+    opacity: 0.7,
+  },
+  runeItemPercent: {
+    fontSize: '0.7rem',
+    marginTop: '2px',
+    opacity: 0.7,
   },
 };
