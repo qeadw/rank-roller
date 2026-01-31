@@ -1413,13 +1413,11 @@ const styles: Record<string, React.CSSProperties> = {
   },
   tierRankPercent: {
     fontSize: '0.55rem',
-    opacity: 0.6,
-    color: '#4ade80',
+    opacity: 0.7,
   },
   catalogueItemPercent: {
     fontSize: '0.75rem',
     opacity: 0.8,
-    color: '#4ade80',
   },
   ascendedRank: {
     boxShadow: '0 0 15px rgba(255, 215, 0, 0.8), inset 0 0 20px rgba(255, 215, 0, 0.2)',
