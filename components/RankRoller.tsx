@@ -938,6 +938,9 @@ export default function RankRoller() {
   // Handle reset progress
   const handleReset = () => {
     if (resetInput === 'RESET') {
+      // Clear cookie first
+      setCookie(SAVE_KEY, '');
+      // Reset all game state
       setCurrentRoll(null);
       setHighestRank(null);
       setHighestRankRoll(null);
@@ -958,9 +961,13 @@ export default function RankRoller() {
       setCollectedRunes(new Set());
       setRuneRollCounts({});
       setRuneRollCount(0);
-      setCookie(SAVE_KEY, '');
+      setIsRollingRune(false);
+      // Reset UI state
+      setShowRunes(false);
       setShowResetModal(false);
       setResetInput('');
+      setShowCheatMenu(false);
+      setCheatBuffer('');
     }
   };
 
