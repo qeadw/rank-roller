@@ -193,6 +193,38 @@ const MILESTONES: Milestone[] = [
     speedBonus: 1.5,
   },
   {
+    id: 'complete_rare',
+    name: 'Rare Complete',
+    description: 'Collect all Rare ranks',
+    requirement: (state) => isTierComplete(state.collectedRanks, 2),
+    reward: 0,
+    speedBonus: 1.5,
+  },
+  {
+    id: 'complete_epic',
+    name: 'Epic Complete',
+    description: 'Collect all Epic ranks',
+    requirement: (state) => isTierComplete(state.collectedRanks, 3),
+    reward: 0,
+    pointsBonus: 5,
+  },
+  {
+    id: 'complete_legendary',
+    name: 'Legendary Complete',
+    description: 'Collect all Legendary ranks',
+    requirement: (state) => isTierComplete(state.collectedRanks, 4),
+    reward: 0,
+    luckBonus: 3,
+  },
+  {
+    id: 'complete_mythic',
+    name: 'Mythic Complete',
+    description: 'Collect all Mythic ranks',
+    requirement: (state) => isTierComplete(state.collectedRanks, 5),
+    reward: 0,
+    pointsBonus: 5,
+  },
+  {
     id: 'rolls_5000',
     name: '5,000 Rolls',
     description: 'Roll 5,000 times',
@@ -622,6 +654,7 @@ export default function RankRoller() {
   const [showResetModal, setShowResetModal] = useState(false);
   const [resetInput, setResetInput] = useState('');
   const [showRunes, setShowRunes] = useState(false);
+  const [showPercentFormat, setShowPercentFormat] = useState(false); // false = 1/x, true = x%
   // Rune state
   const [currentRuneRoll, setCurrentRuneRoll] = useState<Rune | null>(null);
   const [collectedRunes, setCollectedRunes] = useState<Set<number>>(new Set());
@@ -1042,8 +1075,8 @@ export default function RankRoller() {
   const collectedCount = collectedRanks.size;
 
   const formatProbability = (prob: number): string => {
-    if (prob >= 0.01) {
-      return `${(prob * 100).toFixed(2)}%`;
+    if (showPercentFormat) {
+      return `${(prob * 100).toFixed(5)}%`;
     }
     const oneIn = Math.round(1 / prob);
     return `1 in ${oneIn.toLocaleString()}`;
@@ -1054,8 +1087,8 @@ export default function RankRoller() {
 
   // Format rune probability
   const formatRuneProbability = (prob: number): string => {
-    if (prob >= 0.01) {
-      return `${(prob * 100).toFixed(2)}%`;
+    if (showPercentFormat) {
+      return `${(prob * 100).toFixed(5)}%`;
     }
     const oneIn = Math.round(1 / prob);
     return `1 in ${oneIn.toLocaleString()}`;
@@ -1115,6 +1148,12 @@ export default function RankRoller() {
               </div>
             )}
           </div>
+          <button
+            onClick={() => setShowPercentFormat(!showPercentFormat)}
+            style={styles.formatToggleBtn}
+          >
+            {showPercentFormat ? 'Show 1/x' : 'Show %'}
+          </button>
         </div>
 
         {/* Rune Buffs Panel */}
@@ -1236,7 +1275,7 @@ export default function RankRoller() {
                   )}
                   {isCollected && runeRollCount > 0 && (
                     <div style={styles.runeItemPercent}>
-                      {((rollCount / runeRollCount) * 100).toFixed(3)}%
+                      {((rollCount / runeRollCount) * 100).toFixed(5)}%
                     </div>
                   )}
                 </div>
@@ -1307,6 +1346,12 @@ export default function RankRoller() {
             </div>
           )}
         </div>
+        <button
+          onClick={() => setShowPercentFormat(!showPercentFormat)}
+          style={styles.formatToggleBtn}
+        >
+          {showPercentFormat ? 'Show 1/x' : 'Show %'}
+        </button>
       </div>
 
       {/* Upgrades Panel - Top Right */}
@@ -1643,7 +1688,7 @@ export default function RankRoller() {
                               </div>
                               {rollCount > 0 && (
                                 <div style={styles.tierRankPercent}>
-                                  {(((rankRollCounts[rank.index] || 0) / rollCount) * 100).toFixed(3)}%
+                                  {(((rankRollCounts[rank.index] || 0) / rollCount) * 100).toFixed(5)}%
                                 </div>
                               )}
                             </div>
@@ -1712,7 +1757,7 @@ export default function RankRoller() {
                       </div>
                       {rollCount > 0 && (
                         <div style={styles.catalogueItemPercent}>
-                          {(((rankRollCounts[rank.index] || 0) / rollCount) * 100).toFixed(3)}%
+                          {(((rankRollCounts[rank.index] || 0) / rollCount) * 100).toFixed(5)}%
                         </div>
                       )}
                     </div>
@@ -1953,6 +1998,17 @@ const styles: Record<string, React.CSSProperties> = {
     fontSize: '0.95rem',
     fontWeight: 'bold',
     color: '#64c8ff',
+  },
+  formatToggleBtn: {
+    marginTop: '8px',
+    padding: '4px 8px',
+    fontSize: '0.7rem',
+    backgroundColor: 'rgba(100, 200, 255, 0.2)',
+    color: '#64c8ff',
+    border: '1px solid rgba(100, 200, 255, 0.4)',
+    borderRadius: '4px',
+    cursor: 'pointer',
+    width: '100%',
   },
   upgradesPanel: {
     position: 'fixed',
