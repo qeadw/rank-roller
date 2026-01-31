@@ -24,6 +24,16 @@ interface Milestone {
   requirement: (state: { rollCount: number; collectedRanks: Set<number> }) => boolean;
   reward: number;
   luckBonus?: number;
+  pointsBonus?: number;
+  speedBonus?: number;
+}
+
+// Helper to check if a tier is complete
+function isTierComplete(collectedRanks: Set<number>, tierIndex: number): boolean {
+  for (let i = 0; i < 10; i++) {
+    if (!collectedRanks.has(tierIndex * 10 + i)) return false;
+  }
+  return true;
 }
 
 const MILESTONES: Milestone[] = [
@@ -39,6 +49,38 @@ const MILESTONES: Milestone[] = [
     name: '2,500 Rolls',
     description: 'Roll 2,500 times',
     requirement: (state) => state.rollCount >= 2500,
+    reward: 0,
+    luckBonus: 1.5,
+  },
+  {
+    id: 'complete_common',
+    name: 'Common Complete',
+    description: 'Collect all Common ranks',
+    requirement: (state) => isTierComplete(state.collectedRanks, 0),
+    reward: 0,
+    pointsBonus: 1.1,
+  },
+  {
+    id: 'complete_uncommon',
+    name: 'Uncommon Complete',
+    description: 'Collect all Uncommon ranks',
+    requirement: (state) => isTierComplete(state.collectedRanks, 1),
+    reward: 0,
+    speedBonus: 1.5,
+  },
+  {
+    id: 'rolls_5000',
+    name: '5,000 Rolls',
+    description: 'Roll 5,000 times',
+    requirement: (state) => state.rollCount >= 5000,
+    reward: 0,
+    pointsBonus: 1.2,
+  },
+  {
+    id: 'rolls_10000',
+    name: '10,000 Rolls',
+    description: 'Roll 10,000 times',
+    requirement: (state) => state.rollCount >= 10000,
     reward: 0,
     luckBonus: 1.5,
   },
@@ -238,6 +280,20 @@ export default function RankRoller() {
     return acc;
   }, 1);
 
+  const milestonePointsBonus = MILESTONES.reduce((acc, m) => {
+    if (claimedMilestones.has(m.id) && m.pointsBonus) {
+      return acc * m.pointsBonus;
+    }
+    return acc;
+  }, 1);
+
+  const milestoneSpeedBonus = MILESTONES.reduce((acc, m) => {
+    if (claimedMilestones.has(m.id) && m.speedBonus) {
+      return acc * m.speedBonus;
+    }
+    return acc;
+  }, 1);
+
   // Luck calculations
   const baseLuckMulti = Math.pow(1.1, luckLevel);
   const luckMulti = baseLuckMulti * milestoneLuckBonus;
@@ -245,7 +301,8 @@ export default function RankRoller() {
   const canAffordLuckUpgrade = totalPoints >= luckUpgradeCost;
 
   // Points multiplier calculations
-  const pointsMulti = Math.pow(1.1, pointsMultiLevel);
+  const basePointsMulti = Math.pow(1.1, pointsMultiLevel);
+  const pointsMulti = basePointsMulti * milestonePointsBonus;
   const pointsUpgradeCost = Math.floor(100 * Math.pow(5, pointsMultiLevel));
   const canAffordPointsUpgrade = totalPoints >= pointsUpgradeCost;
 
@@ -264,7 +321,8 @@ export default function RankRoller() {
   };
 
   // Speed calculations
-  const speedMulti = Math.pow(1.1, speedLevel);
+  const baseSpeedMulti = Math.pow(1.1, speedLevel);
+  const speedMulti = baseSpeedMulti * milestoneSpeedBonus;
   const speedUpgradeCost = Math.floor(100 * Math.pow(5, speedLevel));
   const canAffordSpeedUpgrade = totalPoints >= speedUpgradeCost;
   const animationInterval = Math.floor(50 / speedMulti);
@@ -458,7 +516,7 @@ export default function RankRoller() {
           <div style={styles.upgradeItem}>
             <div style={styles.upgradeInfo}>
               <span style={styles.upgradeName}>Points</span>
-              <span style={styles.upgradeValue}>{pointsMulti.toFixed(2)}x</span>
+              <span style={styles.upgradeValue}>{basePointsMulti.toFixed(2)}x</span>
               <span style={styles.upgradeLevel}>Lv.{pointsMultiLevel}</span>
             </div>
             <button
@@ -477,7 +535,7 @@ export default function RankRoller() {
           <div style={styles.upgradeItem}>
             <div style={styles.upgradeInfo}>
               <span style={styles.upgradeName}>Speed</span>
-              <span style={styles.upgradeValue}>{speedMulti.toFixed(2)}x</span>
+              <span style={styles.upgradeValue}>{baseSpeedMulti.toFixed(2)}x</span>
               <span style={styles.upgradeLevel}>Lv.{speedLevel}</span>
             </div>
             <button
@@ -518,6 +576,10 @@ export default function RankRoller() {
                       <div style={styles.milestoneReward}>
                         {milestone.luckBonus ? (
                           <>Reward: {milestone.luckBonus}x Luck</>
+                        ) : milestone.pointsBonus ? (
+                          <>Reward: {milestone.pointsBonus}x Points</>
+                        ) : milestone.speedBonus ? (
+                          <>Reward: {milestone.speedBonus}x Speed</>
                         ) : (
                           <>Reward: {milestone.reward.toLocaleString()} pts</>
                         )}
