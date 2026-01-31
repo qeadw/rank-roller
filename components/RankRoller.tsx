@@ -344,6 +344,7 @@ export default function RankRoller() {
   const [autoRollEnabled, setAutoRollEnabled] = useState(false);
   const [showResetModal, setShowResetModal] = useState(false);
   const [resetInput, setResetInput] = useState('');
+  const [showRunes, setShowRunes] = useState(false);
   const rollCountRef = useRef(rollCount);
 
   // Load save data from cookies on mount
@@ -621,6 +622,9 @@ export default function RankRoller() {
   // Check if auto-roll is unlocked
   const autoRollUnlocked = claimedMilestones.has('rolls_5000');
 
+  // Check if runes area is unlocked (first Epic)
+  const runesUnlocked = hasAnyFromTier(collectedRanks, 3);
+
   // Auto-roll effect
   useEffect(() => {
     if (!autoRollEnabled || !autoRollUnlocked) return;
@@ -655,6 +659,25 @@ export default function RankRoller() {
   const colors = currentRoll ? TIER_COLORS[currentRoll.tier] : null;
   const highestColors = highestRank ? TIER_COLORS[highestRank.tier] : null;
 
+  // Runes Screen
+  if (showRunes) {
+    return (
+      <div style={styles.container}>
+        <button
+          onClick={() => setShowRunes(false)}
+          style={styles.backBtn}
+        >
+          ← Back
+        </button>
+        <h1 style={styles.runesTitle}>Runes</h1>
+        <div style={styles.runesPointsDisplay}>
+          <span style={styles.runesPointsLabel}>Points</span>
+          <span style={styles.runesPointsValue}>{totalPoints.toLocaleString()}</span>
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div style={styles.container}>
       {/* Milestones Panel - Top Left */}
@@ -665,6 +688,14 @@ export default function RankRoller() {
         >
           Milestones {unclaimedMilestones.length > 0 && `(${unclaimedMilestones.length})`}
         </button>
+        {runesUnlocked && (
+          <button
+            onClick={() => setShowRunes(true)}
+            style={styles.runesBtn}
+          >
+            Runes
+          </button>
+        )}
       </div>
 
       {/* Stats Display - Next to Upgrades */}
@@ -1733,5 +1764,54 @@ const styles: Record<string, React.CSSProperties> = {
     border: 'none',
     borderRadius: '8px',
     cursor: 'pointer',
+  },
+  runesBtn: {
+    padding: '12px 16px',
+    fontSize: '0.9rem',
+    fontWeight: 'bold',
+    backgroundColor: '#a335ee',
+    color: '#fff',
+    border: '2px solid rgba(163, 53, 238, 0.5)',
+    borderRadius: '8px',
+    cursor: 'pointer',
+    transition: 'all 0.2s ease',
+    boxShadow: '0 4px 20px rgba(163, 53, 238, 0.3)',
+    marginTop: '10px',
+  },
+  backBtn: {
+    position: 'fixed',
+    top: '20px',
+    left: '20px',
+    padding: '12px 20px',
+    fontSize: '1rem',
+    fontWeight: 'bold',
+    backgroundColor: 'rgba(255, 255, 255, 0.1)',
+    color: '#fff',
+    border: '2px solid rgba(255, 255, 255, 0.3)',
+    borderRadius: '8px',
+    cursor: 'pointer',
+    transition: 'all 0.2s ease',
+  },
+  runesTitle: {
+    fontSize: '3rem',
+    marginTop: '100px',
+    marginBottom: '50px',
+    textShadow: '0 0 20px rgba(163, 53, 238, 0.5)',
+    color: '#a335ee',
+  },
+  runesPointsDisplay: {
+    display: 'flex',
+    flexDirection: 'column',
+    alignItems: 'center',
+    gap: '10px',
+  },
+  runesPointsLabel: {
+    fontSize: '1.2rem',
+    color: '#888',
+  },
+  runesPointsValue: {
+    fontSize: '2.5rem',
+    fontWeight: 'bold',
+    color: '#fff',
   },
 };
