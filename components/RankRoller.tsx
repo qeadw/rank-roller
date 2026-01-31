@@ -98,6 +98,42 @@ export default function RankRoller() {
   const [lastPointsGained, setLastPointsGained] = useState<number | null>(null);
   const [isRolling, setIsRolling] = useState(false);
   const [collectedRanks, setCollectedRanks] = useState<Set<number>>(new Set());
+  const [expandedTiers, setExpandedTiers] = useState<Set<string>>(new Set());
+
+  // Calculate which tiers are complete
+  const completeTiers = useMemo(() => {
+    const complete = new Set<string>();
+    TIER_NAMES.forEach((tier, tierIndex) => {
+      const startIdx = tierIndex * 10;
+      let count = 0;
+      for (let i = 0; i < 10; i++) {
+        if (collectedRanks.has(startIdx + i)) count++;
+      }
+      if (count === 10) complete.add(tier);
+    });
+    return complete;
+  }, [collectedRanks]);
+
+  const toggleTierExpansion = (tier: string) => {
+    setExpandedTiers((prev) => {
+      const next = new Set(prev);
+      if (next.has(tier)) {
+        next.delete(tier);
+      } else {
+        next.add(tier);
+      }
+      return next;
+    });
+  };
+
+  // Calculate total points for a complete tier
+  const getTierTotalPoints = (tierIndex: number): number => {
+    let total = 0;
+    for (let i = 0; i < 10; i++) {
+      total += calculatePoints(ranks[tierIndex * 10 + i]);
+    }
+    return total;
+  };
 
   const handleRoll = () => {
     setIsRolling(true);
@@ -236,29 +272,107 @@ export default function RankRoller() {
           <div style={styles.emptyMessage}>Roll to start collecting ranks!</div>
         ) : (
           <div style={styles.catalogueGrid}>
-            {ranks
-              .filter((rank) => collectedRanks.has(rank.index))
-              .sort((a, b) => b.index - a.index)
-              .map((rank) => {
-                const tierColors = TIER_COLORS[rank.tier];
-                const points = calculatePoints(rank);
-                return (
-                  <div
-                    key={rank.index}
-                    style={{
-                      ...styles.catalogueItem,
-                      backgroundColor: tierColors.bg,
-                      color: tierColors.text,
-                      boxShadow: `0 0 10px ${tierColors.glow}`,
-                    }}
-                  >
-                    <div style={styles.catalogueItemName}>{rank.displayName}</div>
-                    <div style={styles.catalogueItemPoints}>
-                      {points.toLocaleString()} pts
+            {TIER_NAMES.map((tier, tierIndex) => {
+              const tierColors = TIER_COLORS[tier];
+              const tierRanks = ranks.slice(tierIndex * 10, tierIndex * 10 + 10);
+              const collectedInTier = tierRanks.filter((r) =>
+                collectedRanks.has(r.index)
+              );
+              const isComplete = completeTiers.has(tier);
+              const isExpanded = expandedTiers.has(tier);
+
+              if (collectedInTier.length === 0) return null;
+
+              // Complete tier - show condensed or expanded
+              if (isComplete) {
+                if (isExpanded) {
+                  // Expanded view - show all ranks in tier
+                  return (
+                    <div key={tier} style={styles.tierGroup}>
+                      <div
+                        onClick={() => toggleTierExpansion(tier)}
+                        style={{
+                          ...styles.tierHeader,
+                          backgroundColor: tierColors.bg,
+                          color: tierColors.text,
+                          boxShadow: `0 0 10px ${tierColors.glow}`,
+                        }}
+                      >
+                        <div style={styles.tierHeaderName}>{tier} (Complete)</div>
+                        <div style={styles.tierHeaderPoints}>
+                          {getTierTotalPoints(tierIndex).toLocaleString()} pts
+                        </div>
+                        <div style={styles.collapseHint}>Click to collapse</div>
+                      </div>
+                      <div style={styles.tierRanksGrid}>
+                        {tierRanks.map((rank) => {
+                          const points = calculatePoints(rank);
+                          return (
+                            <div
+                              key={rank.index}
+                              style={{
+                                ...styles.tierRankItem,
+                                backgroundColor: tierColors.bg,
+                                color: tierColors.text,
+                              }}
+                            >
+                              <div style={styles.tierRankNumber}>{rank.tierNumber}</div>
+                              <div style={styles.tierRankPoints}>
+                                {points.toLocaleString()}
+                              </div>
+                            </div>
+                          );
+                        })}
+                      </div>
                     </div>
-                  </div>
-                );
-              })}
+                  );
+                } else {
+                  // Condensed view - single item
+                  return (
+                    <div
+                      key={tier}
+                      onClick={() => toggleTierExpansion(tier)}
+                      style={{
+                        ...styles.catalogueItem,
+                        ...styles.completeTier,
+                        backgroundColor: tierColors.bg,
+                        color: tierColors.text,
+                        boxShadow: `0 0 15px ${tierColors.glow}`,
+                      }}
+                    >
+                      <div style={styles.catalogueItemName}>{tier}</div>
+                      <div style={styles.completeLabel}>COMPLETE</div>
+                      <div style={styles.catalogueItemPoints}>
+                        {getTierTotalPoints(tierIndex).toLocaleString()} pts
+                      </div>
+                    </div>
+                  );
+                }
+              }
+
+              // Incomplete tier - show individual ranks
+              return collectedInTier
+                .sort((a, b) => b.index - a.index)
+                .map((rank) => {
+                  const points = calculatePoints(rank);
+                  return (
+                    <div
+                      key={rank.index}
+                      style={{
+                        ...styles.catalogueItem,
+                        backgroundColor: tierColors.bg,
+                        color: tierColors.text,
+                        boxShadow: `0 0 10px ${tierColors.glow}`,
+                      }}
+                    >
+                      <div style={styles.catalogueItemName}>{rank.displayName}</div>
+                      <div style={styles.catalogueItemPoints}>
+                        {points.toLocaleString()} pts
+                      </div>
+                    </div>
+                  );
+                });
+            })}
           </div>
         )}
       </div>
@@ -414,6 +528,61 @@ const styles: Record<string, React.CSSProperties> = {
   catalogueItemPoints: {
     fontSize: '0.8rem',
     marginTop: '4px',
+    opacity: 0.9,
+  },
+  completeTier: {
+    cursor: 'pointer',
+    border: '2px solid rgba(255, 255, 255, 0.3)',
+  },
+  completeLabel: {
+    fontSize: '0.65rem',
+    fontWeight: 'bold',
+    letterSpacing: '1px',
+    opacity: 0.8,
+    marginTop: '2px',
+  },
+  tierGroup: {
+    gridColumn: '1 / -1',
+    width: '100%',
+  },
+  tierHeader: {
+    padding: '12px',
+    borderRadius: '8px 8px 0 0',
+    cursor: 'pointer',
+    textAlign: 'center',
+  },
+  tierHeaderName: {
+    fontWeight: 'bold',
+    fontSize: '1rem',
+  },
+  tierHeaderPoints: {
+    fontSize: '0.85rem',
+    marginTop: '2px',
+  },
+  collapseHint: {
+    fontSize: '0.7rem',
+    opacity: 0.7,
+    marginTop: '4px',
+  },
+  tierRanksGrid: {
+    display: 'grid',
+    gridTemplateColumns: 'repeat(5, 1fr)',
+    gap: '4px',
+    padding: '8px',
+    backgroundColor: 'rgba(0, 0, 0, 0.3)',
+    borderRadius: '0 0 8px 8px',
+  },
+  tierRankItem: {
+    padding: '8px',
+    borderRadius: '4px',
+    textAlign: 'center',
+  },
+  tierRankNumber: {
+    fontWeight: 'bold',
+    fontSize: '1.1rem',
+  },
+  tierRankPoints: {
+    fontSize: '0.7rem',
     opacity: 0.9,
   },
 };
