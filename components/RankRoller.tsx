@@ -38,6 +38,14 @@ function isTierComplete(collectedRanks: Set<number>, tierIndex: number): boolean
   return true;
 }
 
+// Helper to check if player has any rank from a tier
+function hasAnyFromTier(collectedRanks: Set<number>, tierIndex: number): boolean {
+  for (let i = 0; i < 10; i++) {
+    if (collectedRanks.has(tierIndex * 10 + i)) return true;
+  }
+  return false;
+}
+
 const MILESTONES: Milestone[] = [
   {
     id: 'rolls_1000',
@@ -85,6 +93,87 @@ const MILESTONES: Milestone[] = [
     requirement: (state) => state.rollCount >= 10000,
     reward: 0,
     luckBonus: 1.5,
+  },
+  // First of each tier milestones
+  {
+    id: 'first_common',
+    name: 'First Common',
+    description: 'Roll your first Common rank',
+    requirement: (state) => hasAnyFromTier(state.collectedRanks, 0),
+    reward: 0,
+    pointsBonus: 1.1,
+  },
+  {
+    id: 'first_uncommon',
+    name: 'First Uncommon',
+    description: 'Roll your first Uncommon rank',
+    requirement: (state) => hasAnyFromTier(state.collectedRanks, 1),
+    reward: 0,
+    pointsBonus: 1.1,
+  },
+  {
+    id: 'first_rare',
+    name: 'First Rare',
+    description: 'Roll your first Rare rank',
+    requirement: (state) => hasAnyFromTier(state.collectedRanks, 2),
+    reward: 0,
+    pointsBonus: 1.1,
+  },
+  {
+    id: 'first_epic',
+    name: 'First Epic',
+    description: 'Roll your first Epic rank',
+    requirement: (state) => hasAnyFromTier(state.collectedRanks, 3),
+    reward: 0,
+    pointsBonus: 1.1,
+  },
+  {
+    id: 'first_legendary',
+    name: 'First Legendary',
+    description: 'Roll your first Legendary rank',
+    requirement: (state) => hasAnyFromTier(state.collectedRanks, 4),
+    reward: 0,
+    pointsBonus: 1.1,
+  },
+  {
+    id: 'first_mythic',
+    name: 'First Mythic',
+    description: 'Roll your first Mythic rank',
+    requirement: (state) => hasAnyFromTier(state.collectedRanks, 5),
+    reward: 0,
+    pointsBonus: 1.1,
+  },
+  {
+    id: 'first_divine',
+    name: 'First Divine',
+    description: 'Roll your first Divine rank',
+    requirement: (state) => hasAnyFromTier(state.collectedRanks, 6),
+    reward: 0,
+    pointsBonus: 1.1,
+  },
+  {
+    id: 'first_celestial',
+    name: 'First Celestial',
+    description: 'Roll your first Celestial rank',
+    requirement: (state) => hasAnyFromTier(state.collectedRanks, 7),
+    reward: 0,
+    pointsBonus: 1.1,
+  },
+  {
+    id: 'first_cosmic',
+    name: 'First Cosmic',
+    description: 'Roll your first Cosmic rank',
+    requirement: (state) => hasAnyFromTier(state.collectedRanks, 8),
+    reward: 0,
+    pointsBonus: 1.1,
+  },
+  {
+    id: 'first_ultimate',
+    name: 'First Ultimate',
+    description: 'Roll your first Ultimate rank',
+    requirement: (state) => hasAnyFromTier(state.collectedRanks, 9),
+    reward: 0,
+    pointsBonus: 1.1,
   },
 ];
 
