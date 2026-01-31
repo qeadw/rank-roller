@@ -83,21 +83,29 @@ function rollRank(ranks: Rank[]): Rank {
   return ranks[0]; // Fallback
 }
 
+function calculatePoints(rank: Rank): number {
+  const rankNumber = rank.index + 1; // 1-100
+  const exponentialPoints = Math.floor(Math.pow(2, rankNumber / 10));
+  return Math.max(rankNumber, exponentialPoints);
+}
+
 export default function RankRoller() {
   const ranks = useMemo(() => generateRanks(), []);
   const [currentRoll, setCurrentRoll] = useState<Rank | null>(null);
   const [highestRank, setHighestRank] = useState<Rank | null>(null);
   const [rollCount, setRollCount] = useState(0);
+  const [totalPoints, setTotalPoints] = useState(0);
+  const [lastPointsGained, setLastPointsGained] = useState<number | null>(null);
   const [isRolling, setIsRolling] = useState(false);
 
   const handleRoll = () => {
     setIsRolling(true);
 
-    // Quick animation of random ranks
+    // Simulate actual rolls for animation
     let animationCount = 0;
     const animationInterval = setInterval(() => {
-      const randomRank = ranks[Math.floor(Math.random() * 100)];
-      setCurrentRoll(randomRank);
+      const simulatedRoll = rollRank(ranks);
+      setCurrentRoll(simulatedRoll);
       animationCount++;
 
       if (animationCount >= 10) {
@@ -107,6 +115,10 @@ export default function RankRoller() {
         const result = rollRank(ranks);
         setCurrentRoll(result);
         setRollCount((c) => c + 1);
+
+        const pointsGained = calculatePoints(result);
+        setTotalPoints((p) => p + pointsGained);
+        setLastPointsGained(pointsGained);
 
         if (!highestRank || result.index > highestRank.index) {
           setHighestRank(result);
@@ -132,11 +144,20 @@ export default function RankRoller() {
     <div style={styles.container}>
       <h1 style={styles.title}>Rank Roller</h1>
 
-      <div style={styles.statsRow}>
+      <div style={styles.statsColumn}>
         <div style={styles.stat}>
           <span style={styles.statLabel}>Rolls</span>
           <span style={styles.statValue}>{rollCount}</span>
         </div>
+        <div style={styles.stat}>
+          <span style={styles.statLabel}>Points</span>
+          <span style={styles.statValue}>{totalPoints.toLocaleString()}</span>
+        </div>
+        {lastPointsGained !== null && (
+          <div style={styles.stat}>
+            <span style={styles.lastGained}>+{lastPointsGained.toLocaleString()}</span>
+          </div>
+        )}
       </div>
 
       {/* Current Roll Display */}
@@ -244,9 +265,11 @@ const styles: Record<string, React.CSSProperties> = {
     marginBottom: '10px',
     textShadow: '0 0 10px rgba(255, 255, 255, 0.3)',
   },
-  statsRow: {
+  statsColumn: {
     display: 'flex',
-    gap: '30px',
+    flexDirection: 'column',
+    alignItems: 'center',
+    gap: '5px',
     marginBottom: '20px',
   },
   stat: {
@@ -260,6 +283,11 @@ const styles: Record<string, React.CSSProperties> = {
   },
   statValue: {
     fontSize: '1.5rem',
+    fontWeight: 'bold',
+  },
+  lastGained: {
+    fontSize: '1.1rem',
+    color: '#4ade80',
     fontWeight: 'bold',
   },
   rollDisplay: {
