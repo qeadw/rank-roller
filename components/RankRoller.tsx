@@ -512,9 +512,13 @@ export default function RankRoller() {
     return acc;
   }, 1);
 
+  // Rune bonuses (Rune of Beginning = index 0 gives +0.1x luck per roll, additive)
+  const runeOfBeginningCount = runeRollCounts[0] || 0;
+  const runeLuckBonus = 1 + (runeOfBeginningCount * 0.1); // 1.0 + 0.1 per rune
+
   // Luck calculations
   const baseLuckMulti = Math.pow(1.1, luckLevel);
-  const luckMulti = baseLuckMulti * milestoneLuckBonus;
+  const luckMulti = baseLuckMulti * milestoneLuckBonus * runeLuckBonus;
   const luckUpgradeCost = Math.floor(100 * Math.pow(5, luckLevel));
   const canAffordLuckUpgrade = totalPoints >= luckUpgradeCost;
 
@@ -1069,6 +1073,20 @@ export default function RankRoller() {
           </div>
         </div>
       </div>
+
+      {/* Rune Buffs Panel - Below Upgrades */}
+      {runeOfBeginningCount > 0 && (
+        <div className="rune-buffs-panel" style={styles.runeBuffsPanel}>
+          <h3 style={styles.runeBuffsTitle}>Rune Buffs</h3>
+          <div style={styles.runeBuffsList}>
+            <div style={styles.runeBuffItem}>
+              <span style={styles.runeBuffName}>Luck</span>
+              <span style={styles.runeBuffValue}>{runeLuckBonus.toFixed(2)}x</span>
+              <span style={styles.runeBuffSource}>({runeOfBeginningCount}x Beginning)</span>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Milestones Modal */}
       {showMilestones && (
@@ -2159,5 +2177,49 @@ const styles: Record<string, React.CSSProperties> = {
     fontSize: '0.7rem',
     marginTop: '2px',
     opacity: 0.7,
+  },
+  runeBuffsPanel: {
+    position: 'fixed',
+    top: '200px',
+    right: '20px',
+    backgroundColor: 'rgba(30, 30, 50, 0.95)',
+    borderRadius: '12px',
+    padding: '15px',
+    minWidth: '160px',
+    border: '2px solid rgba(163, 53, 238, 0.3)',
+    boxShadow: '0 4px 20px rgba(0, 0, 0, 0.3)',
+    zIndex: 100,
+  },
+  runeBuffsTitle: {
+    margin: '0 0 10px 0',
+    fontSize: '0.9rem',
+    color: '#a335ee',
+    textAlign: 'center',
+    borderBottom: '1px solid rgba(163, 53, 238, 0.3)',
+    paddingBottom: '8px',
+  },
+  runeBuffsList: {
+    display: 'flex',
+    flexDirection: 'column',
+    gap: '8px',
+  },
+  runeBuffItem: {
+    display: 'flex',
+    flexDirection: 'column',
+    alignItems: 'center',
+    gap: '2px',
+  },
+  runeBuffName: {
+    fontSize: '0.8rem',
+    color: '#aaa',
+  },
+  runeBuffValue: {
+    fontSize: '1.1rem',
+    fontWeight: 'bold',
+    color: '#a335ee',
+  },
+  runeBuffSource: {
+    fontSize: '0.7rem',
+    color: '#888',
   },
 };
