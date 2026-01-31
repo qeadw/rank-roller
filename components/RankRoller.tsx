@@ -11,6 +11,7 @@ interface SaveData {
   highestRankRoll: number | null;
   collectedRanks: number[];
   rankRollCounts: Record<number, number>;
+  ascendedRanks: number[];
   luckLevel: number;
   pointsMultiLevel: number;
   speedLevel: number;
@@ -217,6 +218,8 @@ export default function RankRoller() {
   const [isRolling, setIsRolling] = useState(false);
   const [collectedRanks, setCollectedRanks] = useState<Set<number>>(new Set());
   const [rankRollCounts, setRankRollCounts] = useState<Record<number, number>>({});
+  const [ascendedRanks, setAscendedRanks] = useState<Set<number>>(new Set());
+  const [ascendPrompt, setAscendPrompt] = useState<number | null>(null);
   const [expandedTiers, setExpandedTiers] = useState<Set<string>>(new Set());
   const [luckLevel, setLuckLevel] = useState(0);
   const [pointsMultiLevel, setPointsMultiLevel] = useState(0);
@@ -241,6 +244,7 @@ export default function RankRoller() {
         setHighestRankRoll(data.highestRankRoll || null);
         setCollectedRanks(new Set(data.collectedRanks || []));
         setRankRollCounts(data.rankRollCounts || {});
+        setAscendedRanks(new Set(data.ascendedRanks || []));
         setLuckLevel(data.luckLevel || 0);
         setPointsMultiLevel(data.pointsMultiLevel || 0);
         setSpeedLevel(data.speedLevel || 0);
@@ -263,13 +267,14 @@ export default function RankRoller() {
       highestRankRoll,
       collectedRanks: Array.from(collectedRanks),
       rankRollCounts,
+      ascendedRanks: Array.from(ascendedRanks),
       luckLevel,
       pointsMultiLevel,
       speedLevel,
       claimedMilestones: Array.from(claimedMilestones),
     };
     setCookie(SAVE_KEY, JSON.stringify(saveData));
-  }, [isLoaded, rollCount, totalPoints, highestRank, highestRankRoll, collectedRanks, rankRollCounts, luckLevel, pointsMultiLevel, speedLevel, claimedMilestones]);
+  }, [isLoaded, rollCount, totalPoints, highestRank, highestRankRoll, collectedRanks, rankRollCounts, ascendedRanks, luckLevel, pointsMultiLevel, speedLevel, claimedMilestones]);
 
   useEffect(() => {
     saveGame();
@@ -389,9 +394,28 @@ export default function RankRoller() {
     return total;
   };
 
-  // Get points for a rank with multiplier applied
+  // Get points for a rank with multiplier applied (includes ascension bonus)
   const getDisplayPoints = (rank: Rank): number => {
-    return Math.floor(calculatePoints(rank) * pointsMulti);
+    const basePoints = calculatePoints(rank);
+    const ascensionMulti = ascendedRanks.has(rank.index) ? 2 : 1;
+    return Math.floor(basePoints * ascensionMulti * pointsMulti);
+  };
+
+  // Check if a rank can be ascended (1000+ rolls and not yet ascended)
+  const canAscend = (rankIndex: number): boolean => {
+    return (rankRollCounts[rankIndex] || 0) >= 1000 && !ascendedRanks.has(rankIndex);
+  };
+
+  // Handle ascension
+  const handleAscend = (rankIndex: number) => {
+    if (canAscend(rankIndex)) {
+      setAscendedRanks((prev) => {
+        const next = new Set(prev);
+        next.add(rankIndex);
+        return next;
+      });
+    }
+    setAscendPrompt(null);
   };
 
   // Get total roll count for a tier
@@ -427,7 +451,8 @@ export default function RankRoller() {
         setRollCount((c) => c + 1);
 
         const basePoints = calculatePoints(result);
-        const pointsGained = Math.floor(basePoints * pointsMulti);
+        const ascensionMulti = ascendedRanks.has(result.index) ? 2 : 1;
+        const pointsGained = Math.floor(basePoints * ascensionMulti * pointsMulti);
         setTotalPoints((p) => p + pointsGained);
         setLastPointsGained(pointsGained);
 
@@ -451,7 +476,7 @@ export default function RankRoller() {
         setIsRolling(false);
       }
     }, animationInterval);
-  }, [ranks, luckMulti, pointsMulti, animationInterval, highestRank]);
+  }, [ranks, luckMulti, pointsMulti, animationInterval, highestRank, ascendedRanks]);
 
   // Check if auto-roll is unlocked
   const autoRollUnlocked = claimedMilestones.has('rolls_5000');
@@ -664,6 +689,38 @@ export default function RankRoller() {
         </div>
       )}
 
+      {/* Ascension Prompt Modal */}
+      {ascendPrompt !== null && (
+        <div style={styles.modalOverlay} onClick={() => setAscendPrompt(null)}>
+          <div style={styles.modal} onClick={(e) => e.stopPropagation()}>
+            <h2 style={styles.ascendTitle}>Ascend Rank?</h2>
+            <div style={styles.ascendInfo}>
+              <div style={styles.ascendRankName}>{ranks[ascendPrompt].displayName}</div>
+              <div style={styles.ascendDesc}>
+                Ascending this rank will double the base points gained when rolling it.
+              </div>
+              <div style={styles.ascendBonus}>
+                {calculatePoints(ranks[ascendPrompt])} pts → {calculatePoints(ranks[ascendPrompt]) * 2} pts (base)
+              </div>
+            </div>
+            <div style={styles.ascendButtons}>
+              <button
+                onClick={() => handleAscend(ascendPrompt)}
+                style={styles.ascendConfirmBtn}
+              >
+                Ascend
+              </button>
+              <button
+                onClick={() => setAscendPrompt(null)}
+                style={styles.closeBtn}
+              >
+                Cancel
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
       <h1 style={styles.title}>Rank Roller</h1>
 
       <div style={styles.statsColumn}>
@@ -799,16 +856,24 @@ export default function RankRoller() {
                       <div style={styles.tierRanksGrid}>
                         {tierRanks.map((rank) => {
                           const points = getDisplayPoints(rank);
+                          const isAscended = ascendedRanks.has(rank.index);
+                          const isAscendable = canAscend(rank.index);
                           return (
                             <div
                               key={rank.index}
+                              onClick={() => isAscendable && setAscendPrompt(rank.index)}
                               style={{
                                 ...styles.tierRankItem,
                                 backgroundColor: tierColors.bg,
                                 color: tierColors.text,
+                                ...(isAscended ? styles.ascendedRank : {}),
+                                ...(isAscendable ? styles.ascendableRank : {}),
+                                cursor: isAscendable ? 'pointer' : 'default',
                               }}
                             >
-                              <div style={styles.tierRankNumber}>{rank.tierNumber}</div>
+                              <div style={styles.tierRankNumber}>
+                                {rank.tierNumber}{isAscended && ' ★'}
+                              </div>
                               <div style={styles.tierRankChance}>
                                 {formatProbability(getEffectiveProbability(rank, ranks, luckMulti))}
                               </div>
@@ -818,6 +883,11 @@ export default function RankRoller() {
                               <div style={styles.tierRankRolls}>
                                 {(rankRollCounts[rank.index] || 0).toLocaleString()}x
                               </div>
+                              {rollCount > 0 && (
+                                <div style={styles.tierRankPercent}>
+                                  {(((rankRollCounts[rank.index] || 0) / rollCount) * 100).toFixed(1)}%
+                                </div>
+                              )}
                             </div>
                           );
                         })}
@@ -853,17 +923,25 @@ export default function RankRoller() {
                 .sort((a, b) => b.index - a.index)
                 .map((rank) => {
                   const points = getDisplayPoints(rank);
+                  const isAscended = ascendedRanks.has(rank.index);
+                  const isAscendable = canAscend(rank.index);
                   return (
                     <div
                       key={rank.index}
+                      onClick={() => isAscendable && setAscendPrompt(rank.index)}
                       style={{
                         ...styles.catalogueItem,
                         backgroundColor: tierColors.bg,
                         color: tierColors.text,
                         boxShadow: `0 0 10px ${tierColors.glow}`,
+                        ...(isAscended ? styles.ascendedRank : {}),
+                        ...(isAscendable ? styles.ascendableRank : {}),
+                        cursor: isAscendable ? 'pointer' : 'default',
                       }}
                     >
-                      <div style={styles.catalogueItemName}>{rank.displayName}</div>
+                      <div style={styles.catalogueItemName}>
+                        {rank.displayName}{isAscended && ' ★'}
+                      </div>
                       <div style={styles.catalogueItemChance}>
                         {formatProbability(getEffectiveProbability(rank, ranks, luckMulti))}
                       </div>
@@ -873,6 +951,11 @@ export default function RankRoller() {
                       <div style={styles.catalogueItemRolls}>
                         Rolled: {(rankRollCounts[rank.index] || 0).toLocaleString()}x
                       </div>
+                      {rollCount > 0 && (
+                        <div style={styles.catalogueItemPercent}>
+                          {(((rankRollCounts[rank.index] || 0) / rollCount) * 100).toFixed(1)}%
+                        </div>
+                      )}
                     </div>
                   );
                 });
@@ -1327,5 +1410,65 @@ const styles: Record<string, React.CSSProperties> = {
   tierRankRolls: {
     fontSize: '0.6rem',
     opacity: 0.7,
+  },
+  tierRankPercent: {
+    fontSize: '0.55rem',
+    opacity: 0.6,
+    color: '#4ade80',
+  },
+  catalogueItemPercent: {
+    fontSize: '0.75rem',
+    opacity: 0.8,
+    color: '#4ade80',
+  },
+  ascendedRank: {
+    boxShadow: '0 0 15px rgba(255, 215, 0, 0.8), inset 0 0 20px rgba(255, 215, 0, 0.2)',
+    border: '2px solid #ffd700',
+  },
+  ascendableRank: {
+    animation: 'pulse 2s infinite',
+    boxShadow: '0 0 20px rgba(255, 255, 255, 0.6)',
+    border: '2px dashed rgba(255, 255, 255, 0.8)',
+  },
+  ascendTitle: {
+    margin: '0 0 15px 0',
+    fontSize: '1.3rem',
+    color: '#ffd700',
+    textAlign: 'center',
+  },
+  ascendInfo: {
+    textAlign: 'center',
+    marginBottom: '20px',
+  },
+  ascendRankName: {
+    fontSize: '1.5rem',
+    fontWeight: 'bold',
+    color: '#fff',
+    marginBottom: '10px',
+  },
+  ascendDesc: {
+    fontSize: '0.9rem',
+    color: '#aaa',
+    marginBottom: '10px',
+  },
+  ascendBonus: {
+    fontSize: '1rem',
+    color: '#ffd700',
+    fontWeight: 'bold',
+  },
+  ascendButtons: {
+    display: 'flex',
+    gap: '10px',
+  },
+  ascendConfirmBtn: {
+    flex: 1,
+    padding: '12px 20px',
+    fontSize: '1rem',
+    fontWeight: 'bold',
+    backgroundColor: '#ffd700',
+    color: '#000',
+    border: 'none',
+    borderRadius: '8px',
+    cursor: 'pointer',
   },
 };
