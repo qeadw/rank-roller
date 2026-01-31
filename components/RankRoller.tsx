@@ -240,13 +240,18 @@ export default function RankRoller() {
     });
   };
 
-  // Calculate total points for a complete tier
+  // Calculate total points for a complete tier (with multiplier)
   const getTierTotalPoints = (tierIndex: number): number => {
     let total = 0;
     for (let i = 0; i < 10; i++) {
-      total += calculatePoints(ranks[tierIndex * 10 + i]);
+      total += Math.floor(calculatePoints(ranks[tierIndex * 10 + i]) * pointsMulti);
     }
     return total;
+  };
+
+  // Get points for a rank with multiplier applied
+  const getDisplayPoints = (rank: Rank): number => {
+    return Math.floor(calculatePoints(rank) * pointsMulti);
   };
 
   const handleRoll = () => {
@@ -471,7 +476,7 @@ export default function RankRoller() {
                       </div>
                       <div style={styles.tierRanksGrid}>
                         {tierRanks.map((rank) => {
-                          const points = calculatePoints(rank);
+                          const points = getDisplayPoints(rank);
                           return (
                             <div
                               key={rank.index}
@@ -519,7 +524,7 @@ export default function RankRoller() {
               return collectedInTier
                 .sort((a, b) => b.index - a.index)
                 .map((rank) => {
-                  const points = calculatePoints(rank);
+                  const points = getDisplayPoints(rank);
                   return (
                     <div
                       key={rank.index}
