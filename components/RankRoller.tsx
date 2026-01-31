@@ -106,6 +106,7 @@ export default function RankRoller() {
   const ranks = useMemo(() => generateRanks(), []);
   const [currentRoll, setCurrentRoll] = useState<Rank | null>(null);
   const [highestRank, setHighestRank] = useState<Rank | null>(null);
+  const [highestRankRoll, setHighestRankRoll] = useState<number | null>(null);
   const [rollCount, setRollCount] = useState(0);
   const [totalPoints, setTotalPoints] = useState(0);
   const [lastPointsGained, setLastPointsGained] = useState<number | null>(null);
@@ -189,8 +190,10 @@ export default function RankRoller() {
           return next;
         });
 
+        const newRollCount = rollCount + 1;
         if (!highestRank || result.index > highestRank.index) {
           setHighestRank(result);
+          setHighestRankRoll(newRollCount);
         }
 
         setIsRolling(false);
@@ -307,6 +310,9 @@ export default function RankRoller() {
               <div style={styles.highestName}>{highestRank.displayName}</div>
               <div style={styles.highestProbability}>
                 {formatProbability(getEffectiveProbability(highestRank, ranks, luckMulti))}
+              </div>
+              <div style={styles.highestRollNumber}>
+                on roll #{highestRankRoll?.toLocaleString()}
               </div>
             </>
           ) : (
@@ -546,6 +552,11 @@ const styles: Record<string, React.CSSProperties> = {
     fontSize: '0.85rem',
     marginTop: '4px',
     opacity: 0.9,
+  },
+  highestRollNumber: {
+    fontSize: '0.75rem',
+    marginTop: '4px',
+    opacity: 0.7,
   },
   highestPlaceholder: {
     color: '#666',
