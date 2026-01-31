@@ -1,6 +1,36 @@
 'use client';
 
-import { useState, useMemo } from 'react';
+import { useState, useMemo, useEffect, useCallback } from 'react';
+
+const SAVE_KEY = 'rankroller_save';
+
+interface SaveData {
+  rollCount: number;
+  totalPoints: number;
+  highestRankIndex: number | null;
+  highestRankRoll: number | null;
+  collectedRanks: number[];
+  luckLevel: number;
+}
+
+function setCookie(name: string, value: string, days: number = 365) {
+  const expires = new Date();
+  expires.setTime(expires.getTime() + days * 24 * 60 * 60 * 1000);
+  document.cookie = `${name}=${encodeURIComponent(value)};expires=${expires.toUTCString()};path=/;SameSite=Lax`;
+}
+
+function getCookie(name: string): string | null {
+  const nameEQ = name + '=';
+  const ca = document.cookie.split(';');
+  for (let i = 0; i < ca.length; i++) {
+    let c = ca[i];
+    while (c.charAt(0) === ' ') c = c.substring(1, c.length);
+    if (c.indexOf(nameEQ) === 0) {
+      return decodeURIComponent(c.substring(nameEQ.length, c.length));
+    }
+  }
+  return null;
+}
 
 const TIER_NAMES = [
   'Common',
@@ -114,6 +144,47 @@ export default function RankRoller() {
   const [collectedRanks, setCollectedRanks] = useState<Set<number>>(new Set());
   const [expandedTiers, setExpandedTiers] = useState<Set<string>>(new Set());
   const [luckLevel, setLuckLevel] = useState(0);
+  const [isLoaded, setIsLoaded] = useState(false);
+
+  // Load save data from cookies on mount
+  useEffect(() => {
+    const savedData = getCookie(SAVE_KEY);
+    if (savedData) {
+      try {
+        const data: SaveData = JSON.parse(savedData);
+        setRollCount(data.rollCount || 0);
+        setTotalPoints(data.totalPoints || 0);
+        if (data.highestRankIndex !== null && data.highestRankIndex !== undefined) {
+          setHighestRank(ranks[data.highestRankIndex]);
+        }
+        setHighestRankRoll(data.highestRankRoll || null);
+        setCollectedRanks(new Set(data.collectedRanks || []));
+        setLuckLevel(data.luckLevel || 0);
+      } catch (e) {
+        console.error('Failed to load save data:', e);
+      }
+    }
+    setIsLoaded(true);
+  }, [ranks]);
+
+  // Save to cookies whenever state changes
+  const saveGame = useCallback(() => {
+    if (!isLoaded) return;
+
+    const saveData: SaveData = {
+      rollCount,
+      totalPoints,
+      highestRankIndex: highestRank?.index ?? null,
+      highestRankRoll,
+      collectedRanks: Array.from(collectedRanks),
+      luckLevel,
+    };
+    setCookie(SAVE_KEY, JSON.stringify(saveData));
+  }, [isLoaded, rollCount, totalPoints, highestRank, highestRankRoll, collectedRanks, luckLevel]);
+
+  useEffect(() => {
+    saveGame();
+  }, [saveGame]);
 
   // Luck calculations
   const luckMulti = Math.pow(1.1, luckLevel);
