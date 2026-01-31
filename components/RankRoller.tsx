@@ -22,16 +22,26 @@ interface SaveData {
   runeRollCount: number;
 }
 
+interface MilestoneState {
+  rollCount: number;
+  collectedRanks: Set<number>;
+  ascendedRanks: Set<number>;
+  collectedRunes: Set<number>;
+  runeRollCounts: Record<number, number>;
+}
+
 interface Milestone {
   id: string;
   name: string;
   description: string;
-  requirement: (state: { rollCount: number; collectedRanks: Set<number>; ascendedRanks: Set<number> }) => boolean;
+  requirement: (state: MilestoneState) => boolean;
   reward: number;
   luckBonus?: number;
   pointsBonus?: number;
   speedBonus?: number;
   unlockAutoRoll?: boolean;
+  runeSpeedBonus?: number;
+  runeLuckBonus?: number;
 }
 
 interface Rune {
@@ -106,6 +116,32 @@ function rollRune(runes: Rune[]): Rune {
   }
 
   return runes[0];
+}
+
+function getEffectiveRuneWeights(runes: Rune[], runeLuck: number): number[] {
+  // Rune luck boosts rarer runes more (similar to rank luck)
+  return runes.map((rune) => rune.weight * Math.pow(runeLuck, rune.index));
+}
+
+function rollRuneWithLuck(runes: Rune[], runeLuck: number): Rune {
+  const effectiveWeights = getEffectiveRuneWeights(runes, runeLuck);
+  const totalWeight = effectiveWeights.reduce((sum, w) => sum + w, 0);
+  let random = Math.random() * totalWeight;
+
+  for (let i = 0; i < runes.length; i++) {
+    random -= effectiveWeights[i];
+    if (random <= 0) {
+      return runes[i];
+    }
+  }
+
+  return runes[0];
+}
+
+function getEffectiveRuneProbability(rune: Rune, runes: Rune[], runeLuck: number): number {
+  const effectiveWeights = getEffectiveRuneWeights(runes, runeLuck);
+  const totalWeight = effectiveWeights.reduce((sum, w) => sum + w, 0);
+  return effectiveWeights[rune.index] / totalWeight;
 }
 
 // Helper to check if a tier is complete
@@ -277,6 +313,168 @@ const MILESTONES: Milestone[] = [
     requirement: (state) => state.ascendedRanks.size >= 10,
     reward: 0,
     speedBonus: 1.5,
+  },
+  // First rune milestones (1.05x rune speed each)
+  {
+    id: 'first_rune_0',
+    name: 'First Beginning',
+    description: 'Roll your first Rune of Beginning',
+    requirement: (state) => state.collectedRunes.has(0),
+    reward: 0,
+    runeSpeedBonus: 1.05,
+  },
+  {
+    id: 'first_rune_1',
+    name: 'First Embers',
+    description: 'Roll your first Rune of Embers',
+    requirement: (state) => state.collectedRunes.has(1),
+    reward: 0,
+    runeSpeedBonus: 1.05,
+  },
+  {
+    id: 'first_rune_2',
+    name: 'First Tides',
+    description: 'Roll your first Rune of Tides',
+    requirement: (state) => state.collectedRunes.has(2),
+    reward: 0,
+    runeSpeedBonus: 1.05,
+  },
+  {
+    id: 'first_rune_3',
+    name: 'First Gales',
+    description: 'Roll your first Rune of Gales',
+    requirement: (state) => state.collectedRunes.has(3),
+    reward: 0,
+    runeSpeedBonus: 1.05,
+  },
+  {
+    id: 'first_rune_4',
+    name: 'First Stone',
+    description: 'Roll your first Rune of Stone',
+    requirement: (state) => state.collectedRunes.has(4),
+    reward: 0,
+    runeSpeedBonus: 1.05,
+  },
+  {
+    id: 'first_rune_5',
+    name: 'First Thunder',
+    description: 'Roll your first Rune of Thunder',
+    requirement: (state) => state.collectedRunes.has(5),
+    reward: 0,
+    runeSpeedBonus: 1.05,
+  },
+  {
+    id: 'first_rune_6',
+    name: 'First Frost',
+    description: 'Roll your first Rune of Frost',
+    requirement: (state) => state.collectedRunes.has(6),
+    reward: 0,
+    runeSpeedBonus: 1.05,
+  },
+  {
+    id: 'first_rune_7',
+    name: 'First Shadow',
+    description: 'Roll your first Rune of Shadow',
+    requirement: (state) => state.collectedRunes.has(7),
+    reward: 0,
+    runeSpeedBonus: 1.05,
+  },
+  {
+    id: 'first_rune_8',
+    name: 'First Light',
+    description: 'Roll your first Rune of Light',
+    requirement: (state) => state.collectedRunes.has(8),
+    reward: 0,
+    runeSpeedBonus: 1.05,
+  },
+  {
+    id: 'first_rune_9',
+    name: 'First Eternity',
+    description: 'Roll your first Rune of Eternity',
+    requirement: (state) => state.collectedRunes.has(9),
+    reward: 0,
+    runeSpeedBonus: 1.05,
+  },
+  // 10x rune milestones (1.1x rune luck each)
+  {
+    id: 'ten_rune_0',
+    name: 'Beginning Collector',
+    description: 'Roll 10 Runes of Beginning',
+    requirement: (state) => (state.runeRollCounts[0] || 0) >= 10,
+    reward: 0,
+    runeLuckBonus: 1.1,
+  },
+  {
+    id: 'ten_rune_1',
+    name: 'Embers Collector',
+    description: 'Roll 10 Runes of Embers',
+    requirement: (state) => (state.runeRollCounts[1] || 0) >= 10,
+    reward: 0,
+    runeLuckBonus: 1.1,
+  },
+  {
+    id: 'ten_rune_2',
+    name: 'Tides Collector',
+    description: 'Roll 10 Runes of Tides',
+    requirement: (state) => (state.runeRollCounts[2] || 0) >= 10,
+    reward: 0,
+    runeLuckBonus: 1.1,
+  },
+  {
+    id: 'ten_rune_3',
+    name: 'Gales Collector',
+    description: 'Roll 10 Runes of Gales',
+    requirement: (state) => (state.runeRollCounts[3] || 0) >= 10,
+    reward: 0,
+    runeLuckBonus: 1.1,
+  },
+  {
+    id: 'ten_rune_4',
+    name: 'Stone Collector',
+    description: 'Roll 10 Runes of Stone',
+    requirement: (state) => (state.runeRollCounts[4] || 0) >= 10,
+    reward: 0,
+    runeLuckBonus: 1.1,
+  },
+  {
+    id: 'ten_rune_5',
+    name: 'Thunder Collector',
+    description: 'Roll 10 Runes of Thunder',
+    requirement: (state) => (state.runeRollCounts[5] || 0) >= 10,
+    reward: 0,
+    runeLuckBonus: 1.1,
+  },
+  {
+    id: 'ten_rune_6',
+    name: 'Frost Collector',
+    description: 'Roll 10 Runes of Frost',
+    requirement: (state) => (state.runeRollCounts[6] || 0) >= 10,
+    reward: 0,
+    runeLuckBonus: 1.1,
+  },
+  {
+    id: 'ten_rune_7',
+    name: 'Shadow Collector',
+    description: 'Roll 10 Runes of Shadow',
+    requirement: (state) => (state.runeRollCounts[7] || 0) >= 10,
+    reward: 0,
+    runeLuckBonus: 1.1,
+  },
+  {
+    id: 'ten_rune_8',
+    name: 'Light Collector',
+    description: 'Roll 10 Runes of Light',
+    requirement: (state) => (state.runeRollCounts[8] || 0) >= 10,
+    reward: 0,
+    runeLuckBonus: 1.1,
+  },
+  {
+    id: 'ten_rune_9',
+    name: 'Eternity Collector',
+    description: 'Roll 10 Runes of Eternity',
+    requirement: (state) => (state.runeRollCounts[9] || 0) >= 10,
+    reward: 0,
+    runeLuckBonus: 1.1,
   },
 ];
 
@@ -512,9 +710,11 @@ export default function RankRoller() {
     return acc;
   }, 1);
 
-  // Rune bonuses (Rune of Beginning = index 0 gives +0.1x luck per roll, additive)
-  const runeOfBeginningCount = runeRollCounts[0] || 0;
-  const runeLuckBonus = 1 + (runeOfBeginningCount * 0.1); // 1.0 + 0.1 per rune
+  // Rune bonuses (additive with themselves, compounding with others)
+  const runeOfBeginningCount = runeRollCounts[0] || 0; // Gives +0.1x points per roll
+  const runeOfEmbersCount = runeRollCounts[1] || 0; // Gives +0.1x luck per roll
+  const runePointsBonus = 1 + (runeOfBeginningCount * 0.1); // 1.0 + 0.1 per Beginning
+  const runeLuckBonus = 1 + (runeOfEmbersCount * 0.1); // 1.0 + 0.1 per Embers
 
   // Luck calculations
   const baseLuckMulti = Math.pow(1.1, luckLevel);
@@ -524,7 +724,7 @@ export default function RankRoller() {
 
   // Points multiplier calculations
   const basePointsMulti = Math.pow(1.1, pointsMultiLevel);
-  const pointsMulti = basePointsMulti * milestonePointsBonus;
+  const pointsMulti = basePointsMulti * milestonePointsBonus * runePointsBonus;
   const pointsUpgradeCost = Math.floor(100 * Math.pow(5, pointsMultiLevel));
   const canAffordPointsUpgrade = totalPoints >= pointsUpgradeCost;
 
@@ -557,10 +757,25 @@ export default function RankRoller() {
   };
 
   // Milestone helpers
-  const milestoneState = { rollCount, collectedRanks, ascendedRanks };
+  const milestoneState: MilestoneState = { rollCount, collectedRanks, ascendedRanks, collectedRunes, runeRollCounts };
   const unclaimedMilestones = MILESTONES.filter(
     (m) => m.requirement(milestoneState) && !claimedMilestones.has(m.id)
   );
+
+  // Calculate rune milestone bonuses
+  const milestoneRuneSpeedBonus = MILESTONES.reduce((acc, m) => {
+    if (claimedMilestones.has(m.id) && m.runeSpeedBonus) {
+      return acc * m.runeSpeedBonus;
+    }
+    return acc;
+  }, 1);
+
+  const milestoneRuneLuckBonus = MILESTONES.reduce((acc, m) => {
+    if (claimedMilestones.has(m.id) && m.runeLuckBonus) {
+      return acc * m.runeLuckBonus;
+    }
+    return acc;
+  }, 1);
 
   const handleClaimMilestone = (milestone: Milestone) => {
     if (milestone.requirement(milestoneState) && !claimedMilestones.has(milestone.id)) {
@@ -661,11 +876,15 @@ export default function RankRoller() {
     }
   };
 
-  // Rune roll time (5 seconds base, not affected by speed)
-  const runeRollTime = 5000;
+  // Rune roll time (5 seconds base, affected by rune speed milestones)
+  const baseRuneRollTime = 5000;
+  const runeRollTime = Math.floor(baseRuneRollTime / milestoneRuneSpeedBonus);
   const runeAnimationInterval = 100; // Animation frame rate for runes
   const runeRollCost = 1000;
   const canAffordRuneRoll = totalPoints >= runeRollCost;
+
+  // Total rune luck (from milestones)
+  const totalRuneLuck = milestoneRuneLuckBonus;
 
   // Handle rune roll
   const handleRuneRoll = useCallback(() => {
@@ -678,7 +897,7 @@ export default function RankRoller() {
     let animationCount = 0;
 
     const rollTimer = setInterval(() => {
-      const simulatedRoll = rollRune(runes);
+      const simulatedRoll = rollRuneWithLuck(runes, totalRuneLuck);
       setCurrentRuneRoll(simulatedRoll);
       animationCount++;
 
@@ -686,7 +905,7 @@ export default function RankRoller() {
         clearInterval(rollTimer);
 
         // Final roll
-        const result = rollRune(runes);
+        const result = rollRuneWithLuck(runes, totalRuneLuck);
         setCurrentRuneRoll(result);
         setRuneRollCount((c) => c + 1);
 
@@ -704,7 +923,7 @@ export default function RankRoller() {
         setIsRollingRune(false);
       }
     }, runeAnimationInterval);
-  }, [runes, canAffordRuneRoll, isRollingRune]);
+  }, [runes, canAffordRuneRoll, isRollingRune, runeRollTime, totalRuneLuck]);
 
   // Get total roll count for a tier
   const getTierRollCount = (tierIndex: number): number => {
@@ -860,10 +1079,39 @@ export default function RankRoller() {
             )}
             <div style={styles.statsPanelItem}>
               <span className="stats-panel-label" style={styles.statsPanelLabel}>Rune Roll</span>
-              <span className="stats-panel-value" style={styles.statsPanelValue}>{(runeRollTime / 1000).toFixed(1)}s</span>
+              <span className="stats-panel-value" style={styles.statsPanelValue}>{(runeRollTime / 1000).toFixed(2)}s</span>
             </div>
+            {totalRuneLuck > 1.0 && (
+              <div style={styles.statsPanelItem}>
+                <span className="stats-panel-label" style={styles.statsPanelLabel}>Rune Luck</span>
+                <span className="stats-panel-value" style={styles.statsPanelValue}>{totalRuneLuck.toFixed(2)}x</span>
+              </div>
+            )}
           </div>
         </div>
+
+        {/* Rune Buffs Panel */}
+        {(runeOfBeginningCount > 0 || runeOfEmbersCount > 0) && (
+          <div className="rune-buffs-panel" style={styles.runeBuffsPanel}>
+            <h3 style={styles.runeBuffsTitle}>Rune Buffs</h3>
+            <div style={styles.runeBuffsList}>
+              {runeOfBeginningCount > 0 && (
+                <div style={styles.runeBuffItem}>
+                  <span style={styles.runeBuffName}>Points</span>
+                  <span style={styles.runeBuffValue}>{runePointsBonus.toFixed(2)}x</span>
+                  <span style={styles.runeBuffSource}>({runeOfBeginningCount}x Beginning)</span>
+                </div>
+              )}
+              {runeOfEmbersCount > 0 && (
+                <div style={styles.runeBuffItem}>
+                  <span style={styles.runeBuffName}>Luck</span>
+                  <span style={styles.runeBuffValue}>{runeLuckBonus.toFixed(2)}x</span>
+                  <span style={styles.runeBuffSource}>({runeOfEmbersCount}x Embers)</span>
+                </div>
+              )}
+            </div>
+          </div>
+        )}
 
         <h1 style={styles.runesTitle}>Runes</h1>
 
@@ -885,7 +1133,7 @@ export default function RankRoller() {
             <>
               <div style={styles.runeRollName}>{currentRuneRoll.name}</div>
               <div style={styles.runeRollProbability}>
-                {formatRuneProbability(currentRuneRoll.probability)}
+                {formatRuneProbability(getEffectiveRuneProbability(currentRuneRoll, runes, totalRuneLuck))}
               </div>
             </>
           ) : (
@@ -931,7 +1179,7 @@ export default function RankRoller() {
                 >
                   <div style={styles.runeItemName}>{rune.name}</div>
                   <div style={styles.runeItemChance}>
-                    {formatRuneProbability(rune.probability)}
+                    {formatRuneProbability(getEffectiveRuneProbability(rune, runes, totalRuneLuck))}
                   </div>
                   {isCollected && (
                     <div style={styles.runeItemRolls}>
@@ -1074,20 +1322,6 @@ export default function RankRoller() {
         </div>
       </div>
 
-      {/* Rune Buffs Panel - Below Upgrades */}
-      {runeOfBeginningCount > 0 && (
-        <div className="rune-buffs-panel" style={styles.runeBuffsPanel}>
-          <h3 style={styles.runeBuffsTitle}>Rune Buffs</h3>
-          <div style={styles.runeBuffsList}>
-            <div style={styles.runeBuffItem}>
-              <span style={styles.runeBuffName}>Luck</span>
-              <span style={styles.runeBuffValue}>{runeLuckBonus.toFixed(2)}x</span>
-              <span style={styles.runeBuffSource}>({runeOfBeginningCount}x Beginning)</span>
-            </div>
-          </div>
-        </div>
-      )}
-
       {/* Milestones Modal */}
       {showMilestones && (
         <div style={styles.modalOverlay} onClick={() => setShowMilestones(false)}>
@@ -1118,6 +1352,10 @@ export default function RankRoller() {
                           <>Reward: {milestone.speedBonus}x Speed</>
                         ) : milestone.unlockAutoRoll ? (
                           <>Reward: Auto Roll</>
+                        ) : milestone.runeSpeedBonus ? (
+                          <>Reward: {milestone.runeSpeedBonus}x Rune Speed</>
+                        ) : milestone.runeLuckBonus ? (
+                          <>Reward: {milestone.runeLuckBonus}x Rune Luck</>
                         ) : (
                           <>Reward: {milestone.reward.toLocaleString()} pts</>
                         )}
