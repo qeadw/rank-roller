@@ -13,7 +13,26 @@ interface SaveData {
   luckLevel: number;
   pointsMultiLevel: number;
   speedLevel: number;
+  claimedMilestones: string[];
 }
+
+interface Milestone {
+  id: string;
+  name: string;
+  description: string;
+  requirement: (state: { rollCount: number; collectedRanks: Set<number> }) => boolean;
+  reward: number;
+}
+
+const MILESTONES: Milestone[] = [
+  {
+    id: 'rolls_1000',
+    name: '1,000 Rolls',
+    description: 'Roll 1,000 times',
+    requirement: (state) => state.rollCount >= 1000,
+    reward: 1000,
+  },
+];
 
 function setCookie(name: string, value: string, days: number = 365) {
   const expires = new Date();
@@ -148,6 +167,8 @@ export default function RankRoller() {
   const [luckLevel, setLuckLevel] = useState(0);
   const [pointsMultiLevel, setPointsMultiLevel] = useState(0);
   const [speedLevel, setSpeedLevel] = useState(0);
+  const [claimedMilestones, setClaimedMilestones] = useState<Set<string>>(new Set());
+  const [showMilestones, setShowMilestones] = useState(false);
   const [isLoaded, setIsLoaded] = useState(false);
 
   // Load save data from cookies on mount
@@ -166,6 +187,7 @@ export default function RankRoller() {
         setLuckLevel(data.luckLevel || 0);
         setPointsMultiLevel(data.pointsMultiLevel || 0);
         setSpeedLevel(data.speedLevel || 0);
+        setClaimedMilestones(new Set(data.claimedMilestones || []));
       } catch (e) {
         console.error('Failed to load save data:', e);
       }
@@ -186,9 +208,10 @@ export default function RankRoller() {
       luckLevel,
       pointsMultiLevel,
       speedLevel,
+      claimedMilestones: Array.from(claimedMilestones),
     };
     setCookie(SAVE_KEY, JSON.stringify(saveData));
-  }, [isLoaded, rollCount, totalPoints, highestRank, highestRankRoll, collectedRanks, luckLevel, pointsMultiLevel, speedLevel]);
+  }, [isLoaded, rollCount, totalPoints, highestRank, highestRankRoll, collectedRanks, luckLevel, pointsMultiLevel, speedLevel, claimedMilestones]);
 
   useEffect(() => {
     saveGame();
@@ -228,6 +251,23 @@ export default function RankRoller() {
     if (canAffordSpeedUpgrade) {
       setTotalPoints((p) => p - speedUpgradeCost);
       setSpeedLevel((l) => l + 1);
+    }
+  };
+
+  // Milestone helpers
+  const milestoneState = { rollCount, collectedRanks };
+  const unclaimedMilestones = MILESTONES.filter(
+    (m) => m.requirement(milestoneState) && !claimedMilestones.has(m.id)
+  );
+
+  const handleClaimMilestone = (milestone: Milestone) => {
+    if (milestone.requirement(milestoneState) && !claimedMilestones.has(milestone.id)) {
+      setTotalPoints((p) => p + milestone.reward);
+      setClaimedMilestones((prev) => {
+        const next = new Set(prev);
+        next.add(milestone.id);
+        return next;
+      });
     }
   };
 
@@ -388,7 +428,66 @@ export default function RankRoller() {
             </button>
           </div>
         </div>
+        <button
+          onClick={() => setShowMilestones(true)}
+          style={styles.milestonesBtn}
+        >
+          Milestones {unclaimedMilestones.length > 0 && `(${unclaimedMilestones.length})`}
+        </button>
       </div>
+
+      {/* Milestones Modal */}
+      {showMilestones && (
+        <div style={styles.modalOverlay} onClick={() => setShowMilestones(false)}>
+          <div style={styles.modal} onClick={(e) => e.stopPropagation()}>
+            <h2 style={styles.modalTitle}>Milestones</h2>
+            <div style={styles.milestonesList}>
+              {MILESTONES.map((milestone) => {
+                const isCompleted = milestone.requirement(milestoneState);
+                const isClaimed = claimedMilestones.has(milestone.id);
+                return (
+                  <div
+                    key={milestone.id}
+                    style={{
+                      ...styles.milestoneItem,
+                      opacity: isCompleted ? 1 : 0.5,
+                    }}
+                  >
+                    <div style={styles.milestoneInfo}>
+                      <div style={styles.milestoneName}>{milestone.name}</div>
+                      <div style={styles.milestoneDesc}>{milestone.description}</div>
+                      <div style={styles.milestoneReward}>
+                        Reward: {milestone.reward.toLocaleString()} pts
+                      </div>
+                    </div>
+                    {isClaimed ? (
+                      <div style={styles.claimedLabel}>Claimed</div>
+                    ) : (
+                      <button
+                        onClick={() => handleClaimMilestone(milestone)}
+                        disabled={!isCompleted}
+                        style={{
+                          ...styles.claimBtn,
+                          opacity: isCompleted ? 1 : 0.5,
+                          cursor: isCompleted ? 'pointer' : 'not-allowed',
+                        }}
+                      >
+                        Claim
+                      </button>
+                    )}
+                  </div>
+                );
+              })}
+            </div>
+            <button
+              onClick={() => setShowMilestones(false)}
+              style={styles.closeBtn}
+            >
+              Close
+            </button>
+          </div>
+        </div>
+      )}
 
       <h1 style={styles.title}>Rank Roller</h1>
 
@@ -768,6 +867,107 @@ const styles: Record<string, React.CSSProperties> = {
     borderRadius: '6px',
     transition: 'all 0.2s ease',
     whiteSpace: 'nowrap',
+  },
+  milestonesBtn: {
+    marginTop: '10px',
+    padding: '8px 12px',
+    fontSize: '0.85rem',
+    fontWeight: 'bold',
+    backgroundColor: '#9333ea',
+    color: '#fff',
+    border: 'none',
+    borderRadius: '6px',
+    cursor: 'pointer',
+    width: '100%',
+    transition: 'all 0.2s ease',
+  },
+  modalOverlay: {
+    position: 'fixed',
+    top: 0,
+    left: 0,
+    right: 0,
+    bottom: 0,
+    backgroundColor: 'rgba(0, 0, 0, 0.7)',
+    display: 'flex',
+    alignItems: 'center',
+    justifyContent: 'center',
+    zIndex: 200,
+  },
+  modal: {
+    backgroundColor: '#1a1a2e',
+    borderRadius: '12px',
+    padding: '20px',
+    minWidth: '300px',
+    maxWidth: '400px',
+    border: '2px solid #9333ea',
+  },
+  modalTitle: {
+    margin: '0 0 15px 0',
+    fontSize: '1.3rem',
+    color: '#9333ea',
+    textAlign: 'center',
+  },
+  milestonesList: {
+    display: 'flex',
+    flexDirection: 'column',
+    gap: '10px',
+    maxHeight: '400px',
+    overflowY: 'auto',
+  },
+  milestoneItem: {
+    display: 'flex',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    padding: '12px',
+    backgroundColor: 'rgba(147, 51, 234, 0.1)',
+    borderRadius: '8px',
+    border: '1px solid rgba(147, 51, 234, 0.3)',
+  },
+  milestoneInfo: {
+    flex: 1,
+  },
+  milestoneName: {
+    fontWeight: 'bold',
+    fontSize: '1rem',
+    color: '#fff',
+  },
+  milestoneDesc: {
+    fontSize: '0.8rem',
+    color: '#888',
+    marginTop: '2px',
+  },
+  milestoneReward: {
+    fontSize: '0.85rem',
+    color: '#ffd700',
+    marginTop: '4px',
+  },
+  claimBtn: {
+    padding: '8px 16px',
+    fontSize: '0.85rem',
+    fontWeight: 'bold',
+    backgroundColor: '#9333ea',
+    color: '#fff',
+    border: 'none',
+    borderRadius: '6px',
+    transition: 'all 0.2s ease',
+  },
+  claimedLabel: {
+    padding: '8px 16px',
+    fontSize: '0.85rem',
+    fontWeight: 'bold',
+    color: '#4ade80',
+  },
+  closeBtn: {
+    marginTop: '15px',
+    padding: '10px 20px',
+    fontSize: '1rem',
+    fontWeight: 'bold',
+    backgroundColor: '#333',
+    color: '#fff',
+    border: 'none',
+    borderRadius: '8px',
+    cursor: 'pointer',
+    width: '100%',
   },
   catalogue: {
     width: '100%',
