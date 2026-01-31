@@ -317,6 +317,8 @@ export default function RankRoller() {
   const [showMilestones, setShowMilestones] = useState(false);
   const [isLoaded, setIsLoaded] = useState(false);
   const [autoRollEnabled, setAutoRollEnabled] = useState(false);
+  const [showResetModal, setShowResetModal] = useState(false);
+  const [resetInput, setResetInput] = useState('');
   const rollCountRef = useRef(rollCount);
 
   // Load save data from cookies on mount
@@ -505,6 +507,30 @@ export default function RankRoller() {
       });
     }
     setAscendPrompt(null);
+  };
+
+  // Handle reset progress
+  const handleReset = () => {
+    if (resetInput === 'RESET') {
+      setCurrentRoll(null);
+      setHighestRank(null);
+      setHighestRankRoll(null);
+      setRollCount(0);
+      setTotalPoints(0);
+      setLastPointsGained(null);
+      setCollectedRanks(new Set());
+      setRankRollCounts({});
+      setAscendedRanks(new Set());
+      setExpandedTiers(new Set());
+      setLuckLevel(0);
+      setPointsMultiLevel(0);
+      setSpeedLevel(0);
+      setClaimedMilestones(new Set());
+      setAutoRollEnabled(false);
+      setCookie(SAVE_KEY, '');
+      setShowResetModal(false);
+      setResetInput('');
+    }
   };
 
   // Get total roll count for a tier
@@ -721,16 +747,17 @@ export default function RankRoller() {
           <div style={styles.modal} onClick={(e) => e.stopPropagation()}>
             <h2 style={styles.modalTitle}>Milestones</h2>
             <div style={styles.milestonesList}>
-              {MILESTONES.map((milestone) => {
+              {MILESTONES.filter((milestone) => {
+                const isCompleted = milestone.requirement(milestoneState);
+                const isClaimed = claimedMilestones.has(milestone.id);
+                return isCompleted || isClaimed;
+              }).map((milestone) => {
                 const isCompleted = milestone.requirement(milestoneState);
                 const isClaimed = claimedMilestones.has(milestone.id);
                 return (
                   <div
                     key={milestone.id}
-                    style={{
-                      ...styles.milestoneItem,
-                      opacity: isCompleted ? 1 : 0.5,
-                    }}
+                    style={styles.milestoneItem}
                   >
                     <div style={styles.milestoneInfo}>
                       <div style={styles.milestoneName}>{milestone.name}</div>
@@ -1052,6 +1079,57 @@ export default function RankRoller() {
           </div>
         )}
       </div>
+
+      {/* Reset Button - Bottom Left */}
+      <div style={styles.resetPanel}>
+        <button
+          onClick={() => setShowResetModal(true)}
+          style={styles.resetBtn}
+        >
+          Reset Progress
+        </button>
+      </div>
+
+      {/* Reset Modal */}
+      {showResetModal && (
+        <div style={styles.modalOverlay} onClick={() => { setShowResetModal(false); setResetInput(''); }}>
+          <div style={styles.modal} onClick={(e) => e.stopPropagation()}>
+            <h2 style={styles.resetTitle}>Reset Progress?</h2>
+            <div style={styles.resetWarning}>
+              This will permanently delete all your progress including rolls, points, upgrades, and milestones.
+            </div>
+            <div style={styles.resetInputContainer}>
+              <div style={styles.resetInputLabel}>Type RESET to confirm:</div>
+              <input
+                type="text"
+                value={resetInput}
+                onChange={(e) => setResetInput(e.target.value)}
+                style={styles.resetInput}
+                placeholder="RESET"
+              />
+            </div>
+            <div style={styles.resetButtons}>
+              <button
+                onClick={handleReset}
+                disabled={resetInput !== 'RESET'}
+                style={{
+                  ...styles.resetConfirmBtn,
+                  opacity: resetInput === 'RESET' ? 1 : 0.5,
+                  cursor: resetInput === 'RESET' ? 'pointer' : 'not-allowed',
+                }}
+              >
+                Reset Everything
+              </button>
+              <button
+                onClick={() => { setShowResetModal(false); setResetInput(''); }}
+                style={styles.closeBtn}
+              >
+                Cancel
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
@@ -1554,6 +1632,71 @@ const styles: Record<string, React.CSSProperties> = {
     fontWeight: 'bold',
     backgroundColor: '#ffd700',
     color: '#000',
+    border: 'none',
+    borderRadius: '8px',
+    cursor: 'pointer',
+  },
+  resetPanel: {
+    position: 'fixed',
+    bottom: '20px',
+    left: '20px',
+    zIndex: 100,
+  },
+  resetBtn: {
+    padding: '10px 16px',
+    fontSize: '0.85rem',
+    fontWeight: 'bold',
+    backgroundColor: 'rgba(239, 68, 68, 0.2)',
+    color: '#ef4444',
+    border: '1px solid rgba(239, 68, 68, 0.5)',
+    borderRadius: '8px',
+    cursor: 'pointer',
+    transition: 'all 0.2s ease',
+  },
+  resetTitle: {
+    margin: '0 0 15px 0',
+    fontSize: '1.3rem',
+    color: '#ef4444',
+    textAlign: 'center',
+  },
+  resetWarning: {
+    fontSize: '0.9rem',
+    color: '#f87171',
+    textAlign: 'center',
+    marginBottom: '20px',
+    lineHeight: 1.5,
+  },
+  resetInputContainer: {
+    marginBottom: '20px',
+  },
+  resetInputLabel: {
+    fontSize: '0.9rem',
+    color: '#aaa',
+    marginBottom: '8px',
+    textAlign: 'center',
+  },
+  resetInput: {
+    width: '100%',
+    padding: '12px',
+    fontSize: '1.1rem',
+    textAlign: 'center',
+    backgroundColor: 'rgba(0, 0, 0, 0.3)',
+    border: '2px solid rgba(239, 68, 68, 0.3)',
+    borderRadius: '8px',
+    color: '#fff',
+    outline: 'none',
+  },
+  resetButtons: {
+    display: 'flex',
+    gap: '10px',
+  },
+  resetConfirmBtn: {
+    flex: 1,
+    padding: '12px 20px',
+    fontSize: '1rem',
+    fontWeight: 'bold',
+    backgroundColor: '#ef4444',
+    color: '#fff',
     border: 'none',
     borderRadius: '8px',
     cursor: 'pointer',
