@@ -12,6 +12,7 @@ interface SaveData {
   collectedRanks: number[];
   luckLevel: number;
   pointsMultiLevel: number;
+  speedLevel: number;
 }
 
 function setCookie(name: string, value: string, days: number = 365) {
@@ -146,6 +147,7 @@ export default function RankRoller() {
   const [expandedTiers, setExpandedTiers] = useState<Set<string>>(new Set());
   const [luckLevel, setLuckLevel] = useState(0);
   const [pointsMultiLevel, setPointsMultiLevel] = useState(0);
+  const [speedLevel, setSpeedLevel] = useState(0);
   const [isLoaded, setIsLoaded] = useState(false);
 
   // Load save data from cookies on mount
@@ -163,6 +165,7 @@ export default function RankRoller() {
         setCollectedRanks(new Set(data.collectedRanks || []));
         setLuckLevel(data.luckLevel || 0);
         setPointsMultiLevel(data.pointsMultiLevel || 0);
+        setSpeedLevel(data.speedLevel || 0);
       } catch (e) {
         console.error('Failed to load save data:', e);
       }
@@ -182,9 +185,10 @@ export default function RankRoller() {
       collectedRanks: Array.from(collectedRanks),
       luckLevel,
       pointsMultiLevel,
+      speedLevel,
     };
     setCookie(SAVE_KEY, JSON.stringify(saveData));
-  }, [isLoaded, rollCount, totalPoints, highestRank, highestRankRoll, collectedRanks, luckLevel, pointsMultiLevel]);
+  }, [isLoaded, rollCount, totalPoints, highestRank, highestRankRoll, collectedRanks, luckLevel, pointsMultiLevel, speedLevel]);
 
   useEffect(() => {
     saveGame();
@@ -211,6 +215,19 @@ export default function RankRoller() {
     if (canAffordPointsUpgrade) {
       setTotalPoints((p) => p - pointsUpgradeCost);
       setPointsMultiLevel((l) => l + 1);
+    }
+  };
+
+  // Speed calculations
+  const speedMulti = Math.pow(1.1, speedLevel);
+  const speedUpgradeCost = Math.floor(100 * Math.pow(5, speedLevel));
+  const canAffordSpeedUpgrade = totalPoints >= speedUpgradeCost;
+  const animationInterval = Math.floor(50 / speedMulti);
+
+  const handleUpgradeSpeed = () => {
+    if (canAffordSpeedUpgrade) {
+      setTotalPoints((p) => p - speedUpgradeCost);
+      setSpeedLevel((l) => l + 1);
     }
   };
 
@@ -259,13 +276,13 @@ export default function RankRoller() {
 
     // Simulate actual rolls for animation
     let animationCount = 0;
-    const animationInterval = setInterval(() => {
+    const rollTimer = setInterval(() => {
       const simulatedRoll = rollRankWithLuck(ranks, luckMulti);
       setCurrentRoll(simulatedRoll);
       animationCount++;
 
       if (animationCount >= 10) {
-        clearInterval(animationInterval);
+        clearInterval(rollTimer);
 
         // Final roll
         const result = rollRankWithLuck(ranks, luckMulti);
@@ -291,7 +308,7 @@ export default function RankRoller() {
 
         setIsRolling(false);
       }
-    }, 50);
+    }, animationInterval);
   };
 
   const collectedCount = collectedRanks.size;
@@ -349,6 +366,25 @@ export default function RankRoller() {
               }}
             >
               {pointsUpgradeCost.toLocaleString()}
+            </button>
+          </div>
+          {/* Speed Upgrade */}
+          <div style={styles.upgradeItem}>
+            <div style={styles.upgradeInfo}>
+              <span style={styles.upgradeName}>Speed</span>
+              <span style={styles.upgradeValue}>{speedMulti.toFixed(2)}x</span>
+              <span style={styles.upgradeLevel}>Lv.{speedLevel}</span>
+            </div>
+            <button
+              onClick={handleUpgradeSpeed}
+              disabled={!canAffordSpeedUpgrade}
+              style={{
+                ...styles.upgradeBtn,
+                opacity: canAffordSpeedUpgrade ? 1 : 0.5,
+                cursor: canAffordSpeedUpgrade ? 'pointer' : 'not-allowed',
+              }}
+            >
+              {speedUpgradeCost.toLocaleString()}
             </button>
           </div>
         </div>
