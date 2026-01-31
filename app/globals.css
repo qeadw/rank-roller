@@ -8,7 +8,7 @@
   .milestones-panel {
     position: fixed !important;
     top: auto !important;
-    bottom: 100px !important;
+    bottom: 120px !important;
     left: 10px !important;
     right: auto !important;
   }
@@ -81,7 +81,7 @@
   }
 
   .reset-panel {
-    bottom: 100px !important;
+    bottom: 120px !important;
     right: 10px !important;
     left: auto !important;
   }
