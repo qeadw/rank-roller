@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useMemo, useEffect, useCallback } from 'react';
+import { useState, useMemo, useEffect, useCallback, useRef } from 'react';
 
 const SAVE_KEY = 'rankroller_save';
 
@@ -26,6 +26,7 @@ interface Milestone {
   luckBonus?: number;
   pointsBonus?: number;
   speedBonus?: number;
+  unlockAutoRoll?: boolean;
 }
 
 // Helper to check if a tier is complete
@@ -74,7 +75,7 @@ const MILESTONES: Milestone[] = [
     description: 'Roll 5,000 times',
     requirement: (state) => state.rollCount >= 5000,
     reward: 0,
-    pointsBonus: 1.2,
+    unlockAutoRoll: true,
   },
   {
     id: 'rolls_10000',
@@ -223,6 +224,8 @@ export default function RankRoller() {
   const [claimedMilestones, setClaimedMilestones] = useState<Set<string>>(new Set());
   const [showMilestones, setShowMilestones] = useState(false);
   const [isLoaded, setIsLoaded] = useState(false);
+  const [autoRollEnabled, setAutoRollEnabled] = useState(false);
+  const rollCountRef = useRef(rollCount);
 
   // Load save data from cookies on mount
   useEffect(() => {
@@ -400,7 +403,12 @@ export default function RankRoller() {
     return total;
   };
 
-  const handleRoll = () => {
+  // Keep rollCountRef updated
+  useEffect(() => {
+    rollCountRef.current = rollCount;
+  }, [rollCount]);
+
+  const handleRoll = useCallback(() => {
     setIsRolling(true);
 
     // Simulate actual rolls for animation
@@ -434,7 +442,7 @@ export default function RankRoller() {
           [result.index]: (prev[result.index] || 0) + 1,
         }));
 
-        const newRollCount = rollCount + 1;
+        const newRollCount = rollCountRef.current + 1;
         if (!highestRank || result.index > highestRank.index) {
           setHighestRank(result);
           setHighestRankRoll(newRollCount);
@@ -443,7 +451,31 @@ export default function RankRoller() {
         setIsRolling(false);
       }
     }, animationInterval);
-  };
+  }, [ranks, luckMulti, pointsMulti, animationInterval, highestRank]);
+
+  // Check if auto-roll is unlocked
+  const autoRollUnlocked = claimedMilestones.has('rolls_5000');
+
+  // Auto-roll effect
+  useEffect(() => {
+    if (!autoRollEnabled || !autoRollUnlocked) return;
+
+    // Auto-roll interval = normal roll time × 5
+    // Normal roll time = 10 frames × animationInterval
+    const autoRollInterval = animationInterval * 10 * 5;
+
+    const autoRollTimer = setInterval(() => {
+      // Only trigger if not currently rolling
+      setIsRolling((currentlyRolling) => {
+        if (!currentlyRolling) {
+          handleRoll();
+        }
+        return currentlyRolling;
+      });
+    }, autoRollInterval);
+
+    return () => clearInterval(autoRollTimer);
+  }, [autoRollEnabled, autoRollUnlocked, animationInterval, handleRoll]);
 
   const collectedCount = collectedRanks.size;
 
@@ -472,20 +504,36 @@ export default function RankRoller() {
 
       {/* Stats Display - Next to Upgrades */}
       <div style={styles.statsPanel}>
-        <h3 style={styles.statsPanelTitle}>Total Multipliers</h3>
+        <h3 style={styles.statsPanelTitle}>Total Stats</h3>
         <div style={styles.statsPanelList}>
+          {luckMulti > 1.0 && (
+            <div style={styles.statsPanelItem}>
+              <span style={styles.statsPanelLabel}>Luck</span>
+              <span style={styles.statsPanelValue}>{luckMulti.toFixed(2)}x</span>
+            </div>
+          )}
+          {pointsMulti > 1.0 && (
+            <div style={styles.statsPanelItem}>
+              <span style={styles.statsPanelLabel}>Points</span>
+              <span style={styles.statsPanelValue}>{pointsMulti.toFixed(2)}x</span>
+            </div>
+          )}
+          {speedMulti > 1.0 && (
+            <div style={styles.statsPanelItem}>
+              <span style={styles.statsPanelLabel}>Speed</span>
+              <span style={styles.statsPanelValue}>{speedMulti.toFixed(2)}x</span>
+            </div>
+          )}
           <div style={styles.statsPanelItem}>
-            <span style={styles.statsPanelLabel}>Luck</span>
-            <span style={styles.statsPanelValue}>{luckMulti.toFixed(2)}x</span>
+            <span style={styles.statsPanelLabel}>Roll Time</span>
+            <span style={styles.statsPanelValue}>{((animationInterval * 10) / 1000).toFixed(2)}s</span>
           </div>
-          <div style={styles.statsPanelItem}>
-            <span style={styles.statsPanelLabel}>Points</span>
-            <span style={styles.statsPanelValue}>{pointsMulti.toFixed(2)}x</span>
-          </div>
-          <div style={styles.statsPanelItem}>
-            <span style={styles.statsPanelLabel}>Speed</span>
-            <span style={styles.statsPanelValue}>{speedMulti.toFixed(2)}x</span>
-          </div>
+          {autoRollUnlocked && (
+            <div style={styles.statsPanelItem}>
+              <span style={styles.statsPanelLabel}>Auto Roll</span>
+              <span style={styles.statsPanelValue}>{((animationInterval * 10 * 5) / 1000).toFixed(2)}s</span>
+            </div>
+          )}
         </div>
       </div>
 
@@ -580,6 +628,8 @@ export default function RankRoller() {
                           <>Reward: {milestone.pointsBonus}x Points</>
                         ) : milestone.speedBonus ? (
                           <>Reward: {milestone.speedBonus}x Speed</>
+                        ) : milestone.unlockAutoRoll ? (
+                          <>Reward: Auto Roll</>
                         ) : (
                           <>Reward: {milestone.reward.toLocaleString()} pts</>
                         )}
@@ -656,15 +706,27 @@ export default function RankRoller() {
 
       <button
         onClick={handleRoll}
-        disabled={isRolling}
+        disabled={isRolling || autoRollEnabled}
         style={{
           ...styles.rollButton,
-          opacity: isRolling ? 0.6 : 1,
-          cursor: isRolling ? 'not-allowed' : 'pointer',
+          opacity: isRolling || autoRollEnabled ? 0.6 : 1,
+          cursor: isRolling || autoRollEnabled ? 'not-allowed' : 'pointer',
         }}
       >
         {isRolling ? 'Rolling...' : 'ROLL'}
       </button>
+
+      {autoRollUnlocked && (
+        <button
+          onClick={() => setAutoRollEnabled((prev) => !prev)}
+          style={{
+            ...styles.autoRollBtn,
+            backgroundColor: autoRollEnabled ? '#22c55e' : '#4a4a8a',
+          }}
+        >
+          Auto Roll: {autoRollEnabled ? 'ON' : 'OFF'}
+        </button>
+      )}
 
       {/* Highest Rank Display */}
       <div style={styles.highestSection}>
@@ -905,6 +967,17 @@ const styles: Record<string, React.CSSProperties> = {
     marginBottom: '15px',
     transition: 'all 0.2s ease',
     boxShadow: '0 4px 15px rgba(74, 74, 138, 0.4)',
+  },
+  autoRollBtn: {
+    padding: '10px 30px',
+    fontSize: '1rem',
+    fontWeight: 'bold',
+    color: '#fff',
+    border: 'none',
+    borderRadius: '8px',
+    marginBottom: '15px',
+    cursor: 'pointer',
+    transition: 'all 0.2s ease',
   },
   highestSection: {
     display: 'flex',
