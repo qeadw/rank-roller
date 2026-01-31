@@ -69,18 +69,31 @@ function generateRanks(): Rank[] {
   return ranks;
 }
 
-function rollRank(ranks: Rank[]): Rank {
-  const totalWeight = ranks.reduce((sum, r) => sum + r.weight, 0);
+function getEffectiveWeights(ranks: Rank[], luckMulti: number): number[] {
+  // Luck multiplier boosts higher ranks more
+  // Each rank's weight gets multiplied by luckMulti^(index/10)
+  return ranks.map((rank) => rank.weight * Math.pow(luckMulti, rank.index / 10));
+}
+
+function rollRankWithLuck(ranks: Rank[], luckMulti: number): Rank {
+  const effectiveWeights = getEffectiveWeights(ranks, luckMulti);
+  const totalWeight = effectiveWeights.reduce((sum, w) => sum + w, 0);
   let random = Math.random() * totalWeight;
 
-  for (const rank of ranks) {
-    random -= rank.weight;
+  for (let i = 0; i < ranks.length; i++) {
+    random -= effectiveWeights[i];
     if (random <= 0) {
-      return rank;
+      return ranks[i];
     }
   }
 
   return ranks[0]; // Fallback
+}
+
+function getEffectiveProbability(rank: Rank, ranks: Rank[], luckMulti: number): number {
+  const effectiveWeights = getEffectiveWeights(ranks, luckMulti);
+  const totalWeight = effectiveWeights.reduce((sum, w) => sum + w, 0);
+  return effectiveWeights[rank.index] / totalWeight;
 }
 
 function calculatePoints(rank: Rank): number {
@@ -99,6 +112,19 @@ export default function RankRoller() {
   const [isRolling, setIsRolling] = useState(false);
   const [collectedRanks, setCollectedRanks] = useState<Set<number>>(new Set());
   const [expandedTiers, setExpandedTiers] = useState<Set<string>>(new Set());
+  const [luckLevel, setLuckLevel] = useState(0);
+
+  // Luck calculations
+  const luckMulti = Math.pow(1.1, luckLevel);
+  const upgradeCost = Math.floor(100 * Math.pow(5, luckLevel));
+  const canAffordUpgrade = totalPoints >= upgradeCost;
+
+  const handleUpgradeLuck = () => {
+    if (canAffordUpgrade) {
+      setTotalPoints((p) => p - upgradeCost);
+      setLuckLevel((l) => l + 1);
+    }
+  };
 
   // Calculate which tiers are complete
   const completeTiers = useMemo(() => {
@@ -141,7 +167,7 @@ export default function RankRoller() {
     // Simulate actual rolls for animation
     let animationCount = 0;
     const animationInterval = setInterval(() => {
-      const simulatedRoll = rollRank(ranks);
+      const simulatedRoll = rollRankWithLuck(ranks, luckMulti);
       setCurrentRoll(simulatedRoll);
       animationCount++;
 
@@ -149,7 +175,7 @@ export default function RankRoller() {
         clearInterval(animationInterval);
 
         // Final roll
-        const result = rollRank(ranks);
+        const result = rollRankWithLuck(ranks, luckMulti);
         setCurrentRoll(result);
         setRollCount((c) => c + 1);
 
@@ -219,7 +245,7 @@ export default function RankRoller() {
             <div style={styles.rollTier}>{currentRoll.tier}</div>
             <div style={styles.rollNumber}>{currentRoll.tierNumber}</div>
             <div style={styles.rollProbability}>
-              {formatProbability(currentRoll.probability)}
+              {formatProbability(getEffectiveProbability(currentRoll, ranks, luckMulti))}
             </div>
           </>
         ) : (
@@ -254,13 +280,33 @@ export default function RankRoller() {
             <>
               <div style={styles.highestName}>{highestRank.displayName}</div>
               <div style={styles.highestProbability}>
-                {formatProbability(highestRank.probability)}
+                {formatProbability(getEffectiveProbability(highestRank, ranks, luckMulti))}
               </div>
             </>
           ) : (
             <div style={styles.highestPlaceholder}>None yet</div>
           )}
         </div>
+      </div>
+
+      {/* Luck Upgrade */}
+      <div style={styles.upgradeSection}>
+        <div style={styles.luckDisplay}>
+          <span style={styles.luckLabel}>Luck</span>
+          <span style={styles.luckValue}>{luckMulti.toFixed(2)}x</span>
+          <span style={styles.luckLevel}>Level {luckLevel}</span>
+        </div>
+        <button
+          onClick={handleUpgradeLuck}
+          disabled={!canAffordUpgrade}
+          style={{
+            ...styles.upgradeButton,
+            opacity: canAffordUpgrade ? 1 : 0.5,
+            cursor: canAffordUpgrade ? 'pointer' : 'not-allowed',
+          }}
+        >
+          Upgrade ({upgradeCost.toLocaleString()} pts)
+        </button>
       </div>
 
       {/* Catalogue */}
@@ -318,7 +364,7 @@ export default function RankRoller() {
                             >
                               <div style={styles.tierRankNumber}>{rank.tierNumber}</div>
                               <div style={styles.tierRankChance}>
-                                {formatProbability(rank.probability)}
+                                {formatProbability(getEffectiveProbability(rank, ranks, luckMulti))}
                               </div>
                               <div style={styles.tierRankPoints}>
                                 {points.toLocaleString()} pts
@@ -367,7 +413,7 @@ export default function RankRoller() {
                     >
                       <div style={styles.catalogueItemName}>{rank.displayName}</div>
                       <div style={styles.catalogueItemChance}>
-                        {formatProbability(rank.probability)}
+                        {formatProbability(getEffectiveProbability(rank, ranks, luckMulti))}
                       </div>
                       <div style={styles.catalogueItemPoints}>
                         {points.toLocaleString()} pts
@@ -497,6 +543,45 @@ const styles: Record<string, React.CSSProperties> = {
   },
   highestPlaceholder: {
     color: '#666',
+  },
+  upgradeSection: {
+    display: 'flex',
+    flexDirection: 'column',
+    alignItems: 'center',
+    marginBottom: '30px',
+    padding: '15px 25px',
+    backgroundColor: 'rgba(255, 215, 0, 0.1)',
+    borderRadius: '12px',
+    border: '2px solid rgba(255, 215, 0, 0.3)',
+  },
+  luckDisplay: {
+    display: 'flex',
+    flexDirection: 'column',
+    alignItems: 'center',
+    marginBottom: '10px',
+  },
+  luckLabel: {
+    fontSize: '0.9rem',
+    color: '#ffd700',
+  },
+  luckValue: {
+    fontSize: '1.8rem',
+    fontWeight: 'bold',
+    color: '#ffd700',
+  },
+  luckLevel: {
+    fontSize: '0.8rem',
+    color: '#888',
+  },
+  upgradeButton: {
+    padding: '10px 20px',
+    fontSize: '1rem',
+    fontWeight: 'bold',
+    backgroundColor: '#ffd700',
+    color: '#000',
+    border: 'none',
+    borderRadius: '8px',
+    transition: 'all 0.2s ease',
   },
   catalogue: {
     width: '100%',
