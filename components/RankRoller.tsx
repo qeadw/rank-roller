@@ -22,7 +22,7 @@ interface Milestone {
   id: string;
   name: string;
   description: string;
-  requirement: (state: { rollCount: number; collectedRanks: Set<number> }) => boolean;
+  requirement: (state: { rollCount: number; collectedRanks: Set<number>; ascendedRanks: Set<number> }) => boolean;
   reward: number;
   luckBonus?: number;
   pointsBonus?: number;
@@ -174,6 +174,23 @@ const MILESTONES: Milestone[] = [
     requirement: (state) => hasAnyFromTier(state.collectedRanks, 9),
     reward: 0,
     pointsBonus: 1.1,
+  },
+  // Ascension milestones
+  {
+    id: 'first_ascension',
+    name: 'First Ascension',
+    description: 'Ascend a rank for the first time',
+    requirement: (state) => state.ascendedRanks.size >= 1,
+    reward: 0,
+    speedBonus: 1.2,
+  },
+  {
+    id: 'ten_ascensions',
+    name: 'Ascension Master',
+    description: 'Ascend 10 different ranks',
+    requirement: (state) => state.ascendedRanks.size >= 10,
+    reward: 0,
+    speedBonus: 1.5,
   },
 ];
 
@@ -434,7 +451,7 @@ export default function RankRoller() {
   };
 
   // Milestone helpers
-  const milestoneState = { rollCount, collectedRanks };
+  const milestoneState = { rollCount, collectedRanks, ascendedRanks };
   const unclaimedMilestones = MILESTONES.filter(
     (m) => m.requirement(milestoneState) && !claimedMilestones.has(m.id)
   );
