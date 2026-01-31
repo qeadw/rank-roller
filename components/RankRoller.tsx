@@ -225,6 +225,38 @@ const MILESTONES: Milestone[] = [
     pointsBonus: 5,
   },
   {
+    id: 'complete_divine',
+    name: 'Divine Complete',
+    description: 'Collect all Divine ranks',
+    requirement: (state) => isTierComplete(state.collectedRanks, 6),
+    reward: 0,
+    luckBonus: 5,
+  },
+  {
+    id: 'complete_celestial',
+    name: 'Celestial Complete',
+    description: 'Collect all Celestial ranks',
+    requirement: (state) => isTierComplete(state.collectedRanks, 7),
+    reward: 0,
+    speedBonus: 3,
+  },
+  {
+    id: 'complete_cosmic',
+    name: 'Cosmic Complete',
+    description: 'Collect all Cosmic ranks',
+    requirement: (state) => isTierComplete(state.collectedRanks, 8),
+    reward: 0,
+    pointsBonus: 10,
+  },
+  {
+    id: 'complete_ultimate',
+    name: 'Ultimate Complete',
+    description: 'Collect all Ultimate ranks',
+    requirement: (state) => isTierComplete(state.collectedRanks, 9),
+    reward: 0,
+    luckBonus: 10,
+  },
+  {
     id: 'rolls_5000',
     name: '5,000 Rolls',
     description: 'Roll 5,000 times',
@@ -597,9 +629,10 @@ function generateRanks(): Rank[] {
 }
 
 function getEffectiveWeights(ranks: Rank[], luckMulti: number): number[] {
-  // Luck multiplier boosts higher ranks more
-  // Each rank's weight gets multiplied by luckMulti^(index/10)
-  return ranks.map((rank) => rank.weight * Math.pow(luckMulti, rank.index / 10));
+  // Luck multiplier boosts higher tiers linearly
+  // Common (tier 0) gets no boost, Ultimate (tier 9) gets full luck boost
+  // This makes a 1 in 1,000,000 become ~1 in 10,000 with 100x luck
+  return ranks.map((rank) => rank.weight * Math.pow(luckMulti, rank.tierNumber / 9));
 }
 
 function rollRankWithLuck(ranks: Rank[], luckMulti: number): Rank {
@@ -661,6 +694,8 @@ export default function RankRoller() {
   const [runeRollCounts, setRuneRollCounts] = useState<Record<number, number>>({});
   const [runeRollCount, setRuneRollCount] = useState(0);
   const [isRollingRune, setIsRollingRune] = useState(false);
+  const [showCheatMenu, setShowCheatMenu] = useState(false);
+  const [cheatBuffer, setCheatBuffer] = useState('');
   const rollCountRef = useRef(rollCount);
 
   // Load save data from cookies on mount
@@ -720,6 +755,20 @@ export default function RankRoller() {
   useEffect(() => {
     saveGame();
   }, [saveGame]);
+
+  // Cheat code listener
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      const newBuffer = (cheatBuffer + e.key).slice(-7);
+      setCheatBuffer(newBuffer);
+      if (newBuffer.toLowerCase() === 'cheater') {
+        setShowCheatMenu(true);
+        setCheatBuffer('');
+      }
+    };
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [cheatBuffer]);
 
   // Calculate milestone bonuses
   const milestoneLuckBonus = MILESTONES.reduce((acc, m) => {
@@ -1819,6 +1868,77 @@ export default function RankRoller() {
           </div>
         </div>
       )}
+
+      {/* Cheat Menu Modal */}
+      {showCheatMenu && (
+        <div style={styles.modalOverlay} onClick={() => setShowCheatMenu(false)}>
+          <div className="modal" style={styles.cheatModal} onClick={(e) => e.stopPropagation()}>
+            <h2 style={styles.cheatTitle}>🎮 Cheat Menu</h2>
+            <div style={styles.cheatGrid}>
+              <div style={styles.cheatItem}>
+                <label style={styles.cheatLabel}>Points:</label>
+                <input
+                  type="number"
+                  value={totalPoints}
+                  onChange={(e) => setTotalPoints(Number(e.target.value))}
+                  style={styles.cheatInput}
+                />
+              </div>
+              <div style={styles.cheatItem}>
+                <label style={styles.cheatLabel}>Rolls:</label>
+                <input
+                  type="number"
+                  value={rollCount}
+                  onChange={(e) => setRollCount(Number(e.target.value))}
+                  style={styles.cheatInput}
+                />
+              </div>
+              <div style={styles.cheatItem}>
+                <label style={styles.cheatLabel}>Luck Level:</label>
+                <input
+                  type="number"
+                  value={luckLevel}
+                  onChange={(e) => setLuckLevel(Number(e.target.value))}
+                  style={styles.cheatInput}
+                />
+              </div>
+              <div style={styles.cheatItem}>
+                <label style={styles.cheatLabel}>Points Multi Level:</label>
+                <input
+                  type="number"
+                  value={pointsMultiLevel}
+                  onChange={(e) => setPointsMultiLevel(Number(e.target.value))}
+                  style={styles.cheatInput}
+                />
+              </div>
+              <div style={styles.cheatItem}>
+                <label style={styles.cheatLabel}>Speed Level:</label>
+                <input
+                  type="number"
+                  value={speedLevel}
+                  onChange={(e) => setSpeedLevel(Number(e.target.value))}
+                  style={styles.cheatInput}
+                />
+              </div>
+              <div style={styles.cheatItem}>
+                <label style={styles.cheatLabel}>Rune Rolls:</label>
+                <input
+                  type="number"
+                  value={runeRollCount}
+                  onChange={(e) => setRuneRollCount(Number(e.target.value))}
+                  style={styles.cheatInput}
+                />
+              </div>
+            </div>
+            <button
+              onClick={() => setShowCheatMenu(false)}
+              style={styles.cheatCloseBtn}
+            >
+              Close
+            </button>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
@@ -2569,5 +2689,55 @@ const styles: Record<string, React.CSSProperties> = {
   runeBuffSource: {
     fontSize: '0.7rem',
     color: '#888',
+  },
+  cheatModal: {
+    backgroundColor: 'rgba(30, 30, 50, 0.98)',
+    borderRadius: '16px',
+    padding: '25px',
+    minWidth: '350px',
+    maxWidth: '450px',
+    border: '2px solid #ff6b6b',
+    boxShadow: '0 0 30px rgba(255, 107, 107, 0.3)',
+  },
+  cheatTitle: {
+    margin: '0 0 20px 0',
+    fontSize: '1.4rem',
+    color: '#ff6b6b',
+    textAlign: 'center',
+  },
+  cheatGrid: {
+    display: 'grid',
+    gridTemplateColumns: '1fr 1fr',
+    gap: '15px',
+    marginBottom: '20px',
+  },
+  cheatItem: {
+    display: 'flex',
+    flexDirection: 'column',
+    gap: '5px',
+  },
+  cheatLabel: {
+    fontSize: '0.85rem',
+    color: '#aaa',
+  },
+  cheatInput: {
+    padding: '8px 12px',
+    fontSize: '1rem',
+    backgroundColor: 'rgba(255, 255, 255, 0.1)',
+    color: '#fff',
+    border: '1px solid rgba(255, 107, 107, 0.4)',
+    borderRadius: '6px',
+    outline: 'none',
+  },
+  cheatCloseBtn: {
+    width: '100%',
+    padding: '12px',
+    fontSize: '1rem',
+    fontWeight: 'bold',
+    backgroundColor: '#ff6b6b',
+    color: '#fff',
+    border: 'none',
+    borderRadius: '8px',
+    cursor: 'pointer',
   },
 };
