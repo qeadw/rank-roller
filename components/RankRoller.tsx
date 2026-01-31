@@ -94,6 +94,14 @@ const MILESTONES: Milestone[] = [
     reward: 0,
     luckBonus: 1.5,
   },
+  {
+    id: 'rolls_25000',
+    name: '25,000 Rolls',
+    description: 'Roll 25,000 times',
+    requirement: (state) => state.rollCount >= 25000,
+    reward: 0,
+    luckBonus: 2,
+  },
   // First of each tier milestones
   {
     id: 'first_common',
