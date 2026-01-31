@@ -317,8 +317,11 @@ export default function RankRoller() {
                               }}
                             >
                               <div style={styles.tierRankNumber}>{rank.tierNumber}</div>
+                              <div style={styles.tierRankChance}>
+                                {formatProbability(rank.probability)}
+                              </div>
                               <div style={styles.tierRankPoints}>
-                                {points.toLocaleString()}
+                                {points.toLocaleString()} pts
                               </div>
                             </div>
                           );
@@ -342,9 +345,6 @@ export default function RankRoller() {
                     >
                       <div style={styles.catalogueItemName}>{tier}</div>
                       <div style={styles.completeLabel}>COMPLETE</div>
-                      <div style={styles.catalogueItemPoints}>
-                        {getTierTotalPoints(tierIndex).toLocaleString()} pts
-                      </div>
                     </div>
                   );
                 }
@@ -366,6 +366,9 @@ export default function RankRoller() {
                       }}
                     >
                       <div style={styles.catalogueItemName}>{rank.displayName}</div>
+                      <div style={styles.catalogueItemChance}>
+                        {formatProbability(rank.probability)}
+                      </div>
                       <div style={styles.catalogueItemPoints}>
                         {points.toLocaleString()} pts
                       </div>
@@ -525,9 +528,14 @@ const styles: Record<string, React.CSSProperties> = {
     fontWeight: 'bold',
     fontSize: '0.9rem',
   },
+  catalogueItemChance: {
+    fontSize: '0.7rem',
+    marginTop: '2px',
+    opacity: 0.8,
+  },
   catalogueItemPoints: {
     fontSize: '0.8rem',
-    marginTop: '4px',
+    marginTop: '2px',
     opacity: 0.9,
   },
   completeTier: {
@@ -581,8 +589,12 @@ const styles: Record<string, React.CSSProperties> = {
     fontWeight: 'bold',
     fontSize: '1.1rem',
   },
+  tierRankChance: {
+    fontSize: '0.6rem',
+    opacity: 0.8,
+  },
   tierRankPoints: {
-    fontSize: '0.7rem',
+    fontSize: '0.65rem',
     opacity: 0.9,
   },
 };
