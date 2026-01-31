@@ -885,7 +885,7 @@ export default function RankRoller() {
                               </div>
                               {rollCount > 0 && (
                                 <div style={styles.tierRankPercent}>
-                                  {(((rankRollCounts[rank.index] || 0) / rollCount) * 100).toFixed(1)}%
+                                  {(((rankRollCounts[rank.index] || 0) / rollCount) * 100).toFixed(3)}%
                                 </div>
                               )}
                             </div>
@@ -953,7 +953,7 @@ export default function RankRoller() {
                       </div>
                       {rollCount > 0 && (
                         <div style={styles.catalogueItemPercent}>
-                          {(((rankRollCounts[rank.index] || 0) / rollCount) * 100).toFixed(1)}%
+                          {(((rankRollCounts[rank.index] || 0) / rollCount) * 100).toFixed(3)}%
                         </div>
                       )}
                     </div>
