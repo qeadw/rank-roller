@@ -98,7 +98,6 @@ export default function RankRoller() {
   const [lastPointsGained, setLastPointsGained] = useState<number | null>(null);
   const [isRolling, setIsRolling] = useState(false);
   const [collectedRanks, setCollectedRanks] = useState<Set<number>>(new Set());
-  const [showCatalogue, setShowCatalogue] = useState(false);
 
   const handleRoll = () => {
     setIsRolling(true);
@@ -228,89 +227,38 @@ export default function RankRoller() {
         </div>
       </div>
 
-      {/* Bottom Section */}
-      <div style={styles.bottomSection}>
-        <button
-          onClick={() => setShowCatalogue(!showCatalogue)}
-          style={styles.toggleButton}
-        >
-          {showCatalogue ? 'Show Tiers' : `Catalogue (${collectedCount}/100)`}
-        </button>
-
-        {showCatalogue ? (
-          <div style={styles.catalogue}>
-            <h3 style={styles.catalogueTitle}>
-              Collected: {collectedCount}/100
-            </h3>
-            {TIER_NAMES.map((tier, tierIndex) => {
-              const tierColors = TIER_COLORS[tier];
-              const tierRanks = ranks.slice(tierIndex * 10, tierIndex * 10 + 10);
-              const collectedInTier = tierRanks.filter((r) =>
-                collectedRanks.has(r.index)
-              ).length;
-
-              return (
-                <div key={tier} style={styles.catalogueTier}>
-                  <div
-                    style={{
-                      ...styles.catalogueTierHeader,
-                      backgroundColor: tierColors.bg,
-                      color: tierColors.text,
-                    }}
-                  >
-                    {tier} ({collectedInTier}/10)
-                  </div>
-                  <div style={styles.catalogueRankGrid}>
-                    {tierRanks.map((rank) => {
-                      const isCollected = collectedRanks.has(rank.index);
-                      return (
-                        <div
-                          key={rank.index}
-                          style={{
-                            ...styles.catalogueRank,
-                            backgroundColor: isCollected ? tierColors.bg : '#222',
-                            color: isCollected ? tierColors.text : '#444',
-                            boxShadow: isCollected
-                              ? `0 0 8px ${tierColors.glow}`
-                              : 'none',
-                          }}
-                        >
-                          {rank.tierNumber}
-                        </div>
-                      );
-                    })}
-                  </div>
-                </div>
-              );
-            })}
-          </div>
+      {/* Catalogue */}
+      <div style={styles.catalogue}>
+        <h3 style={styles.catalogueTitle}>
+          Catalogue ({collectedCount}/100)
+        </h3>
+        {collectedCount === 0 ? (
+          <div style={styles.emptyMessage}>Roll to start collecting ranks!</div>
         ) : (
-          <div style={styles.legend}>
-            <h3 style={styles.legendTitle}>Tiers</h3>
-            <div style={styles.tierGrid}>
-              {TIER_NAMES.map((tier, i) => {
-                const tierColors = TIER_COLORS[tier];
-                const startRank = ranks[i * 10];
-                const endRank = ranks[i * 10 + 9];
+          <div style={styles.catalogueGrid}>
+            {ranks
+              .filter((rank) => collectedRanks.has(rank.index))
+              .sort((a, b) => b.index - a.index)
+              .map((rank) => {
+                const tierColors = TIER_COLORS[rank.tier];
+                const points = calculatePoints(rank);
                 return (
                   <div
-                    key={tier}
+                    key={rank.index}
                     style={{
-                      ...styles.tierItem,
+                      ...styles.catalogueItem,
                       backgroundColor: tierColors.bg,
                       color: tierColors.text,
                       boxShadow: `0 0 10px ${tierColors.glow}`,
                     }}
                   >
-                    <div style={styles.tierName}>{tier}</div>
-                    <div style={styles.tierRange}>
-                      {formatProbability(endRank.probability)} -{' '}
-                      {formatProbability(startRank.probability)}
+                    <div style={styles.catalogueItemName}>{rank.displayName}</div>
+                    <div style={styles.catalogueItemPoints}>
+                      {points.toLocaleString()} pts
                     </div>
                   </div>
                 );
               })}
-            </div>
           </div>
         )}
       </div>
@@ -433,56 +381,9 @@ const styles: Record<string, React.CSSProperties> = {
   highestPlaceholder: {
     color: '#666',
   },
-  legend: {
-    width: '100%',
-    maxWidth: '600px',
-  },
-  legendTitle: {
-    textAlign: 'center',
-    fontSize: '1rem',
-    color: '#888',
-    marginBottom: '15px',
-  },
-  tierGrid: {
-    display: 'grid',
-    gridTemplateColumns: 'repeat(auto-fit, minmax(140px, 1fr))',
-    gap: '10px',
-  },
-  tierItem: {
-    padding: '10px',
-    borderRadius: '8px',
-    textAlign: 'center',
-  },
-  tierName: {
-    fontWeight: 'bold',
-    fontSize: '0.9rem',
-  },
-  tierRange: {
-    fontSize: '0.7rem',
-    marginTop: '4px',
-    opacity: 0.8,
-  },
-  bottomSection: {
-    width: '100%',
-    maxWidth: '600px',
-    display: 'flex',
-    flexDirection: 'column',
-    alignItems: 'center',
-  },
-  toggleButton: {
-    padding: '10px 24px',
-    fontSize: '1rem',
-    fontWeight: 'bold',
-    backgroundColor: '#333',
-    color: '#fff',
-    border: '2px solid #555',
-    borderRadius: '8px',
-    cursor: 'pointer',
-    marginBottom: '15px',
-    transition: 'all 0.2s ease',
-  },
   catalogue: {
     width: '100%',
+    maxWidth: '600px',
   },
   catalogueTitle: {
     textAlign: 'center',
@@ -490,31 +391,29 @@ const styles: Record<string, React.CSSProperties> = {
     color: '#aaa',
     marginBottom: '15px',
   },
-  catalogueTier: {
-    marginBottom: '12px',
+  emptyMessage: {
+    textAlign: 'center',
+    color: '#666',
+    fontSize: '1rem',
   },
-  catalogueTierHeader: {
-    padding: '6px 12px',
-    borderRadius: '6px 6px 0 0',
-    fontWeight: 'bold',
-    fontSize: '0.85rem',
-  },
-  catalogueRankGrid: {
+  catalogueGrid: {
     display: 'grid',
-    gridTemplateColumns: 'repeat(10, 1fr)',
-    gap: '4px',
-    padding: '8px',
-    backgroundColor: '#111',
-    borderRadius: '0 0 6px 6px',
+    gridTemplateColumns: 'repeat(auto-fill, minmax(130px, 1fr))',
+    gap: '10px',
   },
-  catalogueRank: {
-    aspectRatio: '1',
-    display: 'flex',
-    alignItems: 'center',
-    justifyContent: 'center',
-    borderRadius: '4px',
+  catalogueItem: {
+    padding: '12px',
+    borderRadius: '8px',
+    textAlign: 'center',
+    transition: 'all 0.2s ease',
+  },
+  catalogueItemName: {
     fontWeight: 'bold',
     fontSize: '0.9rem',
-    transition: 'all 0.2s ease',
+  },
+  catalogueItemPoints: {
+    fontSize: '0.8rem',
+    marginTop: '4px',
+    opacity: 0.9,
   },
 };
