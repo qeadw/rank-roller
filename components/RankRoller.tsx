@@ -714,9 +714,13 @@ export default function RankRoller() {
   const runeOfBeginningCount = runeRollCounts[0] || 0; // Gives +0.1x points per roll
   const runeOfEmbersCount = runeRollCounts[1] || 0; // Gives +0.1x luck per roll
   const runeOfTidesCount = runeRollCounts[2] || 0; // Gives +0.5x speed per roll
+  const runeOfGalesCount = runeRollCounts[3] || 0; // Gives +0.2x rune roll speed per roll
+  const runeOfStoneCount = runeRollCounts[4] || 0; // Gives +1 bulk roll per roll
   const runePointsBonus = 1 + (runeOfBeginningCount * 0.1); // 1.0 + 0.1 per Beginning
   const runeLuckBonus = 1 + (runeOfEmbersCount * 0.1); // 1.0 + 0.1 per Embers
   const runeSpeedBonus = 1 + (runeOfTidesCount * 0.5); // 1.0 + 0.5 per Tides
+  const runeRuneSpeedBonus = 1 + (runeOfGalesCount * 0.2); // 1.0 + 0.2 per Gales
+  const bulkRollCount = 1 + runeOfStoneCount; // 1 + 1 per Stone
 
   // Luck calculations
   const baseLuckMulti = Math.pow(1.1, luckLevel);
@@ -880,7 +884,7 @@ export default function RankRoller() {
 
   // Rune roll time (5 seconds base, affected by rune speed milestones)
   const baseRuneRollTime = 5000;
-  const runeRollTime = Math.floor(baseRuneRollTime / milestoneRuneSpeedBonus);
+  const runeRollTime = Math.floor(baseRuneRollTime / (milestoneRuneSpeedBonus * runeRuneSpeedBonus));
   const runeAnimationInterval = 100; // Animation frame rate for runes
   const runeRollCost = 1000;
   const canAffordRuneRoll = totalPoints >= runeRollCost;
@@ -954,38 +958,59 @@ export default function RankRoller() {
       if (animationCount >= 10) {
         clearInterval(rollTimer);
 
-        // Final roll
-        const result = rollRankWithLuck(ranks, luckMulti);
-        setCurrentRoll(result);
-        setRollCount((c) => c + 1);
+        // Bulk roll - roll multiple times based on bulkRollCount
+        const results: Rank[] = [];
+        for (let i = 0; i < bulkRollCount; i++) {
+          results.push(rollRankWithLuck(ranks, luckMulti));
+        }
 
-        const basePoints = calculatePoints(result);
-        const ascensionMulti = ascendedRanks.has(result.index) ? 2 : 1;
-        const pointsGained = Math.floor(basePoints * ascensionMulti * pointsMulti);
-        setTotalPoints((p) => p + pointsGained);
-        setLastPointsGained(pointsGained);
+        // Find the best result to display
+        const bestResult = results.reduce((best, current) =>
+          current.index > best.index ? current : best
+        );
+        setCurrentRoll(bestResult);
+        setRollCount((c) => c + bulkRollCount);
+
+        // Calculate total points from all rolls
+        let totalPointsGained = 0;
+        const newCollected = new Set<number>();
+        const rollCountUpdates: Record<number, number> = {};
+
+        for (const result of results) {
+          const basePoints = calculatePoints(result);
+          const ascensionMulti = ascendedRanks.has(result.index) ? 2 : 1;
+          totalPointsGained += Math.floor(basePoints * ascensionMulti * pointsMulti);
+          newCollected.add(result.index);
+          rollCountUpdates[result.index] = (rollCountUpdates[result.index] || 0) + 1;
+        }
+
+        setTotalPoints((p) => p + totalPointsGained);
+        setLastPointsGained(totalPointsGained);
 
         setCollectedRanks((prev) => {
           const next = new Set(prev);
-          next.add(result.index);
+          newCollected.forEach((idx) => next.add(idx));
           return next;
         });
 
-        setRankRollCounts((prev) => ({
-          ...prev,
-          [result.index]: (prev[result.index] || 0) + 1,
-        }));
+        setRankRollCounts((prev) => {
+          const next = { ...prev };
+          for (const [idx, count] of Object.entries(rollCountUpdates)) {
+            next[Number(idx)] = (next[Number(idx)] || 0) + count;
+          }
+          return next;
+        });
 
-        const newRollCount = rollCountRef.current + 1;
-        if (!highestRank || result.index > highestRank.index) {
-          setHighestRank(result);
+        const newRollCount = rollCountRef.current + bulkRollCount;
+        if (!highestRank || bestResult.index > highestRank.index) {
+          setHighestRank(bestResult);
           setHighestRankRoll(newRollCount);
         }
 
         setIsRolling(false);
       }
     }, animationInterval);
-  }, [ranks, luckMulti, pointsMulti, animationInterval, highestRank, ascendedRanks]);
+  }, [ranks, luckMulti, pointsMulti, animationInterval, highestRank, ascendedRanks, bulkRollCount]);
 
   // Check if auto-roll is unlocked
   const autoRollUnlocked = claimedMilestones.has('rolls_5000');
@@ -1093,7 +1118,7 @@ export default function RankRoller() {
         </div>
 
         {/* Rune Buffs Panel */}
-        {(runeOfBeginningCount > 0 || runeOfEmbersCount > 0 || runeOfTidesCount > 0) && (
+        {(runeOfBeginningCount > 0 || runeOfEmbersCount > 0 || runeOfTidesCount > 0 || runeOfGalesCount > 0 || runeOfStoneCount > 0) && (
           <div className="rune-buffs-panel" style={styles.runeBuffsPanel}>
             <h3 style={styles.runeBuffsTitle}>Rune Buffs</h3>
             <div style={styles.runeBuffsList}>
@@ -1116,6 +1141,20 @@ export default function RankRoller() {
                   <span style={styles.runeBuffName}>Speed</span>
                   <span style={styles.runeBuffValue}>{runeSpeedBonus.toFixed(2)}x</span>
                   <span style={styles.runeBuffSource}>({runeOfTidesCount}x Tides)</span>
+                </div>
+              )}
+              {runeOfGalesCount > 0 && (
+                <div style={styles.runeBuffItem}>
+                  <span style={styles.runeBuffName}>Rune Speed</span>
+                  <span style={styles.runeBuffValue}>{runeRuneSpeedBonus.toFixed(2)}x</span>
+                  <span style={styles.runeBuffSource}>({runeOfGalesCount}x Gales)</span>
+                </div>
+              )}
+              {runeOfStoneCount > 0 && (
+                <div style={styles.runeBuffItem}>
+                  <span style={styles.runeBuffName}>Bulk Roll</span>
+                  <span style={styles.runeBuffValue}>{bulkRollCount}</span>
+                  <span style={styles.runeBuffSource}>({runeOfStoneCount}x Stone)</span>
                 </div>
               )}
             </div>
@@ -1259,6 +1298,12 @@ export default function RankRoller() {
             <div style={styles.statsPanelItem}>
               <span className="stats-panel-label" style={styles.statsPanelLabel}>Auto Roll</span>
               <span className="stats-panel-value" style={styles.statsPanelValue}>{((animationInterval * 10 * 5) / 1000).toFixed(2)}s</span>
+            </div>
+          )}
+          {bulkRollCount > 1 && (
+            <div style={styles.statsPanelItem}>
+              <span className="stats-panel-label" style={styles.statsPanelLabel}>Bulk Roll</span>
+              <span className="stats-panel-value" style={styles.statsPanelValue}>{bulkRollCount}x</span>
             </div>
           )}
         </div>
