@@ -439,7 +439,7 @@ export default function RankRoller() {
           <div style={styles.upgradeItem}>
             <div style={styles.upgradeInfo}>
               <span style={styles.upgradeName}>Luck</span>
-              <span style={styles.upgradeValue}>{luckMulti.toFixed(2)}x</span>
+              <span style={styles.upgradeValue}>{baseLuckMulti.toFixed(2)}x</span>
               <span style={styles.upgradeLevel}>Lv.{luckLevel}</span>
             </div>
             <button
