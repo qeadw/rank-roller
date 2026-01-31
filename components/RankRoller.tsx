@@ -85,7 +85,7 @@ function rollRank(ranks: Rank[]): Rank {
 
 function calculatePoints(rank: Rank): number {
   const rankNumber = rank.index + 1; // 1-100
-  const exponentialPoints = Math.floor(Math.pow(2, rankNumber / 10));
+  const exponentialPoints = Math.floor(Math.pow(2, rankNumber / 4));
   return Math.max(rankNumber, exponentialPoints);
 }
 
