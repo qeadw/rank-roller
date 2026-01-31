@@ -10,6 +10,7 @@ interface SaveData {
   highestRankIndex: number | null;
   highestRankRoll: number | null;
   collectedRanks: number[];
+  rankRollCounts: Record<number, number>;
   luckLevel: number;
   pointsMultiLevel: number;
   speedLevel: number;
@@ -163,6 +164,7 @@ export default function RankRoller() {
   const [lastPointsGained, setLastPointsGained] = useState<number | null>(null);
   const [isRolling, setIsRolling] = useState(false);
   const [collectedRanks, setCollectedRanks] = useState<Set<number>>(new Set());
+  const [rankRollCounts, setRankRollCounts] = useState<Record<number, number>>({});
   const [expandedTiers, setExpandedTiers] = useState<Set<string>>(new Set());
   const [luckLevel, setLuckLevel] = useState(0);
   const [pointsMultiLevel, setPointsMultiLevel] = useState(0);
@@ -184,6 +186,7 @@ export default function RankRoller() {
         }
         setHighestRankRoll(data.highestRankRoll || null);
         setCollectedRanks(new Set(data.collectedRanks || []));
+        setRankRollCounts(data.rankRollCounts || {});
         setLuckLevel(data.luckLevel || 0);
         setPointsMultiLevel(data.pointsMultiLevel || 0);
         setSpeedLevel(data.speedLevel || 0);
@@ -205,13 +208,14 @@ export default function RankRoller() {
       highestRankIndex: highestRank?.index ?? null,
       highestRankRoll,
       collectedRanks: Array.from(collectedRanks),
+      rankRollCounts,
       luckLevel,
       pointsMultiLevel,
       speedLevel,
       claimedMilestones: Array.from(claimedMilestones),
     };
     setCookie(SAVE_KEY, JSON.stringify(saveData));
-  }, [isLoaded, rollCount, totalPoints, highestRank, highestRankRoll, collectedRanks, luckLevel, pointsMultiLevel, speedLevel, claimedMilestones]);
+  }, [isLoaded, rollCount, totalPoints, highestRank, highestRankRoll, collectedRanks, rankRollCounts, luckLevel, pointsMultiLevel, speedLevel, claimedMilestones]);
 
   useEffect(() => {
     saveGame();
@@ -311,6 +315,15 @@ export default function RankRoller() {
     return Math.floor(calculatePoints(rank) * pointsMulti);
   };
 
+  // Get total roll count for a tier
+  const getTierRollCount = (tierIndex: number): number => {
+    let total = 0;
+    for (let i = 0; i < 10; i++) {
+      total += rankRollCounts[tierIndex * 10 + i] || 0;
+    }
+    return total;
+  };
+
   const handleRoll = () => {
     setIsRolling(true);
 
@@ -340,6 +353,11 @@ export default function RankRoller() {
           return next;
         });
 
+        setRankRollCounts((prev) => ({
+          ...prev,
+          [result.index]: (prev[result.index] || 0) + 1,
+        }));
+
         const newRollCount = rollCount + 1;
         if (!highestRank || result.index > highestRank.index) {
           setHighestRank(result);
@@ -366,6 +384,16 @@ export default function RankRoller() {
 
   return (
     <div style={styles.container}>
+      {/* Milestones Panel - Top Left */}
+      <div style={styles.milestonesPanel}>
+        <button
+          onClick={() => setShowMilestones(true)}
+          style={styles.milestonesBtn}
+        >
+          Milestones {unclaimedMilestones.length > 0 && `(${unclaimedMilestones.length})`}
+        </button>
+      </div>
+
       {/* Upgrades Panel - Top Right */}
       <div style={styles.upgradesPanel}>
         <h3 style={styles.upgradesTitle}>Upgrades</h3>
@@ -428,12 +456,6 @@ export default function RankRoller() {
             </button>
           </div>
         </div>
-        <button
-          onClick={() => setShowMilestones(true)}
-          style={styles.milestonesBtn}
-        >
-          Milestones {unclaimedMilestones.length > 0 && `(${unclaimedMilestones.length})`}
-        </button>
       </div>
 
       {/* Milestones Modal */}
@@ -628,6 +650,9 @@ export default function RankRoller() {
                               <div style={styles.tierRankPoints}>
                                 {points.toLocaleString()} pts
                               </div>
+                              <div style={styles.tierRankRolls}>
+                                {(rankRollCounts[rank.index] || 0).toLocaleString()}x
+                              </div>
                             </div>
                           );
                         })}
@@ -650,6 +675,9 @@ export default function RankRoller() {
                     >
                       <div style={styles.catalogueItemName}>{tier}</div>
                       <div style={styles.completeLabel}>COMPLETE</div>
+                      <div style={styles.catalogueItemRolls}>
+                        Rolled: {getTierRollCount(tierIndex).toLocaleString()}x
+                      </div>
                     </div>
                   );
                 }
@@ -676,6 +704,9 @@ export default function RankRoller() {
                       </div>
                       <div style={styles.catalogueItemPoints}>
                         {points.toLocaleString()} pts
+                      </div>
+                      <div style={styles.catalogueItemRolls}>
+                        Rolled: {(rankRollCounts[rank.index] || 0).toLocaleString()}x
                       </div>
                     </div>
                   );
@@ -808,6 +839,12 @@ const styles: Record<string, React.CSSProperties> = {
   highestPlaceholder: {
     color: '#666',
   },
+  milestonesPanel: {
+    position: 'fixed',
+    top: '20px',
+    left: '20px',
+    zIndex: 100,
+  },
   upgradesPanel: {
     position: 'fixed',
     top: '20px',
@@ -869,17 +906,16 @@ const styles: Record<string, React.CSSProperties> = {
     whiteSpace: 'nowrap',
   },
   milestonesBtn: {
-    marginTop: '10px',
-    padding: '8px 12px',
-    fontSize: '0.85rem',
+    padding: '12px 16px',
+    fontSize: '0.9rem',
     fontWeight: 'bold',
     backgroundColor: '#9333ea',
     color: '#fff',
-    border: 'none',
-    borderRadius: '6px',
+    border: '2px solid rgba(147, 51, 234, 0.5)',
+    borderRadius: '8px',
     cursor: 'pointer',
-    width: '100%',
     transition: 'all 0.2s ease',
+    boxShadow: '0 4px 20px rgba(147, 51, 234, 0.3)',
   },
   modalOverlay: {
     position: 'fixed',
@@ -1009,6 +1045,11 @@ const styles: Record<string, React.CSSProperties> = {
     marginTop: '2px',
     opacity: 0.9,
   },
+  catalogueItemRolls: {
+    fontSize: '0.7rem',
+    marginTop: '2px',
+    opacity: 0.7,
+  },
   completeTier: {
     cursor: 'pointer',
     border: '2px solid rgba(255, 255, 255, 0.3)',
@@ -1067,5 +1108,9 @@ const styles: Record<string, React.CSSProperties> = {
   tierRankPoints: {
     fontSize: '0.65rem',
     opacity: 0.9,
+  },
+  tierRankRolls: {
+    fontSize: '0.6rem',
+    opacity: 0.7,
   },
 };
