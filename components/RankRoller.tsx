@@ -650,7 +650,7 @@ export default function RankRoller() {
   return (
     <div style={styles.container}>
       {/* Milestones Panel - Top Left */}
-      <div style={styles.milestonesPanel}>
+      <div className="milestones-panel" style={styles.milestonesPanel}>
         <button
           onClick={() => setShowMilestones(true)}
           style={styles.milestonesBtn}
@@ -660,52 +660,53 @@ export default function RankRoller() {
       </div>
 
       {/* Stats Display - Next to Upgrades */}
-      <div style={styles.statsPanel}>
-        <h3 style={styles.statsPanelTitle}>Total Stats</h3>
+      <div className="stats-panel" style={styles.statsPanel}>
+        <h3 className="stats-panel-title" style={styles.statsPanelTitle}>Total Stats</h3>
         <div style={styles.statsPanelList}>
           {luckMulti > 1.0 && (
             <div style={styles.statsPanelItem}>
-              <span style={styles.statsPanelLabel}>Luck</span>
-              <span style={styles.statsPanelValue}>{luckMulti.toFixed(2)}x</span>
+              <span className="stats-panel-label" style={styles.statsPanelLabel}>Luck</span>
+              <span className="stats-panel-value" style={styles.statsPanelValue}>{luckMulti.toFixed(2)}x</span>
             </div>
           )}
           {pointsMulti > 1.0 && (
             <div style={styles.statsPanelItem}>
-              <span style={styles.statsPanelLabel}>Points</span>
-              <span style={styles.statsPanelValue}>{pointsMulti.toFixed(2)}x</span>
+              <span className="stats-panel-label" style={styles.statsPanelLabel}>Points</span>
+              <span className="stats-panel-value" style={styles.statsPanelValue}>{pointsMulti.toFixed(2)}x</span>
             </div>
           )}
           {speedMulti > 1.0 && (
             <div style={styles.statsPanelItem}>
-              <span style={styles.statsPanelLabel}>Speed</span>
-              <span style={styles.statsPanelValue}>{speedMulti.toFixed(2)}x</span>
+              <span className="stats-panel-label" style={styles.statsPanelLabel}>Speed</span>
+              <span className="stats-panel-value" style={styles.statsPanelValue}>{speedMulti.toFixed(2)}x</span>
             </div>
           )}
           <div style={styles.statsPanelItem}>
-            <span style={styles.statsPanelLabel}>Roll Time</span>
-            <span style={styles.statsPanelValue}>{((animationInterval * 10) / 1000).toFixed(2)}s</span>
+            <span className="stats-panel-label" style={styles.statsPanelLabel}>Roll Time</span>
+            <span className="stats-panel-value" style={styles.statsPanelValue}>{((animationInterval * 10) / 1000).toFixed(2)}s</span>
           </div>
           {autoRollUnlocked && (
             <div style={styles.statsPanelItem}>
-              <span style={styles.statsPanelLabel}>Auto Roll</span>
-              <span style={styles.statsPanelValue}>{((animationInterval * 10 * 5) / 1000).toFixed(2)}s</span>
+              <span className="stats-panel-label" style={styles.statsPanelLabel}>Auto Roll</span>
+              <span className="stats-panel-value" style={styles.statsPanelValue}>{((animationInterval * 10 * 5) / 1000).toFixed(2)}s</span>
             </div>
           )}
         </div>
       </div>
 
       {/* Upgrades Panel - Top Right */}
-      <div style={styles.upgradesPanel}>
+      <div className="upgrades-panel" style={styles.upgradesPanel}>
         <h3 style={styles.upgradesTitle}>Upgrades</h3>
-        <div style={styles.upgradesList}>
+        <div className="upgrades-list" style={styles.upgradesList}>
           {/* Luck Upgrade */}
-          <div style={styles.upgradeItem}>
-            <div style={styles.upgradeInfo}>
-              <span style={styles.upgradeName}>Luck</span>
-              <span style={styles.upgradeValue}>{baseLuckMulti.toFixed(2)}x</span>
-              <span style={styles.upgradeLevel}>Lv.{luckLevel}</span>
+          <div className="upgrade-item" style={styles.upgradeItem}>
+            <div className="upgrade-info" style={styles.upgradeInfo}>
+              <span className="upgrade-name" style={styles.upgradeName}>Luck</span>
+              <span className="upgrade-value" style={styles.upgradeValue}>{baseLuckMulti.toFixed(2)}x</span>
+              <span className="upgrade-level" style={styles.upgradeLevel}>Lv.{luckLevel}</span>
             </div>
             <button
+              className="upgrade-btn"
               onClick={handleUpgradeLuck}
               disabled={!canAffordLuckUpgrade}
               style={{
@@ -718,13 +719,14 @@ export default function RankRoller() {
             </button>
           </div>
           {/* Points Multiplier Upgrade */}
-          <div style={styles.upgradeItem}>
-            <div style={styles.upgradeInfo}>
-              <span style={styles.upgradeName}>Points</span>
-              <span style={styles.upgradeValue}>{basePointsMulti.toFixed(2)}x</span>
-              <span style={styles.upgradeLevel}>Lv.{pointsMultiLevel}</span>
+          <div className="upgrade-item" style={styles.upgradeItem}>
+            <div className="upgrade-info" style={styles.upgradeInfo}>
+              <span className="upgrade-name" style={styles.upgradeName}>Points</span>
+              <span className="upgrade-value" style={styles.upgradeValue}>{basePointsMulti.toFixed(2)}x</span>
+              <span className="upgrade-level" style={styles.upgradeLevel}>Lv.{pointsMultiLevel}</span>
             </div>
             <button
+              className="upgrade-btn"
               onClick={handleUpgradePoints}
               disabled={!canAffordPointsUpgrade}
               style={{
@@ -737,13 +739,14 @@ export default function RankRoller() {
             </button>
           </div>
           {/* Speed Upgrade */}
-          <div style={styles.upgradeItem}>
-            <div style={styles.upgradeInfo}>
-              <span style={styles.upgradeName}>Speed</span>
-              <span style={styles.upgradeValue}>{baseSpeedMulti.toFixed(2)}x</span>
-              <span style={styles.upgradeLevel}>Lv.{speedLevel}</span>
+          <div className="upgrade-item" style={styles.upgradeItem}>
+            <div className="upgrade-info" style={styles.upgradeInfo}>
+              <span className="upgrade-name" style={styles.upgradeName}>Speed</span>
+              <span className="upgrade-value" style={styles.upgradeValue}>{baseSpeedMulti.toFixed(2)}x</span>
+              <span className="upgrade-level" style={styles.upgradeLevel}>Lv.{speedLevel}</span>
             </div>
             <button
+              className="upgrade-btn"
               onClick={handleUpgradeSpeed}
               disabled={!canAffordSpeedUpgrade}
               style={{
@@ -761,9 +764,9 @@ export default function RankRoller() {
       {/* Milestones Modal */}
       {showMilestones && (
         <div style={styles.modalOverlay} onClick={() => setShowMilestones(false)}>
-          <div style={styles.modal} onClick={(e) => e.stopPropagation()}>
-            <h2 style={styles.modalTitle}>Milestones</h2>
-            <div style={styles.milestonesList}>
+          <div className="modal" style={styles.modal} onClick={(e) => e.stopPropagation()}>
+            <h2 className="modal-title" style={styles.modalTitle}>Milestones</h2>
+            <div className="milestones-list" style={styles.milestonesList}>
               {MILESTONES.filter((milestone) => {
                 const isCompleted = milestone.requirement(milestoneState);
                 const isClaimed = claimedMilestones.has(milestone.id);
@@ -825,7 +828,7 @@ export default function RankRoller() {
       {/* Ascension Prompt Modal */}
       {ascendPrompt !== null && (
         <div style={styles.modalOverlay} onClick={() => setAscendPrompt(null)}>
-          <div style={styles.modal} onClick={(e) => e.stopPropagation()}>
+          <div className="modal" style={styles.modal} onClick={(e) => e.stopPropagation()}>
             <h2 style={styles.ascendTitle}>Ascend Rank?</h2>
             <div style={styles.ascendInfo}>
               <div style={styles.ascendRankName}>{ranks[ascendPrompt].displayName}</div>
@@ -854,7 +857,7 @@ export default function RankRoller() {
         </div>
       )}
 
-      <h1 style={styles.title}>Rank Roller</h1>
+      <h1 className="game-title" style={styles.title}>Rank Roller</h1>
 
       <div style={styles.statsColumn}>
         <div style={styles.stat}>
@@ -874,6 +877,7 @@ export default function RankRoller() {
 
       {/* Current Roll Display */}
       <div
+        className="roll-display"
         style={{
           ...styles.rollDisplay,
           backgroundColor: colors?.bg || '#333',
@@ -883,8 +887,8 @@ export default function RankRoller() {
       >
         {currentRoll ? (
           <>
-            <div style={styles.rollTier}>{currentRoll.tier}</div>
-            <div style={styles.rollNumber}>{currentRoll.tierNumber}</div>
+            <div className="roll-tier" style={styles.rollTier}>{currentRoll.tier}</div>
+            <div className="roll-number" style={styles.rollNumber}>{currentRoll.tierNumber}</div>
             <div style={styles.rollProbability}>
               {formatProbability(getEffectiveProbability(currentRoll, ranks, luckMulti))}
             </div>
@@ -895,6 +899,7 @@ export default function RankRoller() {
       </div>
 
       <button
+        className="roll-button"
         onClick={handleRoll}
         disabled={isRolling || autoRollEnabled}
         style={{
@@ -908,6 +913,7 @@ export default function RankRoller() {
 
       {autoRollUnlocked && (
         <button
+          className="auto-roll-btn"
           onClick={() => setAutoRollEnabled((prev) => !prev)}
           style={{
             ...styles.autoRollBtn,
@@ -946,14 +952,14 @@ export default function RankRoller() {
       </div>
 
       {/* Catalogue */}
-      <div style={styles.catalogue}>
+      <div className="catalogue-section" style={styles.catalogue}>
         <h3 style={styles.catalogueTitle}>
           Catalogue ({collectedCount}/100)
         </h3>
         {collectedCount === 0 ? (
           <div style={styles.emptyMessage}>Roll to start collecting ranks!</div>
         ) : (
-          <div style={styles.catalogueGrid}>
+          <div className="catalogue-grid" style={styles.catalogueGrid}>
             {TIER_NAMES.map((tier, tierIndex) => {
               const tierColors = TIER_COLORS[tier];
               const tierRanks = ranks.slice(tierIndex * 10, tierIndex * 10 + 10);
@@ -1061,6 +1067,7 @@ export default function RankRoller() {
                   return (
                     <div
                       key={rank.index}
+                      className="catalogue-item"
                       onClick={() => isAscendable && setAscendPrompt(rank.index)}
                       style={{
                         ...styles.catalogueItem,
@@ -1072,7 +1079,7 @@ export default function RankRoller() {
                         cursor: isAscendable ? 'pointer' : 'default',
                       }}
                     >
-                      <div style={styles.catalogueItemName}>
+                      <div className="catalogue-item-name" style={styles.catalogueItemName}>
                         {rank.displayName}{isAscended && ' ★'}
                       </div>
                       <div style={styles.catalogueItemChance}>
@@ -1098,8 +1105,9 @@ export default function RankRoller() {
       </div>
 
       {/* Reset Button - Bottom Left */}
-      <div style={styles.resetPanel}>
+      <div className="reset-panel" style={styles.resetPanel}>
         <button
+          className="reset-btn"
           onClick={() => setShowResetModal(true)}
           style={styles.resetBtn}
         >
@@ -1110,7 +1118,7 @@ export default function RankRoller() {
       {/* Reset Modal */}
       {showResetModal && (
         <div style={styles.modalOverlay} onClick={() => { setShowResetModal(false); setResetInput(''); }}>
-          <div style={styles.modal} onClick={(e) => e.stopPropagation()}>
+          <div className="modal" style={styles.modal} onClick={(e) => e.stopPropagation()}>
             <h2 style={styles.resetTitle}>Reset Progress?</h2>
             <div style={styles.resetWarning}>
               This will permanently delete all your progress including rolls, points, upgrades, and milestones.
