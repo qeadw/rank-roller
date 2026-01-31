@@ -213,6 +213,32 @@ export default function RankRoller() {
 
   return (
     <div style={styles.container}>
+      {/* Upgrades Panel - Top Right */}
+      <div style={styles.upgradesPanel}>
+        <h3 style={styles.upgradesTitle}>Upgrades</h3>
+        <div style={styles.upgradesList}>
+          {/* Luck Upgrade */}
+          <div style={styles.upgradeItem}>
+            <div style={styles.upgradeInfo}>
+              <span style={styles.upgradeName}>Luck</span>
+              <span style={styles.upgradeValue}>{luckMulti.toFixed(2)}x</span>
+              <span style={styles.upgradeLevel}>Lv.{luckLevel}</span>
+            </div>
+            <button
+              onClick={handleUpgradeLuck}
+              disabled={!canAffordUpgrade}
+              style={{
+                ...styles.upgradeBtn,
+                opacity: canAffordUpgrade ? 1 : 0.5,
+                cursor: canAffordUpgrade ? 'pointer' : 'not-allowed',
+              }}
+            >
+              {upgradeCost.toLocaleString()}
+            </button>
+          </div>
+        </div>
+      </div>
+
       <h1 style={styles.title}>Rank Roller</h1>
 
       <div style={styles.statsColumn}>
@@ -287,26 +313,6 @@ export default function RankRoller() {
             <div style={styles.highestPlaceholder}>None yet</div>
           )}
         </div>
-      </div>
-
-      {/* Luck Upgrade */}
-      <div style={styles.upgradeSection}>
-        <div style={styles.luckDisplay}>
-          <span style={styles.luckLabel}>Luck</span>
-          <span style={styles.luckValue}>{luckMulti.toFixed(2)}x</span>
-          <span style={styles.luckLevel}>Level {luckLevel}</span>
-        </div>
-        <button
-          onClick={handleUpgradeLuck}
-          disabled={!canAffordUpgrade}
-          style={{
-            ...styles.upgradeButton,
-            opacity: canAffordUpgrade ? 1 : 0.5,
-            cursor: canAffordUpgrade ? 'pointer' : 'not-allowed',
-          }}
-        >
-          Upgrade ({upgradeCost.toLocaleString()} pts)
-        </button>
       </div>
 
       {/* Catalogue */}
@@ -544,44 +550,65 @@ const styles: Record<string, React.CSSProperties> = {
   highestPlaceholder: {
     color: '#666',
   },
-  upgradeSection: {
-    display: 'flex',
-    flexDirection: 'column',
-    alignItems: 'center',
-    marginBottom: '30px',
-    padding: '15px 25px',
-    backgroundColor: 'rgba(255, 215, 0, 0.1)',
+  upgradesPanel: {
+    position: 'fixed',
+    top: '20px',
+    right: '20px',
+    backgroundColor: 'rgba(30, 30, 50, 0.95)',
     borderRadius: '12px',
+    padding: '15px',
+    minWidth: '180px',
     border: '2px solid rgba(255, 215, 0, 0.3)',
+    boxShadow: '0 4px 20px rgba(0, 0, 0, 0.3)',
+    zIndex: 100,
   },
-  luckDisplay: {
+  upgradesTitle: {
+    margin: '0 0 12px 0',
+    fontSize: '1rem',
+    color: '#ffd700',
+    textAlign: 'center',
+    borderBottom: '1px solid rgba(255, 215, 0, 0.3)',
+    paddingBottom: '8px',
+  },
+  upgradesList: {
     display: 'flex',
     flexDirection: 'column',
+    gap: '10px',
+  },
+  upgradeItem: {
+    display: 'flex',
     alignItems: 'center',
-    marginBottom: '10px',
+    justifyContent: 'space-between',
+    gap: '10px',
   },
-  luckLabel: {
-    fontSize: '0.9rem',
-    color: '#ffd700',
+  upgradeInfo: {
+    display: 'flex',
+    flexDirection: 'column',
   },
-  luckValue: {
-    fontSize: '1.8rem',
+  upgradeName: {
+    fontSize: '0.85rem',
+    color: '#fff',
     fontWeight: 'bold',
-    color: '#ffd700',
   },
-  luckLevel: {
-    fontSize: '0.8rem',
+  upgradeValue: {
+    fontSize: '1.1rem',
+    color: '#ffd700',
+    fontWeight: 'bold',
+  },
+  upgradeLevel: {
+    fontSize: '0.7rem',
     color: '#888',
   },
-  upgradeButton: {
-    padding: '10px 20px',
-    fontSize: '1rem',
+  upgradeBtn: {
+    padding: '8px 12px',
+    fontSize: '0.85rem',
     fontWeight: 'bold',
     backgroundColor: '#ffd700',
     color: '#000',
     border: 'none',
-    borderRadius: '8px',
+    borderRadius: '6px',
     transition: 'all 0.2s ease',
+    whiteSpace: 'nowrap',
   },
   catalogue: {
     width: '100%',
