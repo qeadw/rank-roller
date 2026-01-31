@@ -713,8 +713,10 @@ export default function RankRoller() {
   // Rune bonuses (additive with themselves, compounding with others)
   const runeOfBeginningCount = runeRollCounts[0] || 0; // Gives +0.1x points per roll
   const runeOfEmbersCount = runeRollCounts[1] || 0; // Gives +0.1x luck per roll
+  const runeOfTidesCount = runeRollCounts[2] || 0; // Gives +0.5x speed per roll
   const runePointsBonus = 1 + (runeOfBeginningCount * 0.1); // 1.0 + 0.1 per Beginning
   const runeLuckBonus = 1 + (runeOfEmbersCount * 0.1); // 1.0 + 0.1 per Embers
+  const runeSpeedBonus = 1 + (runeOfTidesCount * 0.5); // 1.0 + 0.5 per Tides
 
   // Luck calculations
   const baseLuckMulti = Math.pow(1.1, luckLevel);
@@ -744,7 +746,7 @@ export default function RankRoller() {
 
   // Speed calculations
   const baseSpeedMulti = Math.pow(1.1, speedLevel);
-  const speedMulti = baseSpeedMulti * milestoneSpeedBonus;
+  const speedMulti = baseSpeedMulti * milestoneSpeedBonus * runeSpeedBonus;
   const speedUpgradeCost = Math.floor(100 * Math.pow(5, speedLevel));
   const canAffordSpeedUpgrade = totalPoints >= speedUpgradeCost;
   const animationInterval = Math.floor(50 / speedMulti);
@@ -1091,7 +1093,7 @@ export default function RankRoller() {
         </div>
 
         {/* Rune Buffs Panel */}
-        {(runeOfBeginningCount > 0 || runeOfEmbersCount > 0) && (
+        {(runeOfBeginningCount > 0 || runeOfEmbersCount > 0 || runeOfTidesCount > 0) && (
           <div className="rune-buffs-panel" style={styles.runeBuffsPanel}>
             <h3 style={styles.runeBuffsTitle}>Rune Buffs</h3>
             <div style={styles.runeBuffsList}>
@@ -1107,6 +1109,13 @@ export default function RankRoller() {
                   <span style={styles.runeBuffName}>Luck</span>
                   <span style={styles.runeBuffValue}>{runeLuckBonus.toFixed(2)}x</span>
                   <span style={styles.runeBuffSource}>({runeOfEmbersCount}x Embers)</span>
+                </div>
+              )}
+              {runeOfTidesCount > 0 && (
+                <div style={styles.runeBuffItem}>
+                  <span style={styles.runeBuffName}>Speed</span>
+                  <span style={styles.runeBuffValue}>{runeSpeedBonus.toFixed(2)}x</span>
+                  <span style={styles.runeBuffSource}>({runeOfTidesCount}x Tides)</span>
                 </div>
               )}
             </div>
