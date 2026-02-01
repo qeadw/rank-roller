@@ -798,11 +798,15 @@ export default function RankRoller() {
   const runeOfTidesCount = runeRollCounts[2] || 0; // Gives +0.5x speed per roll
   const runeOfGalesCount = runeRollCounts[3] || 0; // Gives +0.2x rune roll speed per roll
   const runeOfStoneCount = runeRollCounts[4] || 0; // Gives +1 bulk roll per roll
+  const runeOfThunderCount = runeRollCounts[5] || 0; // Gives +0.5x rune luck per roll
+  const runeOfFrostCount = runeRollCounts[6] || 0; // Gives +1 rune bulk per roll
   const runePointsBonus = 1 + (runeOfBeginningCount * 0.1); // 1.0 + 0.1 per Beginning
   const runeLuckBonus = 1 + (runeOfEmbersCount * 0.1); // 1.0 + 0.1 per Embers
   const runeSpeedBonus = 1 + (runeOfTidesCount * 0.5); // 1.0 + 0.5 per Tides
   const runeRuneSpeedBonus = 1 + (runeOfGalesCount * 0.2); // 1.0 + 0.2 per Gales
   const bulkRollCount = 1 + runeOfStoneCount; // 1 + 1 per Stone
+  const runeRuneLuckBonus = 1 + (runeOfThunderCount * 0.5); // 1.0 + 0.5 per Thunder
+  const runeBulkCount = 1 + runeOfFrostCount; // 1 + 1 per Frost
 
   // Luck calculations
   const baseLuckMulti = Math.pow(1.1, luckLevel);
@@ -975,11 +979,11 @@ export default function RankRoller() {
   const baseRuneRollTime = 5000;
   const runeRollTime = Math.floor(baseRuneRollTime / (milestoneRuneSpeedBonus * runeRuneSpeedBonus));
   const runeAnimationInterval = 100; // Animation frame rate for runes
-  const runeRollCost = 1000;
+  const runeRollCost = 1000 * runeBulkCount; // Cost scales with rune bulk
   const canAffordRuneRoll = totalPoints >= runeRollCost;
 
-  // Total rune luck (from milestones)
-  const totalRuneLuck = milestoneRuneLuckBonus;
+  // Total rune luck (from milestones and Thunder runes)
+  const totalRuneLuck = milestoneRuneLuckBonus * runeRuneLuckBonus;
 
   // Handle rune roll
   const handleRuneRoll = useCallback(() => {
@@ -999,8 +1003,15 @@ export default function RankRoller() {
       if (animationCount >= animationFrames) {
         clearInterval(rollTimer);
 
-        // Final roll
-        const result = rollRuneWithLuck(runes, totalRuneLuck);
+        // Final roll with bulk (roll multiple times, keep the best/rarest)
+        const results: Rune[] = [];
+        for (let i = 0; i < runeBulkCount; i++) {
+          results.push(rollRuneWithLuck(runes, totalRuneLuck));
+        }
+        const result = results.reduce((best, current) =>
+          current.index > best.index ? current : best
+        );
+
         setCurrentRuneRoll(result);
         setRuneRollCount((c) => c + 1);
 
@@ -1018,7 +1029,7 @@ export default function RankRoller() {
         setIsRollingRune(false);
       }
     }, runeAnimationInterval);
-  }, [runes, canAffordRuneRoll, isRollingRune, runeRollTime, totalRuneLuck]);
+  }, [runes, canAffordRuneRoll, isRollingRune, runeRollTime, totalRuneLuck, runeRollCost, runeBulkCount]);
 
   // Get total roll count for a tier
   const getTierRollCount = (tierIndex: number): number => {
@@ -1203,6 +1214,12 @@ export default function RankRoller() {
                 <span className="stats-panel-value" style={styles.statsPanelValue}>{totalRuneLuck.toFixed(2)}x</span>
               </div>
             )}
+            {runeBulkCount > 1 && (
+              <div style={styles.statsPanelItem}>
+                <span className="stats-panel-label" style={styles.statsPanelLabel}>Rune Bulk</span>
+                <span className="stats-panel-value" style={styles.statsPanelValue}>{runeBulkCount}x</span>
+              </div>
+            )}
           </div>
           <button
             onClick={() => setShowPercentFormat(!showPercentFormat)}
@@ -1213,7 +1230,7 @@ export default function RankRoller() {
         </div>
 
         {/* Rune Buffs Panel */}
-        {(runeOfBeginningCount > 0 || runeOfEmbersCount > 0 || runeOfTidesCount > 0 || runeOfGalesCount > 0 || runeOfStoneCount > 0) && (
+        {(runeOfBeginningCount > 0 || runeOfEmbersCount > 0 || runeOfTidesCount > 0 || runeOfGalesCount > 0 || runeOfStoneCount > 0 || runeOfThunderCount > 0 || runeOfFrostCount > 0) && (
           <div className="rune-buffs-panel" style={styles.runeBuffsPanel}>
             <h3 style={styles.runeBuffsTitle}>Rune Buffs</h3>
             <div style={styles.runeBuffsList}>
@@ -1250,6 +1267,20 @@ export default function RankRoller() {
                   <span style={styles.runeBuffName}>Bulk Roll</span>
                   <span style={styles.runeBuffValue}>{bulkRollCount}</span>
                   <span style={styles.runeBuffSource}>({runeOfStoneCount}x Stone)</span>
+                </div>
+              )}
+              {runeOfThunderCount > 0 && (
+                <div style={styles.runeBuffItem}>
+                  <span style={styles.runeBuffName}>Rune Luck</span>
+                  <span style={styles.runeBuffValue}>{runeRuneLuckBonus.toFixed(2)}x</span>
+                  <span style={styles.runeBuffSource}>({runeOfThunderCount}x Thunder)</span>
+                </div>
+              )}
+              {runeOfFrostCount > 0 && (
+                <div style={styles.runeBuffItem}>
+                  <span style={styles.runeBuffName}>Rune Bulk</span>
+                  <span style={styles.runeBuffValue}>{runeBulkCount}</span>
+                  <span style={styles.runeBuffSource}>({runeOfFrostCount}x Frost)</span>
                 </div>
               )}
             </div>
