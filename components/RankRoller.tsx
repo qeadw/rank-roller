@@ -631,8 +631,11 @@ function generateRanks(): Rank[] {
 function getEffectiveWeights(ranks: Rank[], luckMulti: number): number[] {
   // Luck multiplier boosts higher tiers linearly
   // Common (tier 0) gets no boost, Ultimate (tier 9) gets full luck boost
-  // This makes a 1 in 1,000,000 become ~1 in 10,000 with 100x luck
-  return ranks.map((rank) => rank.weight * Math.pow(luckMulti, rank.tierNumber / 9));
+  // tierIndex is 0-9 based on rank.index (0-9 = Common, 10-19 = Uncommon, etc.)
+  return ranks.map((rank) => {
+    const tierIndex = Math.floor(rank.index / 10);
+    return rank.weight * Math.pow(luckMulti, tierIndex / 9);
+  });
 }
 
 function rollRankWithLuck(ranks: Rank[], luckMulti: number): Rank {
@@ -1013,7 +1016,7 @@ export default function RankRoller() {
         );
 
         setCurrentRuneRoll(result);
-        setRuneRollCount((c) => c + 1);
+        setRuneRollCount((c) => c + runeBulkCount);
 
         setCollectedRunes((prev) => {
           const next = new Set(prev);
