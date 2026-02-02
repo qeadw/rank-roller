@@ -629,12 +629,11 @@ function generateRanks(): Rank[] {
 }
 
 function getEffectiveWeights(ranks: Rank[], luckMulti: number): number[] {
-  // Luck multiplier boosts higher tiers linearly
-  // Common (tier 0) gets no boost, Ultimate (tier 9) gets full luck boost
-  // tierIndex is 0-9 based on rank.index (0-9 = Common, 10-19 = Uncommon, etc.)
+  // Luck multiplier boosts higher ranks smoothly based on individual rank index
+  // Rank 0 (Common 1) gets no boost, Rank 99 (Ultimate 10) gets full luck boost
+  // This ensures rarer ranks always stay rarer, even with very high luck
   return ranks.map((rank) => {
-    const tierIndex = Math.floor(rank.index / 10);
-    return rank.weight * Math.pow(luckMulti, tierIndex / 9);
+    return rank.weight * Math.pow(luckMulti, rank.index / 99);
   });
 }
 
@@ -803,24 +802,33 @@ export default function RankRoller() {
   const runeOfStoneCount = runeRollCounts[4] || 0; // Gives +1 bulk roll per roll
   const runeOfThunderCount = runeRollCounts[5] || 0; // Gives +0.5x rune luck per roll
   const runeOfFrostCount = runeRollCounts[6] || 0; // Gives +1 rune bulk per roll
-  const runePointsBonus = 1 + (runeOfBeginningCount * 0.1); // 1.0 + 0.1 per Beginning
-  const runeLuckBonus = 1 + (runeOfEmbersCount * 0.1); // 1.0 + 0.1 per Embers
-  const runeSpeedBonus = 1 + (runeOfTidesCount * 0.5); // 1.0 + 0.5 per Tides
-  const runeRuneSpeedBonus = 1 + (runeOfGalesCount * 0.2); // 1.0 + 0.2 per Gales
-  const bulkRollCount = 1 + runeOfStoneCount; // 1 + 1 per Stone
-  const runeRuneLuckBonus = 1 + (runeOfThunderCount * 0.5); // 1.0 + 0.5 per Thunder
-  const runeBulkCount = 1 + runeOfFrostCount; // 1 + 1 per Frost
+  const runeOfShadowCount = runeRollCounts[7] || 0; // Gives -10% upgrade cost per roll (multiplicative)
+  const runeOfLightCount = runeRollCounts[8] || 0; // Gives +1x ascension multiplier per roll (2x -> 3x -> 4x...)
+  const runeOfEternityCount = runeRollCounts[9] || 0; // Gives +50% to ALL bonuses per roll (multiplicative)
+
+  // Eternity multiplier affects everything (1.5x per Eternity, multiplicative)
+  const eternityMultiplier = Math.pow(1.5, runeOfEternityCount);
+
+  const runePointsBonus = (1 + (runeOfBeginningCount * 0.1)) * eternityMultiplier; // 1.0 + 0.1 per Beginning
+  const runeLuckBonus = (1 + (runeOfEmbersCount * 0.1)) * eternityMultiplier; // 1.0 + 0.1 per Embers
+  const runeSpeedBonus = (1 + (runeOfTidesCount * 0.5)) * eternityMultiplier; // 1.0 + 0.5 per Tides
+  const runeRuneSpeedBonus = (1 + (runeOfGalesCount * 0.2)) * eternityMultiplier; // 1.0 + 0.2 per Gales
+  const bulkRollCount = Math.floor((1 + runeOfStoneCount) * eternityMultiplier); // 1 + 1 per Stone
+  const runeRuneLuckBonus = (1 + (runeOfThunderCount * 0.5)) * eternityMultiplier; // 1.0 + 0.5 per Thunder
+  const runeBulkCount = Math.floor((1 + runeOfFrostCount) * eternityMultiplier); // 1 + 1 per Frost
+  const shadowCostReduction = Math.pow(0.9, runeOfShadowCount) / eternityMultiplier; // 10% cheaper per Shadow, Eternity makes it even cheaper
+  const lightAscensionBonus = 2 + runeOfLightCount + (eternityMultiplier - 1); // 2x base + 1x per Light + Eternity bonus
 
   // Luck calculations
   const baseLuckMulti = Math.pow(1.1, luckLevel);
   const luckMulti = baseLuckMulti * milestoneLuckBonus * runeLuckBonus;
-  const luckUpgradeCost = Math.floor(100 * Math.pow(5, luckLevel));
+  const luckUpgradeCost = Math.floor(100 * Math.pow(5, luckLevel) * shadowCostReduction);
   const canAffordLuckUpgrade = totalPoints >= luckUpgradeCost;
 
   // Points multiplier calculations
   const basePointsMulti = Math.pow(1.1, pointsMultiLevel);
   const pointsMulti = basePointsMulti * milestonePointsBonus * runePointsBonus;
-  const pointsUpgradeCost = Math.floor(100 * Math.pow(5, pointsMultiLevel));
+  const pointsUpgradeCost = Math.floor(100 * Math.pow(5, pointsMultiLevel) * shadowCostReduction);
   const canAffordPointsUpgrade = totalPoints >= pointsUpgradeCost;
 
   const handleUpgradeLuck = () => {
@@ -840,7 +848,7 @@ export default function RankRoller() {
   // Speed calculations
   const baseSpeedMulti = Math.pow(1.1, speedLevel);
   const speedMulti = baseSpeedMulti * milestoneSpeedBonus * runeSpeedBonus;
-  const speedUpgradeCost = Math.floor(100 * Math.pow(5, speedLevel));
+  const speedUpgradeCost = Math.floor(100 * Math.pow(5, speedLevel) * shadowCostReduction);
   const canAffordSpeedUpgrade = totalPoints >= speedUpgradeCost;
   const animationInterval = Math.floor(50 / speedMulti);
 
@@ -921,7 +929,7 @@ export default function RankRoller() {
   // Get points for a rank with multiplier applied (includes ascension bonus)
   const getDisplayPoints = (rank: Rank): number => {
     const basePoints = calculatePoints(rank);
-    const ascensionMulti = ascendedRanks.has(rank.index) ? 2 : 1;
+    const ascensionMulti = ascendedRanks.has(rank.index) ? lightAscensionBonus : 1;
     return Math.floor(basePoints * ascensionMulti * pointsMulti);
   };
 
@@ -1006,28 +1014,39 @@ export default function RankRoller() {
       if (animationCount >= animationFrames) {
         clearInterval(rollTimer);
 
-        // Final roll with bulk (roll multiple times, keep the best/rarest)
+        // Final roll with bulk (roll multiple times, keep the best/rarest for display)
         const results: Rune[] = [];
         for (let i = 0; i < runeBulkCount; i++) {
           results.push(rollRuneWithLuck(runes, totalRuneLuck));
         }
-        const result = results.reduce((best, current) =>
+        const bestResult = results.reduce((best, current) =>
           current.index > best.index ? current : best
         );
 
-        setCurrentRuneRoll(result);
+        setCurrentRuneRoll(bestResult);
         setRuneRollCount((c) => c + runeBulkCount);
+
+        // Track all runes collected and their counts
+        const newCollected = new Set<number>();
+        const runeCountUpdates: Record<number, number> = {};
+        for (const result of results) {
+          newCollected.add(result.index);
+          runeCountUpdates[result.index] = (runeCountUpdates[result.index] || 0) + 1;
+        }
 
         setCollectedRunes((prev) => {
           const next = new Set(prev);
-          next.add(result.index);
+          newCollected.forEach((idx) => next.add(idx));
           return next;
         });
 
-        setRuneRollCounts((prev) => ({
-          ...prev,
-          [result.index]: (prev[result.index] || 0) + 1,
-        }));
+        setRuneRollCounts((prev) => {
+          const next = { ...prev };
+          for (const [idx, count] of Object.entries(runeCountUpdates)) {
+            next[Number(idx)] = (next[Number(idx)] || 0) + count;
+          }
+          return next;
+        });
 
         setIsRollingRune(false);
       }
@@ -1081,7 +1100,7 @@ export default function RankRoller() {
 
         for (const result of results) {
           const basePoints = calculatePoints(result);
-          const ascensionMulti = ascendedRanks.has(result.index) ? 2 : 1;
+          const ascensionMulti = ascendedRanks.has(result.index) ? lightAscensionBonus : 1;
           totalPointsGained += Math.floor(basePoints * ascensionMulti * pointsMulti);
           newCollected.add(result.index);
           rollCountUpdates[result.index] = (rollCountUpdates[result.index] || 0) + 1;
@@ -1113,7 +1132,7 @@ export default function RankRoller() {
         setIsRolling(false);
       }
     }, animationInterval);
-  }, [ranks, luckMulti, pointsMulti, animationInterval, highestRank, ascendedRanks, bulkRollCount]);
+  }, [ranks, luckMulti, pointsMulti, animationInterval, highestRank, ascendedRanks, bulkRollCount, lightAscensionBonus]);
 
   // Check if auto-roll is unlocked
   const autoRollUnlocked = claimedMilestones.has('rolls_5000');
@@ -1233,10 +1252,17 @@ export default function RankRoller() {
         </div>
 
         {/* Rune Buffs Panel */}
-        {(runeOfBeginningCount > 0 || runeOfEmbersCount > 0 || runeOfTidesCount > 0 || runeOfGalesCount > 0 || runeOfStoneCount > 0 || runeOfThunderCount > 0 || runeOfFrostCount > 0) && (
+        {(runeOfBeginningCount > 0 || runeOfEmbersCount > 0 || runeOfTidesCount > 0 || runeOfGalesCount > 0 || runeOfStoneCount > 0 || runeOfThunderCount > 0 || runeOfFrostCount > 0 || runeOfShadowCount > 0 || runeOfLightCount > 0 || runeOfEternityCount > 0) && (
           <div className="rune-buffs-panel" style={styles.runeBuffsPanel}>
             <h3 style={styles.runeBuffsTitle}>Rune Buffs</h3>
             <div style={styles.runeBuffsList}>
+              {runeOfEternityCount > 0 && (
+                <div style={styles.runeBuffItem}>
+                  <span style={{...styles.runeBuffName, color: '#ff00ff'}}>ALL STATS</span>
+                  <span style={{...styles.runeBuffValue, color: '#ff00ff'}}>{eternityMultiplier.toFixed(2)}x</span>
+                  <span style={styles.runeBuffSource}>({runeOfEternityCount}x Eternity)</span>
+                </div>
+              )}
               {runeOfBeginningCount > 0 && (
                 <div style={styles.runeBuffItem}>
                   <span style={styles.runeBuffName}>Points</span>
@@ -1284,6 +1310,20 @@ export default function RankRoller() {
                   <span style={styles.runeBuffName}>Rune Bulk</span>
                   <span style={styles.runeBuffValue}>{runeBulkCount}</span>
                   <span style={styles.runeBuffSource}>({runeOfFrostCount}x Frost)</span>
+                </div>
+              )}
+              {runeOfShadowCount > 0 && (
+                <div style={styles.runeBuffItem}>
+                  <span style={{...styles.runeBuffName, color: '#4a0080'}}>Cost Reduction</span>
+                  <span style={{...styles.runeBuffValue, color: '#4a0080'}}>{((1 - shadowCostReduction) * 100).toFixed(0)}%</span>
+                  <span style={styles.runeBuffSource}>({runeOfShadowCount}x Shadow)</span>
+                </div>
+              )}
+              {runeOfLightCount > 0 && (
+                <div style={styles.runeBuffItem}>
+                  <span style={{...styles.runeBuffName, color: '#ffffff'}}>Ascension</span>
+                  <span style={{...styles.runeBuffValue, color: '#ffffff'}}>{lightAscensionBonus.toFixed(1)}x</span>
+                  <span style={styles.runeBuffSource}>({runeOfLightCount}x Light)</span>
                 </div>
               )}
             </div>
