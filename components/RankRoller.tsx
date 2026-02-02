@@ -807,17 +807,18 @@ export default function RankRoller() {
   const runeOfEternityCount = runeRollCounts[9] || 0; // Gives +50% to ALL bonuses per roll (multiplicative)
 
   // Eternity multiplier affects everything (1.5x per Eternity, multiplicative)
-  const eternityMultiplier = Math.pow(1.5, runeOfEternityCount);
+  // Capped to prevent infinity overflow
+  const eternityMultiplier = Math.min(Math.pow(1.5, runeOfEternityCount), 1e15);
 
-  const runePointsBonus = (1 + (runeOfBeginningCount * 0.1)) * eternityMultiplier; // 1.0 + 0.1 per Beginning
-  const runeLuckBonus = (1 + (runeOfEmbersCount * 0.1)) * eternityMultiplier; // 1.0 + 0.1 per Embers
-  const runeSpeedBonus = (1 + (runeOfTidesCount * 0.5)) * eternityMultiplier; // 1.0 + 0.5 per Tides
-  const runeRuneSpeedBonus = (1 + (runeOfGalesCount * 0.2)) * eternityMultiplier; // 1.0 + 0.2 per Gales
-  const bulkRollCount = Math.floor((1 + runeOfStoneCount) * eternityMultiplier); // 1 + 1 per Stone
-  const runeRuneLuckBonus = (1 + (runeOfThunderCount * 0.5)) * eternityMultiplier; // 1.0 + 0.5 per Thunder
-  const runeBulkCount = Math.floor((1 + runeOfFrostCount) * eternityMultiplier); // 1 + 1 per Frost
-  const shadowCostReduction = Math.pow(0.9, runeOfShadowCount) / eternityMultiplier; // 10% cheaper per Shadow, Eternity makes it even cheaper
-  const lightAscensionBonus = 2 + runeOfLightCount + (eternityMultiplier - 1); // 2x base + 1x per Light + Eternity bonus
+  const runePointsBonus = Math.min((1 + (runeOfBeginningCount * 0.1)) * eternityMultiplier, 1e15);
+  const runeLuckBonus = Math.min((1 + (runeOfEmbersCount * 0.1)) * eternityMultiplier, 1e15);
+  const runeSpeedBonus = Math.min((1 + (runeOfTidesCount * 0.5)) * eternityMultiplier, 1e15);
+  const runeRuneSpeedBonus = Math.min((1 + (runeOfGalesCount * 0.2)) * eternityMultiplier, 1e15);
+  const bulkRollCount = Math.min(Math.floor((1 + runeOfStoneCount) * eternityMultiplier), 1000); // Cap bulk at 1000
+  const runeRuneLuckBonus = Math.min((1 + (runeOfThunderCount * 0.5)) * eternityMultiplier, 1e15);
+  const runeBulkCount = Math.min(Math.floor((1 + runeOfFrostCount) * eternityMultiplier), 1000); // Cap bulk at 1000
+  const shadowCostReduction = Math.max(Math.pow(0.9, runeOfShadowCount) / eternityMultiplier, 1e-15); // Floor to prevent 0
+  const lightAscensionBonus = Math.min(2 + runeOfLightCount + (eternityMultiplier - 1), 1e15);
 
   // Luck calculations
   const baseLuckMulti = Math.pow(1.1, luckLevel);
