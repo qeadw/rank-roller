@@ -1612,7 +1612,7 @@ export default function RankRoller() {
           <div className="upgrade-item" style={styles.upgradeItem}>
             <div className="upgrade-info" style={styles.upgradeInfo}>
               <span className="upgrade-name" style={styles.upgradeName}>Points</span>
-              <span className="upgrade-value" style={styles.upgradeValue}>{formatNumber(basePointsMulti)}x</span>
+              <span className="upgrade-value" style={styles.upgradeValue}>{basePointsMulti.toFixed(2)}x</span>
               <span className="upgrade-level" style={styles.upgradeLevel}>Lv.{pointsMultiLevel}</span>
             </div>
             <button
@@ -1632,7 +1632,7 @@ export default function RankRoller() {
           <div className="upgrade-item" style={styles.upgradeItem}>
             <div className="upgrade-info" style={styles.upgradeInfo}>
               <span className="upgrade-name" style={styles.upgradeName}>Speed</span>
-              <span className="upgrade-value" style={styles.upgradeValue}>{formatNumber(baseSpeedMulti)}x</span>
+              <span className="upgrade-value" style={styles.upgradeValue}>{baseSpeedMulti.toFixed(2)}x</span>
               <span className="upgrade-level" style={styles.upgradeLevel}>Lv.{speedLevel}</span>
             </div>
             <button
