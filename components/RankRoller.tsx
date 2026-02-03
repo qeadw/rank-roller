@@ -40,6 +40,9 @@ interface Milestone {
   pointsBonus?: number;
   speedBonus?: number;
   unlockAutoRoll?: boolean;
+  unlockSlowAutoRoll?: boolean;
+  unlockSlowRuneAutoRoll?: boolean;
+  unlockFastRuneAutoRoll?: boolean;
   runeSpeedBonus?: number;
   runeLuckBonus?: number;
 }
@@ -161,6 +164,14 @@ function hasAnyFromTier(collectedRanks: Set<number>, tierIndex: number): boolean
 }
 
 const MILESTONES: Milestone[] = [
+  {
+    id: 'rolls_100',
+    name: '100 Rolls',
+    description: 'Roll 100 times',
+    requirement: (state) => state.rollCount >= 100,
+    reward: 100,
+    unlockSlowAutoRoll: true,
+  },
   {
     id: 'rolls_1000',
     name: '1,000 Rolls',
@@ -540,6 +551,35 @@ const MILESTONES: Milestone[] = [
     reward: 0,
     runeLuckBonus: 1.1,
   },
+  // Rune autoroll milestones
+  {
+    id: 'rune_rolls_500',
+    name: '500 Rune Rolls',
+    description: 'Roll runes 500 times',
+    requirement: (state) => {
+      let total = 0;
+      for (const count of Object.values(state.runeRollCounts)) {
+        total += count;
+      }
+      return total >= 500;
+    },
+    reward: 0,
+    unlockSlowRuneAutoRoll: true,
+  },
+  {
+    id: 'rune_rolls_5000',
+    name: '5,000 Rune Rolls',
+    description: 'Roll runes 5,000 times',
+    requirement: (state) => {
+      let total = 0;
+      for (const count of Object.values(state.runeRollCounts)) {
+        total += count;
+      }
+      return total >= 5000;
+    },
+    reward: 0,
+    unlockFastRuneAutoRoll: true,
+  },
 ];
 
 function setCookie(name: string, value: string, days: number = 365) {
@@ -664,6 +704,18 @@ function calculatePoints(rank: Rank): number {
   return Math.max(rankNumber, exponentialPoints);
 }
 
+// Format large numbers with suffixes (K, M, B, T, Qa, Qi, Sx, Sp, Oc, No, Dc)
+function formatNumber(num: number): string {
+  if (num < 1000) return num.toLocaleString();
+  const suffixes = ['', 'K', 'M', 'B', 'T', 'Qa', 'Qi', 'Sx', 'Sp', 'Oc', 'No', 'Dc'];
+  const tier = Math.floor(Math.log10(Math.abs(num)) / 3);
+  if (tier >= suffixes.length) return num.toExponential(2);
+  const suffix = suffixes[tier];
+  const scale = Math.pow(10, tier * 3);
+  const scaled = num / scale;
+  return scaled.toFixed(scaled < 10 ? 2 : scaled < 100 ? 1 : 0) + suffix;
+}
+
 export default function RankRoller() {
   const ranks = useMemo(() => generateRanks(), []);
   const runes = useMemo(() => generateRunes(), []);
@@ -686,6 +738,7 @@ export default function RankRoller() {
   const [showMilestones, setShowMilestones] = useState(false);
   const [isLoaded, setIsLoaded] = useState(false);
   const [autoRollEnabled, setAutoRollEnabled] = useState(false);
+  const [runeAutoRollEnabled, setRuneAutoRollEnabled] = useState(false);
   const [showResetModal, setShowResetModal] = useState(false);
   const [resetInput, setResetInput] = useState('');
   const [showRunes, setShowRunes] = useState(false);
@@ -972,6 +1025,7 @@ export default function RankRoller() {
       setSpeedLevel(0);
       setClaimedMilestones(new Set());
       setAutoRollEnabled(false);
+      setRuneAutoRollEnabled(false);
       // Reset rune data
       setCurrentRuneRoll(null);
       setCollectedRunes(new Set());
@@ -1135,8 +1189,15 @@ export default function RankRoller() {
     }, animationInterval);
   }, [ranks, luckMulti, pointsMulti, animationInterval, highestRank, ascendedRanks, bulkRollCount, lightAscensionBonus]);
 
-  // Check if auto-roll is unlocked
-  const autoRollUnlocked = claimedMilestones.has('rolls_5000');
+  // Check if auto-roll is unlocked (slow at 100 rolls, fast at 5000 rolls)
+  const slowAutoRollUnlocked = claimedMilestones.has('rolls_100');
+  const fastAutoRollUnlocked = claimedMilestones.has('rolls_5000');
+  const autoRollUnlocked = slowAutoRollUnlocked;
+
+  // Check if rune auto-roll is unlocked (slow at 500 rune rolls, fast at 5000 rune rolls)
+  const slowRuneAutoRollUnlocked = claimedMilestones.has('rune_rolls_500');
+  const fastRuneAutoRollUnlocked = claimedMilestones.has('rune_rolls_5000');
+  const runeAutoRollUnlocked = slowRuneAutoRollUnlocked;
 
   // Check if runes area is unlocked (first Epic)
   const runesUnlocked = hasAnyFromTier(collectedRanks, 3);
@@ -1145,9 +1206,10 @@ export default function RankRoller() {
   useEffect(() => {
     if (!autoRollEnabled || !autoRollUnlocked) return;
 
-    // Auto-roll interval = normal roll time × 5
+    // Auto-roll interval: slow = 10x base roll time, fast = 5x base roll time
     // Normal roll time = 10 frames × animationInterval
-    const autoRollInterval = animationInterval * 10 * 5;
+    const baseRollTime = animationInterval * 10;
+    const autoRollInterval = fastAutoRollUnlocked ? baseRollTime * 5 : baseRollTime * 10;
 
     const autoRollTimer = setInterval(() => {
       // Only trigger if not currently rolling
@@ -1160,7 +1222,24 @@ export default function RankRoller() {
     }, autoRollInterval);
 
     return () => clearInterval(autoRollTimer);
-  }, [autoRollEnabled, autoRollUnlocked, animationInterval, handleRoll]);
+  }, [autoRollEnabled, autoRollUnlocked, fastAutoRollUnlocked, animationInterval, handleRoll]);
+
+  // Rune auto-roll effect
+  useEffect(() => {
+    if (!runeAutoRollEnabled || !runeAutoRollUnlocked || !showRunes) return;
+
+    // Rune auto-roll interval: slow = 5x rune roll time, fast = 2x rune roll time
+    const autoRuneRollInterval = fastRuneAutoRollUnlocked ? runeRollTime * 2 : runeRollTime * 5;
+
+    const autoRuneRollTimer = setInterval(() => {
+      // Only trigger if not currently rolling and can afford
+      if (!isRollingRune && canAffordRuneRoll) {
+        handleRuneRoll();
+      }
+    }, autoRuneRollInterval);
+
+    return () => clearInterval(autoRuneRollTimer);
+  }, [runeAutoRollEnabled, runeAutoRollUnlocked, fastRuneAutoRollUnlocked, showRunes, runeRollTime, isRollingRune, canAffordRuneRoll, handleRuneRoll]);
 
   const collectedCount = collectedRanks.size;
 
@@ -1362,15 +1441,29 @@ export default function RankRoller() {
         {/* Roll Button */}
         <button
           onClick={handleRuneRoll}
-          disabled={!canAffordRuneRoll || isRollingRune}
+          disabled={!canAffordRuneRoll || isRollingRune || runeAutoRollEnabled}
           style={{
             ...styles.runeRollButton,
-            opacity: !canAffordRuneRoll || isRollingRune ? 0.5 : 1,
-            cursor: !canAffordRuneRoll || isRollingRune ? 'not-allowed' : 'pointer',
+            opacity: !canAffordRuneRoll || isRollingRune || runeAutoRollEnabled ? 0.5 : 1,
+            cursor: !canAffordRuneRoll || isRollingRune || runeAutoRollEnabled ? 'not-allowed' : 'pointer',
           }}
         >
           {isRollingRune ? 'Rolling...' : `ROLL RUNE (${runeRollCost.toLocaleString()} pts)`}
         </button>
+
+        {/* Rune Auto Roll Button */}
+        {runeAutoRollUnlocked && (
+          <button
+            onClick={() => setRuneAutoRollEnabled((prev) => !prev)}
+            style={{
+              ...styles.autoRollBtn,
+              backgroundColor: runeAutoRollEnabled ? '#22c55e' : '#4a4a8a',
+              marginTop: '10px',
+            }}
+          >
+            Auto Roll: {runeAutoRollEnabled ? 'ON' : 'OFF'} {fastRuneAutoRollUnlocked ? '(Fast)' : '(Slow)'}
+          </button>
+        )}
 
         <div style={styles.runeStatsRow}>
           <span>Rune Rolls: {runeRollCount}</span>
@@ -1506,14 +1599,14 @@ export default function RankRoller() {
                 cursor: canAffordLuckUpgrade ? 'pointer' : 'not-allowed',
               }}
             >
-              {luckUpgradeCost.toLocaleString()}
+              {formatNumber(luckUpgradeCost)}
             </button>
           </div>
           {/* Points Multiplier Upgrade */}
           <div className="upgrade-item" style={styles.upgradeItem}>
             <div className="upgrade-info" style={styles.upgradeInfo}>
               <span className="upgrade-name" style={styles.upgradeName}>Points</span>
-              <span className="upgrade-value" style={styles.upgradeValue}>{basePointsMulti.toFixed(2)}x</span>
+              <span className="upgrade-value" style={styles.upgradeValue}>{formatNumber(basePointsMulti)}x</span>
               <span className="upgrade-level" style={styles.upgradeLevel}>Lv.{pointsMultiLevel}</span>
             </div>
             <button
@@ -1526,14 +1619,14 @@ export default function RankRoller() {
                 cursor: canAffordPointsUpgrade ? 'pointer' : 'not-allowed',
               }}
             >
-              {pointsUpgradeCost.toLocaleString()}
+              {formatNumber(pointsUpgradeCost)}
             </button>
           </div>
           {/* Speed Upgrade */}
           <div className="upgrade-item" style={styles.upgradeItem}>
             <div className="upgrade-info" style={styles.upgradeInfo}>
               <span className="upgrade-name" style={styles.upgradeName}>Speed</span>
-              <span className="upgrade-value" style={styles.upgradeValue}>{baseSpeedMulti.toFixed(2)}x</span>
+              <span className="upgrade-value" style={styles.upgradeValue}>{formatNumber(baseSpeedMulti)}x</span>
               <span className="upgrade-level" style={styles.upgradeLevel}>Lv.{speedLevel}</span>
             </div>
             <button
@@ -1546,7 +1639,7 @@ export default function RankRoller() {
                 cursor: canAffordSpeedUpgrade ? 'pointer' : 'not-allowed',
               }}
             >
-              {speedUpgradeCost.toLocaleString()}
+              {formatNumber(speedUpgradeCost)}
             </button>
           </div>
         </div>
@@ -1580,8 +1673,14 @@ export default function RankRoller() {
                           <>Reward: {milestone.pointsBonus}x Points</>
                         ) : milestone.speedBonus ? (
                           <>Reward: {milestone.speedBonus}x Speed</>
+                        ) : milestone.unlockSlowAutoRoll ? (
+                          <>Reward: Slow Auto Roll</>
                         ) : milestone.unlockAutoRoll ? (
-                          <>Reward: Auto Roll</>
+                          <>Reward: Fast Auto Roll</>
+                        ) : milestone.unlockSlowRuneAutoRoll ? (
+                          <>Reward: Slow Rune Auto Roll</>
+                        ) : milestone.unlockFastRuneAutoRoll ? (
+                          <>Reward: Fast Rune Auto Roll</>
                         ) : milestone.runeSpeedBonus ? (
                           <>Reward: {milestone.runeSpeedBonus}x Rune Speed</>
                         ) : milestone.runeLuckBonus ? (
@@ -1715,7 +1814,7 @@ export default function RankRoller() {
             backgroundColor: autoRollEnabled ? '#22c55e' : '#4a4a8a',
           }}
         >
-          Auto Roll: {autoRollEnabled ? 'ON' : 'OFF'}
+          Auto Roll: {autoRollEnabled ? 'ON' : 'OFF'} {fastAutoRollUnlocked ? '(Fast)' : '(Slow)'}
         </button>
       )}
 
@@ -2011,6 +2110,33 @@ export default function RankRoller() {
                   style={styles.cheatInput}
                 />
               </div>
+              <div style={styles.cheatItem}>
+                <label style={styles.cheatLabel}>Stone Runes (Bulk):</label>
+                <input
+                  type="number"
+                  value={runeRollCounts[4] || 0}
+                  onChange={(e) => setRuneRollCounts(prev => ({ ...prev, 4: Number(e.target.value) }))}
+                  style={styles.cheatInput}
+                />
+              </div>
+              <div style={styles.cheatItem}>
+                <label style={styles.cheatLabel}>Thunder Runes (Rune Luck):</label>
+                <input
+                  type="number"
+                  value={runeRollCounts[5] || 0}
+                  onChange={(e) => setRuneRollCounts(prev => ({ ...prev, 5: Number(e.target.value) }))}
+                  style={styles.cheatInput}
+                />
+              </div>
+              <div style={styles.cheatItem}>
+                <label style={styles.cheatLabel}>Frost Runes (Rune Bulk):</label>
+                <input
+                  type="number"
+                  value={runeRollCounts[6] || 0}
+                  onChange={(e) => setRuneRollCounts(prev => ({ ...prev, 6: Number(e.target.value) }))}
+                  style={styles.cheatInput}
+                />
+              </div>
             </div>
             <button
               onClick={() => setShowCheatMenu(false)}
@@ -2220,6 +2346,7 @@ const styles: Record<string, React.CSSProperties> = {
     borderRadius: '12px',
     padding: '15px',
     minWidth: '180px',
+    maxWidth: '220px',
     border: '2px solid rgba(255, 215, 0, 0.3)',
     boxShadow: '0 4px 20px rgba(0, 0, 0, 0.3)',
     zIndex: 100,
