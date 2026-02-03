@@ -1199,8 +1199,8 @@ export default function RankRoller() {
   const fastRuneAutoRollUnlocked = claimedMilestones.has('rune_rolls_5000');
   const runeAutoRollUnlocked = slowRuneAutoRollUnlocked;
 
-  // Check if runes area is unlocked (first Epic)
-  const runesUnlocked = hasAnyFromTier(collectedRanks, 3);
+  // Check if runes area is unlocked (first Rare)
+  const runesUnlocked = hasAnyFromTier(collectedRanks, 2);
 
   // Auto-roll effect
   useEffect(() => {
