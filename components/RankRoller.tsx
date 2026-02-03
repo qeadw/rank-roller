@@ -876,13 +876,13 @@ export default function RankRoller() {
   // Luck calculations
   const baseLuckMulti = Math.pow(1.1, luckLevel);
   const luckMulti = baseLuckMulti * milestoneLuckBonus * runeLuckBonus;
-  const luckUpgradeCost = Math.floor(100 * Math.pow(5, luckLevel) * shadowCostReduction);
+  const luckUpgradeCost = Math.floor(100 * Math.pow(2, luckLevel) * shadowCostReduction);
   const canAffordLuckUpgrade = totalPoints >= luckUpgradeCost;
 
   // Points multiplier calculations
   const basePointsMulti = Math.pow(1.1, pointsMultiLevel);
   const pointsMulti = basePointsMulti * milestonePointsBonus * runePointsBonus;
-  const pointsUpgradeCost = Math.floor(100 * Math.pow(5, pointsMultiLevel) * shadowCostReduction);
+  const pointsUpgradeCost = Math.floor(100 * Math.pow(2, pointsMultiLevel) * shadowCostReduction);
   const canAffordPointsUpgrade = totalPoints >= pointsUpgradeCost;
 
   const handleUpgradeLuck = () => {
@@ -902,7 +902,7 @@ export default function RankRoller() {
   // Speed calculations
   const baseSpeedMulti = Math.pow(1.1, speedLevel);
   const speedMulti = baseSpeedMulti * milestoneSpeedBonus * runeSpeedBonus;
-  const speedUpgradeCost = Math.floor(100 * Math.pow(5, speedLevel) * shadowCostReduction);
+  const speedUpgradeCost = Math.floor(100 * Math.pow(2, speedLevel) * shadowCostReduction);
   const canAffordSpeedUpgrade = totalPoints >= speedUpgradeCost;
   const animationInterval = Math.floor(50 / speedMulti);
 
