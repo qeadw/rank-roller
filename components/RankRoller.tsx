@@ -1302,14 +1302,20 @@ export default function RankRoller() {
             </div>
             {autoRollUnlocked && (
               <div style={styles.statsPanelItem}>
-                <span className="stats-panel-label" style={styles.statsPanelLabel}>Auto Roll</span>
-                <span className="stats-panel-value" style={styles.statsPanelValue}>{((animationInterval * 10 * 5) / 1000).toFixed(2)}s</span>
+                <span className="stats-panel-label" style={styles.statsPanelLabel}>Auto Roll{fastAutoRollUnlocked ? '' : ' (Slow)'}</span>
+                <span className="stats-panel-value" style={styles.statsPanelValue}>{((animationInterval * 10 * (fastAutoRollUnlocked ? 5 : 10)) / 1000).toFixed(2)}s</span>
               </div>
             )}
             <div style={styles.statsPanelItem}>
               <span className="stats-panel-label" style={styles.statsPanelLabel}>Rune Roll</span>
               <span className="stats-panel-value" style={styles.statsPanelValue}>{(runeRollTime / 1000).toFixed(2)}s</span>
             </div>
+            {runeAutoRollUnlocked && (
+              <div style={styles.statsPanelItem}>
+                <span className="stats-panel-label" style={styles.statsPanelLabel}>Rune Auto{fastRuneAutoRollUnlocked ? '' : ' (Slow)'}</span>
+                <span className="stats-panel-value" style={styles.statsPanelValue}>{((runeRollTime * (fastRuneAutoRollUnlocked ? 2 : 5)) / 1000).toFixed(2)}s</span>
+              </div>
+            )}
             {totalRuneLuck > 1.0 && (
               <div style={styles.statsPanelItem}>
                 <span className="stats-panel-label" style={styles.statsPanelLabel}>Rune Luck</span>
@@ -1559,8 +1565,8 @@ export default function RankRoller() {
           </div>
           {autoRollUnlocked && (
             <div style={styles.statsPanelItem}>
-              <span className="stats-panel-label" style={styles.statsPanelLabel}>Auto Roll</span>
-              <span className="stats-panel-value" style={styles.statsPanelValue}>{((animationInterval * 10 * 5) / 1000).toFixed(2)}s</span>
+              <span className="stats-panel-label" style={styles.statsPanelLabel}>Auto Roll{fastAutoRollUnlocked ? '' : ' (Slow)'}</span>
+              <span className="stats-panel-value" style={styles.statsPanelValue}>{((animationInterval * 10 * (fastAutoRollUnlocked ? 5 : 10)) / 1000).toFixed(2)}s</span>
             </div>
           )}
           {bulkRollCount > 1 && (
