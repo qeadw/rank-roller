@@ -20,6 +20,8 @@ interface SaveData {
   collectedRunes: number[];
   runeRollCounts: Record<number, number>;
   runeRollCount: number;
+  // Legitimate rune rolls (not cheatable, used for milestones)
+  legitimateRuneRollCounts?: Record<number, number>;
 }
 
 interface MilestoneState {
@@ -28,6 +30,7 @@ interface MilestoneState {
   ascendedRanks: Set<number>;
   collectedRunes: Set<number>;
   runeRollCounts: Record<number, number>;
+  legitimateRuneRollCounts: Record<number, number>;
 }
 
 interface Milestone {
@@ -491,7 +494,7 @@ const MILESTONES: Milestone[] = [
     id: 'ten_rune_0',
     name: 'Beginning Collector',
     description: 'Roll 10 Runes of Beginning',
-    requirement: (state) => (state.runeRollCounts[0] || 0) >= 10,
+    requirement: (state) => (state.legitimateRuneRollCounts[0] || 0) >= 10,
     reward: 0,
     runeLuckBonus: 1.1,
   },
@@ -499,7 +502,7 @@ const MILESTONES: Milestone[] = [
     id: 'ten_rune_1',
     name: 'Embers Collector',
     description: 'Roll 10 Runes of Embers',
-    requirement: (state) => (state.runeRollCounts[1] || 0) >= 10,
+    requirement: (state) => (state.legitimateRuneRollCounts[1] || 0) >= 10,
     reward: 0,
     runeLuckBonus: 1.1,
   },
@@ -507,7 +510,7 @@ const MILESTONES: Milestone[] = [
     id: 'ten_rune_2',
     name: 'Tides Collector',
     description: 'Roll 10 Runes of Tides',
-    requirement: (state) => (state.runeRollCounts[2] || 0) >= 10,
+    requirement: (state) => (state.legitimateRuneRollCounts[2] || 0) >= 10,
     reward: 0,
     runeLuckBonus: 1.1,
   },
@@ -515,7 +518,7 @@ const MILESTONES: Milestone[] = [
     id: 'ten_rune_3',
     name: 'Gales Collector',
     description: 'Roll 10 Runes of Gales',
-    requirement: (state) => (state.runeRollCounts[3] || 0) >= 10,
+    requirement: (state) => (state.legitimateRuneRollCounts[3] || 0) >= 10,
     reward: 0,
     runeLuckBonus: 1.1,
   },
@@ -523,7 +526,7 @@ const MILESTONES: Milestone[] = [
     id: 'ten_rune_4',
     name: 'Stone Collector',
     description: 'Roll 10 Runes of Stone',
-    requirement: (state) => (state.runeRollCounts[4] || 0) >= 10,
+    requirement: (state) => (state.legitimateRuneRollCounts[4] || 0) >= 10,
     reward: 0,
     runeLuckBonus: 1.1,
   },
@@ -531,7 +534,7 @@ const MILESTONES: Milestone[] = [
     id: 'ten_rune_5',
     name: 'Thunder Collector',
     description: 'Roll 10 Runes of Thunder',
-    requirement: (state) => (state.runeRollCounts[5] || 0) >= 10,
+    requirement: (state) => (state.legitimateRuneRollCounts[5] || 0) >= 10,
     reward: 0,
     runeLuckBonus: 1.1,
   },
@@ -539,7 +542,7 @@ const MILESTONES: Milestone[] = [
     id: 'ten_rune_6',
     name: 'Frost Collector',
     description: 'Roll 10 Runes of Frost',
-    requirement: (state) => (state.runeRollCounts[6] || 0) >= 10,
+    requirement: (state) => (state.legitimateRuneRollCounts[6] || 0) >= 10,
     reward: 0,
     runeLuckBonus: 1.1,
   },
@@ -547,7 +550,7 @@ const MILESTONES: Milestone[] = [
     id: 'ten_rune_7',
     name: 'Shadow Collector',
     description: 'Roll 10 Runes of Shadow',
-    requirement: (state) => (state.runeRollCounts[7] || 0) >= 10,
+    requirement: (state) => (state.legitimateRuneRollCounts[7] || 0) >= 10,
     reward: 0,
     runeLuckBonus: 1.1,
   },
@@ -555,7 +558,7 @@ const MILESTONES: Milestone[] = [
     id: 'ten_rune_8',
     name: 'Light Collector',
     description: 'Roll 10 Runes of Light',
-    requirement: (state) => (state.runeRollCounts[8] || 0) >= 10,
+    requirement: (state) => (state.legitimateRuneRollCounts[8] || 0) >= 10,
     reward: 0,
     runeLuckBonus: 1.1,
   },
@@ -563,7 +566,7 @@ const MILESTONES: Milestone[] = [
     id: 'ten_rune_9',
     name: 'Eternity Collector',
     description: 'Roll 10 Runes of Eternity',
-    requirement: (state) => (state.runeRollCounts[9] || 0) >= 10,
+    requirement: (state) => (state.legitimateRuneRollCounts[9] || 0) >= 10,
     reward: 0,
     runeLuckBonus: 1.1,
   },
@@ -574,7 +577,7 @@ const MILESTONES: Milestone[] = [
     description: 'Roll runes 500 times',
     requirement: (state) => {
       let total = 0;
-      for (const count of Object.values(state.runeRollCounts)) {
+      for (const count of Object.values(state.legitimateRuneRollCounts)) {
         total += count;
       }
       return total >= 500;
@@ -588,7 +591,7 @@ const MILESTONES: Milestone[] = [
     description: 'Roll runes 5,000 times',
     requirement: (state) => {
       let total = 0;
-      for (const count of Object.values(state.runeRollCounts)) {
+      for (const count of Object.values(state.legitimateRuneRollCounts)) {
         total += count;
       }
       return total >= 5000;
@@ -763,11 +766,13 @@ export default function RankRoller() {
   const [currentRuneRoll, setCurrentRuneRoll] = useState<Rune | null>(null);
   const [collectedRunes, setCollectedRunes] = useState<Set<number>>(new Set());
   const [runeRollCounts, setRuneRollCounts] = useState<Record<number, number>>({});
+  const [legitimateRuneRollCounts, setLegitimateRuneRollCounts] = useState<Record<number, number>>({});
   const [runeRollCount, setRuneRollCount] = useState(0);
   const [isRollingRune, setIsRollingRune] = useState(false);
   const [showCheatMenu, setShowCheatMenu] = useState(false);
   const [cheatBuffer, setCheatBuffer] = useState('');
   const [showMultiplierBreakdown, setShowMultiplierBreakdown] = useState(false);
+  const [showSaveModal, setShowSaveModal] = useState(false);
   const rollCountRef = useRef(rollCount);
 
   // Load save data from cookies on mount
@@ -792,6 +797,7 @@ export default function RankRoller() {
         // Load rune data
         setCollectedRunes(new Set(data.collectedRunes || []));
         setRuneRollCounts(data.runeRollCounts || {});
+        setLegitimateRuneRollCounts(data.legitimateRuneRollCounts || data.runeRollCounts || {});
         setRuneRollCount(data.runeRollCount || 0);
       } catch (e) {
         console.error('Failed to load save data:', e);
@@ -819,16 +825,17 @@ export default function RankRoller() {
       // Rune data
       collectedRunes: Array.from(collectedRunes),
       runeRollCounts,
+      legitimateRuneRollCounts,
       runeRollCount,
     };
     setCookie(SAVE_KEY, JSON.stringify(saveData));
-  }, [isLoaded, rollCount, totalPoints, highestRank, highestRankRoll, collectedRanks, rankRollCounts, ascendedRanks, luckLevel, pointsMultiLevel, speedLevel, claimedMilestones, collectedRunes, runeRollCounts, runeRollCount]);
+  }, [isLoaded, rollCount, totalPoints, highestRank, highestRankRoll, collectedRanks, rankRollCounts, ascendedRanks, luckLevel, pointsMultiLevel, speedLevel, claimedMilestones, collectedRunes, runeRollCounts, legitimateRuneRollCounts, runeRollCount]);
 
   useEffect(() => {
     saveGame();
   }, [saveGame]);
 
-  // Cheat code listener
+  // Cheat code and save modal listener
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
       const newBuffer = (cheatBuffer + e.key).slice(-7);
@@ -837,10 +844,50 @@ export default function RankRoller() {
         setShowCheatMenu(true);
         setCheatBuffer('');
       }
+      if (newBuffer.toLowerCase().endsWith('save')) {
+        setShowSaveModal(true);
+        setCheatBuffer('');
+      }
     };
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
   }, [cheatBuffer]);
+
+  // Export save to file
+  const exportSave = () => {
+    const saveData = getCookie(SAVE_KEY);
+    if (!saveData) {
+      alert('No save data found!');
+      return;
+    }
+    const blob = new Blob([saveData], { type: 'application/json' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `rank-roller-save-${new Date().toISOString().split('T')[0]}.json`;
+    a.click();
+    URL.revokeObjectURL(url);
+  };
+
+  // Import save from file
+  const importSave = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    const reader = new FileReader();
+    reader.onload = (event) => {
+      try {
+        const data = JSON.parse(event.target?.result as string);
+        setCookie(SAVE_KEY, JSON.stringify(data));
+        alert('Save imported successfully! Refreshing...');
+        window.location.reload();
+      } catch {
+        alert('Invalid save file!');
+      }
+    };
+    reader.readAsText(file);
+    e.target.value = '';
+  };
 
   // Calculate milestone bonuses
   const milestoneLuckBonus = MILESTONES.reduce((acc, m) => {
@@ -931,7 +978,7 @@ export default function RankRoller() {
   };
 
   // Milestone helpers
-  const milestoneState: MilestoneState = { rollCount, collectedRanks, ascendedRanks, collectedRunes, runeRollCounts };
+  const milestoneState: MilestoneState = { rollCount, collectedRanks, ascendedRanks, collectedRunes, runeRollCounts, legitimateRuneRollCounts };
   const unclaimedMilestones = MILESTONES.filter(
     (m) => m.requirement(milestoneState) && !claimedMilestones.has(m.id)
   );
@@ -1047,6 +1094,7 @@ export default function RankRoller() {
       setCurrentRuneRoll(null);
       setCollectedRunes(new Set());
       setRuneRollCounts({});
+      setLegitimateRuneRollCounts({});
       setRuneRollCount(0);
       setIsRollingRune(false);
       // Reset UI state
@@ -1113,6 +1161,15 @@ export default function RankRoller() {
         });
 
         setRuneRollCounts((prev) => {
+          const next = { ...prev };
+          for (const [idx, count] of Object.entries(runeCountUpdates)) {
+            next[Number(idx)] = (next[Number(idx)] || 0) + count;
+          }
+          return next;
+        });
+
+        // Also increment legitimate counts (not cheatable, used for milestones)
+        setLegitimateRuneRollCounts((prev) => {
           const next = { ...prev };
           for (const [idx, count] of Object.entries(runeCountUpdates)) {
             next[Number(idx)] = (next[Number(idx)] || 0) + count;
@@ -1659,6 +1716,28 @@ export default function RankRoller() {
               >
                 Close
               </button>
+            </div>
+          </div>
+        )}
+
+        {/* Save Management Modal */}
+        {showSaveModal && (
+          <div style={styles.modalOverlay} onClick={() => setShowSaveModal(false)}>
+            <div className="modal" style={{...styles.cheatModal, maxWidth: '400px'}} onClick={(e) => e.stopPropagation()}>
+              <h2 style={styles.cheatTitle}>💾 Save Management</h2>
+              <p style={{color: '#aaa', marginBottom: '20px', textAlign: 'center'}}>Export your save to back it up, or import a previous save.</p>
+              <div style={{display: 'flex', flexDirection: 'column', gap: '10px'}}>
+                <button onClick={exportSave} style={{...styles.cheatCloseBtn, backgroundColor: '#4a9'}}>
+                  📥 Export Save
+                </button>
+                <label style={{...styles.cheatCloseBtn, backgroundColor: '#49a', cursor: 'pointer', textAlign: 'center'}}>
+                  📤 Import Save
+                  <input type="file" accept=".json" onChange={importSave} style={{display: 'none'}} />
+                </label>
+                <button onClick={() => setShowSaveModal(false)} style={{...styles.cheatCloseBtn, marginTop: '10px'}}>
+                  Close
+                </button>
+              </div>
             </div>
           </div>
         )}
@@ -2559,6 +2638,28 @@ export default function RankRoller() {
             >
               Close
             </button>
+          </div>
+        </div>
+      )}
+
+      {/* Save Management Modal (Runes Screen) */}
+      {showSaveModal && (
+        <div style={styles.modalOverlay} onClick={() => setShowSaveModal(false)}>
+          <div className="modal" style={{...styles.cheatModal, maxWidth: '400px'}} onClick={(e) => e.stopPropagation()}>
+            <h2 style={styles.cheatTitle}>💾 Save Management</h2>
+            <p style={{color: '#aaa', marginBottom: '20px', textAlign: 'center'}}>Export your save to back it up, or import a previous save.</p>
+            <div style={{display: 'flex', flexDirection: 'column', gap: '10px'}}>
+              <button onClick={exportSave} style={{...styles.cheatCloseBtn, backgroundColor: '#4a9'}}>
+                📥 Export Save
+              </button>
+              <label style={{...styles.cheatCloseBtn, backgroundColor: '#49a', cursor: 'pointer', textAlign: 'center'}}>
+                📤 Import Save
+                <input type="file" accept=".json" onChange={importSave} style={{display: 'none'}} />
+              </label>
+              <button onClick={() => setShowSaveModal(false)} style={{...styles.cheatCloseBtn, marginTop: '10px'}}>
+                Close
+              </button>
+            </div>
           </div>
         </div>
       )}
