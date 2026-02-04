@@ -32,7 +32,7 @@ interface SaveData {
   highestRankRoll: number | null;
   collectedRanks: number[];
   rankRollCounts: Record<number, number>;
-  ascendedRanks: number[];
+  ascendedRanks: number[] | Record<number, number>; // Legacy: array, New: record with ascension level
   luckLevel: number;
   pointsMultiLevel: number;
   speedLevel: number;
@@ -48,11 +48,18 @@ interface SaveData {
 interface MilestoneState {
   rollCount: number;
   collectedRanks: Set<number>;
-  ascendedRanks: Set<number>;
+  ascendedRanks: Map<number, number>; // Map of rankIndex -> ascension level (1, 2, or 3)
   collectedRunes: Set<number>;
   runeRollCounts: Record<number, number>;
   legitimateRuneRollCounts: Record<number, number>;
 }
+
+// Ascension tier thresholds and multipliers
+const ASCENSION_TIERS = [
+  { rolls: 1000, multiplier: 2, stars: 1 },
+  { rolls: 15000, multiplier: 3, stars: 2 },
+  { rolls: 250000, multiplier: 4, stars: 3 },
+];
 
 interface Milestone {
   id: string;
@@ -211,14 +218,46 @@ function getUnlockedRunes(collectedRanks: Set<number>): Set<number> {
 }
 
 // Helper to check if any rank in a tier has ascension available
-function tierHasAscensionAvailable(tierIndex: number, rankRollCounts: Record<number, number>, ascendedRanks: Set<number>): boolean {
+function tierHasAscensionAvailable(tierIndex: number, rankRollCounts: Record<number, number>, ascendedRanks: Map<number, number>): boolean {
   for (let i = 0; i < 10; i++) {
     const rankIndex = tierIndex * 10 + i;
-    if ((rankRollCounts[rankIndex] || 0) >= 1000 && !ascendedRanks.has(rankIndex)) {
-      return true;
+    const rolls = rankRollCounts[rankIndex] || 0;
+    const currentLevel = ascendedRanks.get(rankIndex) || 0;
+    // Check if there's a next tier available
+    for (let tier = currentLevel; tier < ASCENSION_TIERS.length; tier++) {
+      if (rolls >= ASCENSION_TIERS[tier].rolls) {
+        return true;
+      }
     }
   }
   return false;
+}
+
+// Get the next available ascension tier for a rank
+function getNextAscensionTier(rankIndex: number, rankRollCounts: Record<number, number>, ascendedRanks: Map<number, number>): number | null {
+  const rolls = rankRollCounts[rankIndex] || 0;
+  const currentLevel = ascendedRanks.get(rankIndex) || 0;
+
+  for (let tier = currentLevel; tier < ASCENSION_TIERS.length; tier++) {
+    if (rolls >= ASCENSION_TIERS[tier].rolls) {
+      return tier;
+    }
+  }
+  return null;
+}
+
+// Get ascension multiplier for a rank
+function getAscensionMultiplier(rankIndex: number, ascendedRanks: Map<number, number>): number {
+  const level = ascendedRanks.get(rankIndex) || 0;
+  if (level === 0) return 1;
+  return ASCENSION_TIERS[level - 1].multiplier;
+}
+
+// Get stars to display for a rank
+function getAscensionStars(rankIndex: number, ascendedRanks: Map<number, number>): string {
+  const level = ascendedRanks.get(rankIndex) || 0;
+  if (level === 0) return '';
+  return ' ' + '★'.repeat(level);
 }
 
 const MILESTONES: Milestone[] = [
@@ -802,7 +841,7 @@ export default function RankRoller() {
   const [isRolling, setIsRolling] = useState(false);
   const [collectedRanks, setCollectedRanks] = useState<Set<number>>(new Set());
   const [rankRollCounts, setRankRollCounts] = useState<Record<number, number>>({});
-  const [ascendedRanks, setAscendedRanks] = useState<Set<number>>(new Set());
+  const [ascendedRanks, setAscendedRanks] = useState<Map<number, number>>(new Map());
   const [ascendPrompt, setAscendPrompt] = useState<number | null>(null);
   const [expandedTiers, setExpandedTiers] = useState<Set<string>>(new Set());
   const [luckLevel, setLuckLevel] = useState(0);
@@ -844,7 +883,24 @@ export default function RankRoller() {
         setHighestRankRoll(data.highestRankRoll || null);
         setCollectedRanks(new Set(data.collectedRanks || []));
         setRankRollCounts(data.rankRollCounts || {});
-        setAscendedRanks(new Set(data.ascendedRanks || []));
+        // Handle both legacy (array) and new (record) formats for ascendedRanks
+        if (Array.isArray(data.ascendedRanks)) {
+          // Legacy format: array of rank indices (all at level 1)
+          const legacyMap = new Map<number, number>();
+          for (const rankIndex of data.ascendedRanks) {
+            legacyMap.set(rankIndex, 1);
+          }
+          setAscendedRanks(legacyMap);
+        } else if (data.ascendedRanks && typeof data.ascendedRanks === 'object') {
+          // New format: record of rankIndex -> level
+          const newMap = new Map<number, number>();
+          for (const [key, value] of Object.entries(data.ascendedRanks)) {
+            newMap.set(Number(key), value as number);
+          }
+          setAscendedRanks(newMap);
+        } else {
+          setAscendedRanks(new Map());
+        }
         setLuckLevel(data.luckLevel || 0);
         setPointsMultiLevel(data.pointsMultiLevel || 0);
         setSpeedLevel(data.speedLevel || 0);
@@ -865,6 +921,12 @@ export default function RankRoller() {
   const saveGame = useCallback(() => {
     if (!isLoaded) return;
 
+    // Convert Map to Record for saving
+    const ascendedRanksRecord: Record<number, number> = {};
+    ascendedRanks.forEach((level, rankIndex) => {
+      ascendedRanksRecord[rankIndex] = level;
+    });
+
     const saveData: SaveData = {
       rollCount,
       totalPoints,
@@ -872,7 +934,7 @@ export default function RankRoller() {
       highestRankRoll,
       collectedRanks: Array.from(collectedRanks),
       rankRollCounts,
-      ascendedRanks: Array.from(ascendedRanks),
+      ascendedRanks: ascendedRanksRecord,
       luckLevel,
       pointsMultiLevel,
       speedLevel,
@@ -1108,21 +1170,37 @@ export default function RankRoller() {
   // Get points for a rank with multiplier applied (includes ascension bonus)
   const getDisplayPoints = (rank: Rank): number => {
     const basePoints = calculatePoints(rank);
-    const ascensionMulti = ascendedRanks.has(rank.index) ? lightAscensionBonus : 1;
+    const baseAscensionMulti = getAscensionMultiplier(rank.index, ascendedRanks);
+    // Light rune adds to base ascension multiplier (only if ascended)
+    const ascensionMulti = baseAscensionMulti > 1
+      ? baseAscensionMulti + (lightAscensionBonus - 2) // lightAscensionBonus base is 2, so subtract 2 and add to tier multi
+      : 1;
     return Math.floor(basePoints * ascensionMulti * pointsMulti);
   };
 
-  // Check if a rank can be ascended (1000+ rolls and not yet ascended)
+  // Check if a rank can be ascended to the next tier
   const canAscend = (rankIndex: number): boolean => {
-    return (rankRollCounts[rankIndex] || 0) >= 1000 && !ascendedRanks.has(rankIndex);
+    const nextTier = getNextAscensionTier(rankIndex, rankRollCounts, ascendedRanks);
+    return nextTier !== null;
+  };
+
+  // Get the next ascension info for display
+  const getNextAscensionInfo = (rankIndex: number): { tierIndex: number; rolls: number; multiplier: number; stars: number } | null => {
+    const nextTier = getNextAscensionTier(rankIndex, rankRollCounts, ascendedRanks);
+    if (nextTier === null) return null;
+    return {
+      tierIndex: nextTier,
+      ...ASCENSION_TIERS[nextTier]
+    };
   };
 
   // Handle ascension
   const handleAscend = (rankIndex: number) => {
-    if (canAscend(rankIndex)) {
+    const nextTier = getNextAscensionTier(rankIndex, rankRollCounts, ascendedRanks);
+    if (nextTier !== null) {
       setAscendedRanks((prev) => {
-        const next = new Set(prev);
-        next.add(rankIndex);
+        const next = new Map(prev);
+        next.set(rankIndex, nextTier + 1); // Store level (1, 2, or 3)
         return next;
       });
     }
@@ -1143,7 +1221,7 @@ export default function RankRoller() {
       setLastPointsGained(null);
       setCollectedRanks(new Set());
       setRankRollCounts({});
-      setAscendedRanks(new Set());
+      setAscendedRanks(new Map());
       setExpandedTiers(new Set());
       setLuckLevel(0);
       setPointsMultiLevel(0);
@@ -1298,7 +1376,11 @@ export default function RankRoller() {
 
         for (const result of results) {
           const basePoints = calculatePoints(result);
-          const ascensionMulti = ascendedRanks.has(result.index) ? lightAscensionBonus : 1;
+          const baseAscensionMulti = getAscensionMultiplier(result.index, ascendedRanks);
+          // Light rune adds to base ascension multiplier (only if ascended)
+          const ascensionMulti = baseAscensionMulti > 1
+            ? baseAscensionMulti + (lightAscensionBonus - 2)
+            : 1;
           totalPointsGained += Math.floor(basePoints * ascensionMulti * pointsMulti);
           newCollected.add(result.index);
           rollCountUpdates[result.index] = (rollCountUpdates[result.index] || 0) + 1;
@@ -2301,36 +2383,53 @@ export default function RankRoller() {
       )}
 
       {/* Ascension Prompt Modal */}
-      {ascendPrompt !== null && (
-        <div style={styles.modalOverlay} onClick={() => setAscendPrompt(null)}>
-          <div className="modal" style={styles.modal} onClick={(e) => e.stopPropagation()}>
-            <h2 style={styles.ascendTitle}>Ascend Rank?</h2>
-            <div style={styles.ascendInfo}>
-              <div style={styles.ascendRankName}>{ranks[ascendPrompt].displayName}</div>
-              <div style={styles.ascendDesc}>
-                Ascending this rank will double the base points gained when rolling it.
+      {ascendPrompt !== null && (() => {
+        const nextInfo = getNextAscensionInfo(ascendPrompt);
+        if (!nextInfo) return null;
+        const currentLevel = ascendedRanks.get(ascendPrompt) || 0;
+        const currentMulti = currentLevel > 0 ? ASCENSION_TIERS[currentLevel - 1].multiplier : 1;
+        const basePoints = calculatePoints(ranks[ascendPrompt]);
+        return (
+          <div style={styles.modalOverlay} onClick={() => setAscendPrompt(null)}>
+            <div className="modal" style={styles.modal} onClick={(e) => e.stopPropagation()}>
+              <h2 style={styles.ascendTitle}>
+                {currentLevel === 0 ? 'Ascend Rank?' : `Ascend to Tier ${nextInfo.tierIndex + 1}?`}
+              </h2>
+              <div style={styles.ascendInfo}>
+                <div style={styles.ascendRankName}>
+                  {ranks[ascendPrompt].displayName}{getAscensionStars(ascendPrompt, ascendedRanks)}
+                </div>
+                <div style={styles.ascendDesc}>
+                  {currentLevel === 0
+                    ? `Ascending this rank will multiply the base points by ${nextInfo.multiplier}x when rolling it.`
+                    : `Upgrade from ${currentMulti}x to ${nextInfo.multiplier}x base points.`
+                  }
+                </div>
+                <div style={styles.ascendBonus}>
+                  {basePoints} pts → {basePoints * nextInfo.multiplier} pts (base)
+                </div>
+                <div style={{...styles.ascendDesc, fontSize: '0.8rem', color: '#888', marginTop: '0.5rem'}}>
+                  {'★'.repeat(nextInfo.stars)} ({nextInfo.rolls.toLocaleString()} rolls required)
+                </div>
               </div>
-              <div style={styles.ascendBonus}>
-                {calculatePoints(ranks[ascendPrompt])} pts → {calculatePoints(ranks[ascendPrompt]) * 2} pts (base)
+              <div style={styles.ascendButtons}>
+                <button
+                  onClick={() => handleAscend(ascendPrompt)}
+                  style={styles.ascendConfirmBtn}
+                >
+                  Ascend
+                </button>
+                <button
+                  onClick={() => setAscendPrompt(null)}
+                  style={styles.closeBtn}
+                >
+                  Cancel
+                </button>
               </div>
-            </div>
-            <div style={styles.ascendButtons}>
-              <button
-                onClick={() => handleAscend(ascendPrompt)}
-                style={styles.ascendConfirmBtn}
-              >
-                Ascend
-              </button>
-              <button
-                onClick={() => setAscendPrompt(null)}
-                style={styles.closeBtn}
-              >
-                Cancel
-              </button>
             </div>
           </div>
-        </div>
-      )}
+        );
+      })()}
 
       <h1 className="game-title" style={styles.title}>Rank Roller</h1>
 
@@ -2470,7 +2569,7 @@ export default function RankRoller() {
                       <div style={styles.tierRanksGrid}>
                         {tierRanks.map((rank) => {
                           const points = getDisplayPoints(rank);
-                          const isAscended = ascendedRanks.has(rank.index);
+                          const isAscended = (ascendedRanks.get(rank.index) || 0) > 0;
                           const isAscendable = canAscend(rank.index);
                           return (
                             <div
@@ -2486,7 +2585,7 @@ export default function RankRoller() {
                               }}
                             >
                               <div style={styles.tierRankNumber}>
-                                {rank.tierNumber}{isAscended && ' ★'}
+                                {rank.tierNumber}{getAscensionStars(rank.index, ascendedRanks)}
                               </div>
                               <div style={styles.tierRankChance}>
                                 {formatProbability(getEffectiveProbability(rank, ranks, luckMulti))}
@@ -2562,7 +2661,7 @@ export default function RankRoller() {
                 .sort((a, b) => b.index - a.index)
                 .map((rank) => {
                   const points = getDisplayPoints(rank);
-                  const isAscended = ascendedRanks.has(rank.index);
+                  const isAscended = (ascendedRanks.get(rank.index) || 0) > 0;
                   const isAscendable = canAscend(rank.index);
                   return (
                     <div
@@ -2580,7 +2679,7 @@ export default function RankRoller() {
                       }}
                     >
                       <div className="catalogue-item-name" style={styles.catalogueItemName}>
-                        {rank.displayName}{isAscended && ' ★'}
+                        {rank.displayName}{getAscensionStars(rank.index, ascendedRanks)}
                       </div>
                       <div style={styles.catalogueItemChance}>
                         {formatProbability(getEffectiveProbability(rank, ranks, luckMulti))}
