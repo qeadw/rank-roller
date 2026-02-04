@@ -284,12 +284,28 @@ const MILESTONES: Milestone[] = [
     luckBonus: 1.5,
   },
   {
+    id: 'rolls_15000',
+    name: '15,000 Rolls',
+    description: 'Roll 15,000 times',
+    requirement: (state) => state.rollCount >= 15000,
+    reward: 0,
+    pointsBonus: 3,
+  },
+  {
     id: 'rolls_25000',
     name: '25,000 Rolls',
     description: 'Roll 25,000 times',
     requirement: (state) => state.rollCount >= 25000,
     reward: 0,
     luckBonus: 2,
+  },
+  {
+    id: 'rolls_50000',
+    name: '50,000 Rolls',
+    description: 'Roll 50,000 times',
+    requirement: (state) => state.rollCount >= 50000,
+    reward: 0,
+    pointsBonus: 4,
   },
   // First of each tier milestones
   {
