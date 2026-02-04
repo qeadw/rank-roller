@@ -2547,14 +2547,12 @@ export default function RankRoller() {
                 />
               </div>
             </div>
-            {!runesUnlocked && (
-              <button
-                onClick={() => setCollectedRanks(prev => new Set([...Array.from(prev), 20]))}
-                style={{...styles.cheatCloseBtn, backgroundColor: '#9333ea', marginBottom: '10px'}}
-              >
-                Unlock Runes
-              </button>
-            )}
+            <button
+              onClick={() => setCollectedRanks(prev => new Set([...Array.from(prev), 20]))}
+              style={{...styles.cheatCloseBtn, backgroundColor: '#9333ea', marginBottom: '10px'}}
+            >
+              Unlock Runes
+            </button>
             <button
               onClick={() => setShowCheatMenu(false)}
               style={styles.cheatCloseBtn}
