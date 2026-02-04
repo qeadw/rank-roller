@@ -3,6 +3,27 @@
 import { useState, useMemo, useEffect, useCallback, useRef } from 'react';
 
 const SAVE_KEY = 'rankroller_save';
+const SAVE_VERSION = 'RR1:';
+const OBF_KEY = 'RankRoller2024';
+
+function obfuscateSave(data: string): string {
+  let result = '';
+  for (let i = 0; i < data.length; i++) {
+    result += String.fromCharCode(data.charCodeAt(i) ^ OBF_KEY.charCodeAt(i % OBF_KEY.length));
+  }
+  return SAVE_VERSION + btoa(result);
+}
+
+function deobfuscateSave(data: string): string {
+  if (!data.startsWith(SAVE_VERSION)) return data; // Legacy save
+  const encoded = data.slice(SAVE_VERSION.length);
+  const decoded = atob(encoded);
+  let result = '';
+  for (let i = 0; i < decoded.length; i++) {
+    result += String.fromCharCode(decoded.charCodeAt(i) ^ OBF_KEY.charCodeAt(i % OBF_KEY.length));
+  }
+  return result;
+}
 
 interface SaveData {
   rollCount: number;
@@ -780,7 +801,7 @@ export default function RankRoller() {
     const savedData = getCookie(SAVE_KEY);
     if (savedData) {
       try {
-        const data: SaveData = JSON.parse(savedData);
+        const data: SaveData = JSON.parse(deobfuscateSave(savedData));
         setRollCount(data.rollCount || 0);
         setTotalPoints(data.totalPoints || 0);
         if (data.highestRankIndex !== null && data.highestRankIndex !== undefined) {
@@ -828,7 +849,7 @@ export default function RankRoller() {
       legitimateRuneRollCounts,
       runeRollCount,
     };
-    setCookie(SAVE_KEY, JSON.stringify(saveData));
+    setCookie(SAVE_KEY, obfuscateSave(JSON.stringify(saveData)));
   }, [isLoaded, rollCount, totalPoints, highestRank, highestRankRoll, collectedRanks, rankRollCounts, ascendedRanks, luckLevel, pointsMultiLevel, speedLevel, claimedMilestones, collectedRunes, runeRollCounts, legitimateRuneRollCounts, runeRollCount]);
 
   useEffect(() => {
@@ -860,11 +881,11 @@ export default function RankRoller() {
       alert('No save data found!');
       return;
     }
-    const blob = new Blob([saveData], { type: 'application/json' });
+    const blob = new Blob([saveData], { type: 'text/plain' });
     const url = URL.createObjectURL(blob);
     const a = document.createElement('a');
     a.href = url;
-    a.download = `rank-roller-save-${new Date().toISOString().split('T')[0]}.json`;
+    a.download = `rank-roller-save-${new Date().toISOString().split('T')[0]}.sav`;
     a.click();
     URL.revokeObjectURL(url);
   };
@@ -877,8 +898,13 @@ export default function RankRoller() {
     const reader = new FileReader();
     reader.onload = (event) => {
       try {
-        const data = JSON.parse(event.target?.result as string);
-        setCookie(SAVE_KEY, JSON.stringify(data));
+        const saveData = event.target?.result as string;
+        // Validate obfuscated format
+        if (!saveData.startsWith('RR1:')) {
+          alert('Invalid save file format!');
+          return;
+        }
+        setCookie(SAVE_KEY, saveData);
         alert('Save imported successfully! Refreshing...');
         window.location.reload();
       } catch {
@@ -1732,7 +1758,7 @@ export default function RankRoller() {
                 </button>
                 <label style={{...styles.cheatCloseBtn, backgroundColor: '#49a', cursor: 'pointer', textAlign: 'center'}}>
                   📤 Import Save
-                  <input type="file" accept=".json" onChange={importSave} style={{display: 'none'}} />
+                  <input type="file" accept=".sav" onChange={importSave} style={{display: 'none'}} />
                 </label>
                 <button onClick={() => setShowSaveModal(false)} style={{...styles.cheatCloseBtn, marginTop: '10px'}}>
                   Close
@@ -2654,7 +2680,7 @@ export default function RankRoller() {
               </button>
               <label style={{...styles.cheatCloseBtn, backgroundColor: '#49a', cursor: 'pointer', textAlign: 'center'}}>
                 📤 Import Save
-                <input type="file" accept=".json" onChange={importSave} style={{display: 'none'}} />
+                <input type="file" accept=".sav" onChange={importSave} style={{display: 'none'}} />
               </label>
               <button onClick={() => setShowSaveModal(false)} style={{...styles.cheatCloseBtn, marginTop: '10px'}}>
                 Close
