@@ -1225,9 +1225,9 @@ export default function RankRoller() {
     return () => clearInterval(autoRollTimer);
   }, [autoRollEnabled, autoRollUnlocked, fastAutoRollUnlocked, animationInterval, handleRoll]);
 
-  // Rune auto-roll effect
+  // Rune auto-roll effect (works on all screens)
   useEffect(() => {
-    if (!runeAutoRollEnabled || !runeAutoRollUnlocked || !showRunes) return;
+    if (!runeAutoRollEnabled || !runeAutoRollUnlocked) return;
 
     // Rune auto-roll interval: slow = 5x rune roll time, fast = 2x rune roll time
     const autoRuneRollInterval = fastRuneAutoRollUnlocked ? runeRollTime * 2 : runeRollTime * 5;
@@ -1240,7 +1240,7 @@ export default function RankRoller() {
     }, autoRuneRollInterval);
 
     return () => clearInterval(autoRuneRollTimer);
-  }, [runeAutoRollEnabled, runeAutoRollUnlocked, fastRuneAutoRollUnlocked, showRunes, runeRollTime, isRollingRune, canAffordRuneRoll, handleRuneRoll]);
+  }, [runeAutoRollEnabled, runeAutoRollUnlocked, fastRuneAutoRollUnlocked, runeRollTime, isRollingRune, canAffordRuneRoll, handleRuneRoll]);
 
   // Spacebar to roll
   useEffect(() => {
@@ -1542,6 +1542,183 @@ export default function RankRoller() {
             })}
           </div>
         </div>
+
+        {/* Cheat Menu Modal (also available on runes screen) */}
+        {showCheatMenu && (
+          <div style={styles.modalOverlay} onClick={() => setShowCheatMenu(false)}>
+            <div className="modal" style={styles.cheatModal} onClick={(e) => e.stopPropagation()}>
+              <h2 style={styles.cheatTitle}>🎮 Cheat Menu</h2>
+              <div style={styles.cheatGrid}>
+                <div style={styles.cheatItem}>
+                  <label style={styles.cheatLabel}>Points:</label>
+                  <input
+                    type="number"
+                    value={totalPoints}
+                    onChange={(e) => setTotalPoints(Number(e.target.value))}
+                    style={styles.cheatInput}
+                  />
+                </div>
+                <div style={styles.cheatItem}>
+                  <label style={styles.cheatLabel}>Rolls:</label>
+                  <input
+                    type="number"
+                    value={rollCount}
+                    onChange={(e) => setRollCount(Number(e.target.value))}
+                    style={styles.cheatInput}
+                  />
+                </div>
+                <div style={styles.cheatItem}>
+                  <label style={styles.cheatLabel}>Luck Level:</label>
+                  <input
+                    type="number"
+                    value={luckLevel}
+                    onChange={(e) => setLuckLevel(Number(e.target.value))}
+                    style={styles.cheatInput}
+                  />
+                </div>
+                <div style={styles.cheatItem}>
+                  <label style={styles.cheatLabel}>Points Multi Level:</label>
+                  <input
+                    type="number"
+                    value={pointsMultiLevel}
+                    onChange={(e) => setPointsMultiLevel(Number(e.target.value))}
+                    style={styles.cheatInput}
+                  />
+                </div>
+                <div style={styles.cheatItem}>
+                  <label style={styles.cheatLabel}>Speed Level:</label>
+                  <input
+                    type="number"
+                    value={speedLevel}
+                    onChange={(e) => setSpeedLevel(Number(e.target.value))}
+                    style={styles.cheatInput}
+                  />
+                </div>
+                <div style={styles.cheatItem}>
+                  <label style={styles.cheatLabel}>Rune Rolls:</label>
+                  <input
+                    type="number"
+                    value={runeRollCount}
+                    onChange={(e) => setRuneRollCount(Number(e.target.value))}
+                    style={styles.cheatInput}
+                  />
+                </div>
+                <div style={styles.cheatItem}>
+                  <label style={styles.cheatLabel}>Stone Runes (Bulk):</label>
+                  <input
+                    type="number"
+                    value={runeRollCounts[4] || 0}
+                    onChange={(e) => setRuneRollCounts(prev => ({ ...prev, 4: Number(e.target.value) }))}
+                    style={styles.cheatInput}
+                  />
+                </div>
+                <div style={styles.cheatItem}>
+                  <label style={styles.cheatLabel}>Thunder Runes (Rune Luck):</label>
+                  <input
+                    type="number"
+                    value={runeRollCounts[5] || 0}
+                    onChange={(e) => setRuneRollCounts(prev => ({ ...prev, 5: Number(e.target.value) }))}
+                    style={styles.cheatInput}
+                  />
+                </div>
+                <div style={styles.cheatItem}>
+                  <label style={styles.cheatLabel}>Frost Runes (Rune Bulk):</label>
+                  <input
+                    type="number"
+                    value={runeRollCounts[6] || 0}
+                    onChange={(e) => setRuneRollCounts(prev => ({ ...prev, 6: Number(e.target.value) }))}
+                    style={styles.cheatInput}
+                  />
+                </div>
+              </div>
+              <button
+                onClick={() => setShowCheatMenu(false)}
+                style={styles.cheatCloseBtn}
+              >
+                Close
+              </button>
+            </div>
+          </div>
+        )}
+
+        {/* Multiplier Breakdown Modal (also available on runes screen) */}
+        {showMultiplierBreakdown && (
+          <div style={styles.modalOverlay} onClick={() => setShowMultiplierBreakdown(false)}>
+            <div className="modal" style={{...styles.modal, maxWidth: '500px'}} onClick={(e) => e.stopPropagation()}>
+              <h2 className="modal-title" style={styles.modalTitle}>Multiplier Breakdown</h2>
+              <div style={{...styles.milestonesList, maxHeight: '60vh'}}>
+                {/* Luck Breakdown */}
+                <div style={styles.breakdownSection}>
+                  <h3 style={styles.breakdownHeader}>Luck ({luckMulti.toFixed(2)}x total)</h3>
+                  <div style={styles.breakdownItem}>
+                    <span>Base (Upgrades Lv.{luckLevel})</span>
+                    <span>{baseLuckMulti.toFixed(2)}x</span>
+                  </div>
+                  {milestoneLuckBonus > 1 && (
+                    <div style={styles.breakdownItem}>
+                      <span>Milestones</span>
+                      <span>{milestoneLuckBonus.toFixed(2)}x</span>
+                    </div>
+                  )}
+                  {runeLuckBonus > 1 && (
+                    <div style={styles.breakdownItem}>
+                      <span>Runes (Embers + Eternity)</span>
+                      <span>{runeLuckBonus.toFixed(2)}x</span>
+                    </div>
+                  )}
+                </div>
+
+                {/* Points Breakdown */}
+                <div style={styles.breakdownSection}>
+                  <h3 style={styles.breakdownHeader}>Points ({pointsMulti.toFixed(2)}x total)</h3>
+                  <div style={styles.breakdownItem}>
+                    <span>Base (Upgrades Lv.{pointsMultiLevel})</span>
+                    <span>{basePointsMulti.toFixed(2)}x</span>
+                  </div>
+                  {milestonePointsBonus > 1 && (
+                    <div style={styles.breakdownItem}>
+                      <span>Milestones</span>
+                      <span>{milestonePointsBonus.toFixed(2)}x</span>
+                    </div>
+                  )}
+                  {runePointsBonus > 1 && (
+                    <div style={styles.breakdownItem}>
+                      <span>Runes (Beginning + Eternity)</span>
+                      <span>{runePointsBonus.toFixed(2)}x</span>
+                    </div>
+                  )}
+                </div>
+
+                {/* Speed Breakdown */}
+                <div style={styles.breakdownSection}>
+                  <h3 style={styles.breakdownHeader}>Speed ({speedMulti.toFixed(2)}x total)</h3>
+                  <div style={styles.breakdownItem}>
+                    <span>Base (Upgrades Lv.{speedLevel})</span>
+                    <span>{baseSpeedMulti.toFixed(2)}x</span>
+                  </div>
+                  {milestoneSpeedBonus > 1 && (
+                    <div style={styles.breakdownItem}>
+                      <span>Milestones</span>
+                      <span>{milestoneSpeedBonus.toFixed(2)}x</span>
+                    </div>
+                  )}
+                  {runeSpeedBonus > 1 && (
+                    <div style={styles.breakdownItem}>
+                      <span>Runes (Tides + Eternity)</span>
+                      <span>{runeSpeedBonus.toFixed(2)}x</span>
+                    </div>
+                  )}
+                </div>
+              </div>
+              <button
+                onClick={() => setShowMultiplierBreakdown(false)}
+                style={styles.closeBtn}
+              >
+                Close
+              </button>
+            </div>
+          </div>
+        )}
       </div>
     );
   }
