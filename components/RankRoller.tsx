@@ -187,6 +187,40 @@ function hasAnyFromTier(collectedRanks: Set<number>, tierIndex: number): boolean
   return false;
 }
 
+// Helper to get which runes are unlocked based on progression
+// First 3 runes available, then unlock more with higher tier firsts
+function getUnlockedRunes(collectedRanks: Set<number>): Set<number> {
+  const unlocked = new Set<number>([0, 1, 2]); // Beginning, Embers, Tides always available
+
+  // Rune 3 (Gales): First Epic (tier 3)
+  if (hasAnyFromTier(collectedRanks, 3)) unlocked.add(3);
+  // Rune 4 (Stone): First Legendary (tier 4)
+  if (hasAnyFromTier(collectedRanks, 4)) unlocked.add(4);
+  // Rune 5 (Thunder): First Mythic (tier 5)
+  if (hasAnyFromTier(collectedRanks, 5)) unlocked.add(5);
+  // Rune 6 (Frost): First Divine (tier 6)
+  if (hasAnyFromTier(collectedRanks, 6)) unlocked.add(6);
+  // Rune 7 (Shadow): First Celestial (tier 7)
+  if (hasAnyFromTier(collectedRanks, 7)) unlocked.add(7);
+  // Rune 8 (Light): First Transcendent (tier 8)
+  if (hasAnyFromTier(collectedRanks, 8)) unlocked.add(8);
+  // Rune 9 (Eternity): First Ultimate (tier 9)
+  if (hasAnyFromTier(collectedRanks, 9)) unlocked.add(9);
+
+  return unlocked;
+}
+
+// Helper to check if any rank in a tier has ascension available
+function tierHasAscensionAvailable(tierIndex: number, rankRollCounts: Record<number, number>, ascendedRanks: Set<number>): boolean {
+  for (let i = 0; i < 10; i++) {
+    const rankIndex = tierIndex * 10 + i;
+    if ((rankRollCounts[rankIndex] || 0) >= 1000 && !ascendedRanks.has(rankIndex)) {
+      return true;
+    }
+  }
+  return false;
+}
+
 const MILESTONES: Milestone[] = [
   {
     id: 'rolls_100',
@@ -949,9 +983,10 @@ export default function RankRoller() {
   const runeOfLightCount = runeRollCounts[8] || 0; // Gives +1x ascension multiplier per roll (2x -> 3x -> 4x...)
   const runeOfEternityCount = runeRollCounts[9] || 0; // Gives +50% to ALL bonuses per roll (multiplicative)
 
-  // Eternity multiplier affects everything (1.5x per Eternity, multiplicative)
-  // Capped to prevent infinity overflow
-  const eternityMultiplier = Math.min(Math.pow(1.5, runeOfEternityCount), 1e15);
+  // Eternity multiplier affects everything
+  // Asymptotic formula: approaches 2x but never reaches it
+  // 0 runes: 1x, 1 rune: 1.1x, 2 runes: 1.19x, 3 runes: 1.271x, etc.
+  const eternityMultiplier = 1 + (1 - Math.pow(0.9, runeOfEternityCount));
 
   const runePointsBonus = Math.min((1 + (runeOfBeginningCount * 0.1)) * eternityMultiplier, 1e15);
   const runeLuckBonus = Math.min((1 + (runeOfEmbersCount * 0.1)) * eternityMultiplier, 1e15);
@@ -1139,12 +1174,20 @@ export default function RankRoller() {
   const runeRollCost = 1000 * runeBulkCount; // Cost scales with rune bulk
   const canAffordRuneRoll = totalPoints >= runeRollCost;
 
+  // Calculate which runes are unlocked based on progression
+  const unlockedRunes = useMemo(() => getUnlockedRunes(collectedRanks), [collectedRanks]);
+
+  // Get only unlocked runes for rolling
+  const availableRunes = useMemo(() => {
+    return runes.filter((rune) => unlockedRunes.has(rune.index));
+  }, [runes, unlockedRunes]);
+
   // Total rune luck (from milestones and Thunder runes)
   const totalRuneLuck = milestoneRuneLuckBonus * runeRuneLuckBonus;
 
   // Handle rune roll
   const handleRuneRoll = useCallback(() => {
-    if (!canAffordRuneRoll || isRollingRune) return;
+    if (!canAffordRuneRoll || isRollingRune || availableRunes.length === 0) return;
 
     setTotalPoints((p) => p - runeRollCost);
     setIsRollingRune(true);
@@ -1153,7 +1196,7 @@ export default function RankRoller() {
     let animationCount = 0;
 
     const rollTimer = setInterval(() => {
-      const simulatedRoll = rollRuneWithLuck(runes, totalRuneLuck);
+      const simulatedRoll = rollRuneWithLuck(availableRunes, totalRuneLuck);
       setCurrentRuneRoll(simulatedRoll);
       animationCount++;
 
@@ -1163,7 +1206,7 @@ export default function RankRoller() {
         // Final roll with bulk (roll multiple times, keep the best/rarest for display)
         const results: Rune[] = [];
         for (let i = 0; i < runeBulkCount; i++) {
-          results.push(rollRuneWithLuck(runes, totalRuneLuck));
+          results.push(rollRuneWithLuck(availableRunes, totalRuneLuck));
         }
         const bestResult = results.reduce((best, current) =>
           current.index > best.index ? current : best
@@ -1206,7 +1249,7 @@ export default function RankRoller() {
         setIsRollingRune(false);
       }
     }, runeAnimationInterval);
-  }, [runes, canAffordRuneRoll, isRollingRune, runeRollTime, totalRuneLuck, runeRollCost, runeBulkCount]);
+  }, [availableRunes, canAffordRuneRoll, isRollingRune, runeRollTime, totalRuneLuck, runeRollCost, runeBulkCount]);
 
   // Get total roll count for a tier
   const getTierRollCount = (tierIndex: number): number => {
@@ -1610,7 +1653,18 @@ export default function RankRoller() {
           <div style={styles.runeCatalogueGrid}>
             {runes.map((rune) => {
               const isCollected = collectedRunes.has(rune.index);
+              const isUnlocked = unlockedRunes.has(rune.index);
               const rollCount = runeRollCounts[rune.index] || 0;
+              // Unlock requirements for locked runes
+              const unlockRequirements: Record<number, string> = {
+                3: 'First Epic',
+                4: 'First Legendary',
+                5: 'First Mythic',
+                6: 'First Divine',
+                7: 'First Celestial',
+                8: 'First Transcendent',
+                9: 'First Ultimate',
+              };
               return (
                 <div
                   key={rune.index}
@@ -1618,23 +1672,36 @@ export default function RankRoller() {
                     ...styles.runeItem,
                     backgroundColor: isCollected ? rune.color : '#222',
                     color: isCollected && (rune.index === 8 || rune.index === 5) ? '#000' : '#fff',
-                    opacity: isCollected ? 1 : 0.4,
+                    opacity: isUnlocked ? (isCollected ? 1 : 0.4) : 0.25,
                     boxShadow: isCollected ? `0 0 15px ${rune.color}60` : 'none',
                   }}
                 >
                   <div style={styles.runeItemName}>{rune.name}</div>
-                  <div style={styles.runeItemChance}>
-                    {formatRuneProbability(getEffectiveRuneProbability(rune, runes, totalRuneLuck))}
-                  </div>
-                  {isCollected && (
-                    <div style={styles.runeItemRolls}>
-                      Rolled: {rollCount.toLocaleString()}x
-                    </div>
-                  )}
-                  {isCollected && runeRollCount > 0 && (
-                    <div style={styles.runeItemPercent}>
-                      {((rollCount / runeRollCount) * 100).toFixed(5)}%
-                    </div>
+                  {!isUnlocked ? (
+                    <>
+                      <div style={{...styles.runeItemChance, color: '#ff6666', fontWeight: 'bold'}}>
+                        🔒 LOCKED
+                      </div>
+                      <div style={{...styles.runeItemRolls, fontSize: '0.7rem', color: '#888'}}>
+                        Unlock: {unlockRequirements[rune.index]}
+                      </div>
+                    </>
+                  ) : (
+                    <>
+                      <div style={styles.runeItemChance}>
+                        {formatRuneProbability(getEffectiveRuneProbability(rune, availableRunes, totalRuneLuck))}
+                      </div>
+                      {isCollected && (
+                        <div style={styles.runeItemRolls}>
+                          Rolled: {rollCount.toLocaleString()}x
+                        </div>
+                      )}
+                      {isCollected && runeRollCount > 0 && (
+                        <div style={styles.runeItemPercent}>
+                          {((rollCount / runeRollCount) * 100).toFixed(5)}%
+                        </div>
+                      )}
+                    </>
                   )}
                 </div>
               );
@@ -2443,6 +2510,7 @@ export default function RankRoller() {
                   );
                 } else {
                   // Condensed view - single item
+                  const hasAscension = tierHasAscensionAvailable(tierIndex, rankRollCounts, ascendedRanks);
                   return (
                     <div
                       key={tier}
@@ -2460,6 +2528,30 @@ export default function RankRoller() {
                       <div style={styles.catalogueItemRolls}>
                         Rolled: {getTierRollCount(tierIndex).toLocaleString()}x
                       </div>
+                      {hasAscension && (
+                        <div style={{
+                          display: 'flex',
+                          alignItems: 'center',
+                          justifyContent: 'center',
+                          marginTop: '4px',
+                        }}>
+                          <div style={{
+                            width: '20px',
+                            height: '20px',
+                            borderRadius: '50%',
+                            backgroundColor: '#ff3333',
+                            display: 'flex',
+                            alignItems: 'center',
+                            justifyContent: 'center',
+                            fontWeight: 'bold',
+                            fontSize: '14px',
+                            color: '#ffffff',
+                            boxShadow: '0 0 8px rgba(255, 51, 51, 0.6)',
+                          }}>
+                            !
+                          </div>
+                        </div>
+                      )}
                     </div>
                   );
                 }
