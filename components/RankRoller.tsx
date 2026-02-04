@@ -751,6 +751,7 @@ export default function RankRoller() {
   const [isRollingRune, setIsRollingRune] = useState(false);
   const [showCheatMenu, setShowCheatMenu] = useState(false);
   const [cheatBuffer, setCheatBuffer] = useState('');
+  const [showMultiplierBreakdown, setShowMultiplierBreakdown] = useState(false);
   const rollCountRef = useRef(rollCount);
 
   // Load save data from cookies on mount
@@ -1241,6 +1242,28 @@ export default function RankRoller() {
     return () => clearInterval(autoRuneRollTimer);
   }, [runeAutoRollEnabled, runeAutoRollUnlocked, fastRuneAutoRollUnlocked, showRunes, runeRollTime, isRollingRune, canAffordRuneRoll, handleRuneRoll]);
 
+  // Spacebar to roll
+  useEffect(() => {
+    const handleSpacebar = (e: KeyboardEvent) => {
+      if (e.code === 'Space' && !e.repeat) {
+        // Prevent scrolling
+        e.preventDefault();
+        // Roll based on current view
+        if (showRunes) {
+          if (!isRollingRune && canAffordRuneRoll) {
+            handleRuneRoll();
+          }
+        } else {
+          if (!isRolling && !autoRollEnabled) {
+            handleRoll();
+          }
+        }
+      }
+    };
+    window.addEventListener('keydown', handleSpacebar);
+    return () => window.removeEventListener('keydown', handleSpacebar);
+  }, [showRunes, isRolling, isRollingRune, canAffordRuneRoll, autoRollEnabled, handleRoll, handleRuneRoll]);
+
   const collectedCount = collectedRanks.size;
 
   const formatProbability = (prob: number): string => {
@@ -1334,6 +1357,12 @@ export default function RankRoller() {
             style={styles.formatToggleBtn}
           >
             {showPercentFormat ? 'Show 1/x' : 'Show %'}
+          </button>
+          <button
+            onClick={() => setShowMultiplierBreakdown(true)}
+            style={{...styles.formatToggleBtn, marginTop: '0.5rem'}}
+          >
+            View Breakdown
           </button>
         </div>
 
@@ -1582,6 +1611,12 @@ export default function RankRoller() {
         >
           {showPercentFormat ? 'Show 1/x' : 'Show %'}
         </button>
+        <button
+          onClick={() => setShowMultiplierBreakdown(true)}
+          style={{...styles.formatToggleBtn, marginTop: '0.5rem'}}
+        >
+          View Breakdown
+        </button>
       </div>
 
       {/* Upgrades Panel - Top Right */}
@@ -1717,6 +1752,175 @@ export default function RankRoller() {
             </div>
             <button
               onClick={() => setShowMilestones(false)}
+              style={styles.closeBtn}
+            >
+              Close
+            </button>
+          </div>
+        </div>
+      )}
+
+      {/* Multiplier Breakdown Modal */}
+      {showMultiplierBreakdown && (
+        <div style={styles.modalOverlay} onClick={() => setShowMultiplierBreakdown(false)}>
+          <div className="modal" style={{...styles.modal, maxWidth: '500px'}} onClick={(e) => e.stopPropagation()}>
+            <h2 className="modal-title" style={styles.modalTitle}>Multiplier Breakdown</h2>
+            <div style={{...styles.milestonesList, maxHeight: '60vh'}}>
+              {/* Luck Breakdown */}
+              <div style={styles.breakdownSection}>
+                <h3 style={styles.breakdownHeader}>Luck ({luckMulti.toFixed(2)}x total)</h3>
+                <div style={styles.breakdownItem}>
+                  <span>Base (Upgrades Lv.{luckLevel})</span>
+                  <span>{baseLuckMulti.toFixed(2)}x</span>
+                </div>
+                {milestoneLuckBonus > 1 && (
+                  <div style={styles.breakdownItem}>
+                    <span>Milestones</span>
+                    <span>{milestoneLuckBonus.toFixed(2)}x</span>
+                  </div>
+                )}
+                {runeLuckBonus > 1 && (
+                  <div style={styles.breakdownItem}>
+                    <span>Runes (Embers + Eternity)</span>
+                    <span>{runeLuckBonus.toFixed(2)}x</span>
+                  </div>
+                )}
+              </div>
+
+              {/* Points Breakdown */}
+              <div style={styles.breakdownSection}>
+                <h3 style={styles.breakdownHeader}>Points ({pointsMulti.toFixed(2)}x total)</h3>
+                <div style={styles.breakdownItem}>
+                  <span>Base (Upgrades Lv.{pointsMultiLevel})</span>
+                  <span>{basePointsMulti.toFixed(2)}x</span>
+                </div>
+                {milestonePointsBonus > 1 && (
+                  <div style={styles.breakdownItem}>
+                    <span>Milestones</span>
+                    <span>{milestonePointsBonus.toFixed(2)}x</span>
+                  </div>
+                )}
+                {runePointsBonus > 1 && (
+                  <div style={styles.breakdownItem}>
+                    <span>Runes (Beginning + Eternity)</span>
+                    <span>{runePointsBonus.toFixed(2)}x</span>
+                  </div>
+                )}
+              </div>
+
+              {/* Speed Breakdown */}
+              <div style={styles.breakdownSection}>
+                <h3 style={styles.breakdownHeader}>Speed ({speedMulti.toFixed(2)}x total)</h3>
+                <div style={styles.breakdownItem}>
+                  <span>Base (Upgrades Lv.{speedLevel})</span>
+                  <span>{baseSpeedMulti.toFixed(2)}x</span>
+                </div>
+                {milestoneSpeedBonus > 1 && (
+                  <div style={styles.breakdownItem}>
+                    <span>Milestones</span>
+                    <span>{milestoneSpeedBonus.toFixed(2)}x</span>
+                  </div>
+                )}
+                {runeSpeedBonus > 1 && (
+                  <div style={styles.breakdownItem}>
+                    <span>Runes (Tides + Eternity)</span>
+                    <span>{runeSpeedBonus.toFixed(2)}x</span>
+                  </div>
+                )}
+              </div>
+
+              {/* Bulk Breakdown */}
+              {bulkRollCount > 1 && (
+                <div style={styles.breakdownSection}>
+                  <h3 style={styles.breakdownHeader}>Bulk Roll ({bulkRollCount}x total)</h3>
+                  <div style={styles.breakdownItem}>
+                    <span>Runes (Stone + Eternity)</span>
+                    <span>{bulkRollCount}x</span>
+                  </div>
+                </div>
+              )}
+
+              {/* Rune Luck Breakdown */}
+              {totalRuneLuck > 1 && (
+                <div style={styles.breakdownSection}>
+                  <h3 style={styles.breakdownHeader}>Rune Luck ({totalRuneLuck.toFixed(2)}x total)</h3>
+                  {milestoneRuneLuckBonus > 1 && (
+                    <div style={styles.breakdownItem}>
+                      <span>Milestones</span>
+                      <span>{milestoneRuneLuckBonus.toFixed(2)}x</span>
+                    </div>
+                  )}
+                  {runeRuneLuckBonus > 1 && (
+                    <div style={styles.breakdownItem}>
+                      <span>Runes (Thunder + Eternity)</span>
+                      <span>{runeRuneLuckBonus.toFixed(2)}x</span>
+                    </div>
+                  )}
+                </div>
+              )}
+
+              {/* Rune Bulk Breakdown */}
+              {runeBulkCount > 1 && (
+                <div style={styles.breakdownSection}>
+                  <h3 style={styles.breakdownHeader}>Rune Bulk ({runeBulkCount}x total)</h3>
+                  <div style={styles.breakdownItem}>
+                    <span>Runes (Frost + Eternity)</span>
+                    <span>{runeBulkCount}x</span>
+                  </div>
+                </div>
+              )}
+
+              {/* Rune Speed Breakdown */}
+              {(milestoneRuneSpeedBonus > 1 || runeRuneSpeedBonus > 1) && (
+                <div style={styles.breakdownSection}>
+                  <h3 style={styles.breakdownHeader}>Rune Speed ({(milestoneRuneSpeedBonus * runeRuneSpeedBonus).toFixed(2)}x total)</h3>
+                  {milestoneRuneSpeedBonus > 1 && (
+                    <div style={styles.breakdownItem}>
+                      <span>Milestones</span>
+                      <span>{milestoneRuneSpeedBonus.toFixed(2)}x</span>
+                    </div>
+                  )}
+                  {runeRuneSpeedBonus > 1 && (
+                    <div style={styles.breakdownItem}>
+                      <span>Runes (Gales + Eternity)</span>
+                      <span>{runeRuneSpeedBonus.toFixed(2)}x</span>
+                    </div>
+                  )}
+                </div>
+              )}
+
+              {/* Cost Reduction from Shadow */}
+              {runeOfShadowCount > 0 && (
+                <div style={styles.breakdownSection}>
+                  <h3 style={styles.breakdownHeader}>Upgrade Cost Reduction</h3>
+                  <div style={styles.breakdownItem}>
+                    <span>Runes (Shadow + Eternity)</span>
+                    <span>{((1 - shadowCostReduction) * 100).toFixed(1)}% off</span>
+                  </div>
+                </div>
+              )}
+
+              {/* Ascension Bonus from Light */}
+              {runeOfLightCount > 0 && (
+                <div style={styles.breakdownSection}>
+                  <h3 style={styles.breakdownHeader}>Ascension Multiplier</h3>
+                  <div style={styles.breakdownItem}>
+                    <span>Base</span>
+                    <span>2x</span>
+                  </div>
+                  <div style={styles.breakdownItem}>
+                    <span>Runes (Light + Eternity)</span>
+                    <span>+{(lightAscensionBonus - 2).toFixed(2)}x</span>
+                  </div>
+                  <div style={styles.breakdownItem}>
+                    <span style={{fontWeight: 'bold'}}>Total</span>
+                    <span style={{fontWeight: 'bold'}}>{lightAscensionBonus.toFixed(2)}x</span>
+                  </div>
+                </div>
+              )}
+            </div>
+            <button
+              onClick={() => setShowMultiplierBreakdown(false)}
               style={styles.closeBtn}
             >
               Close
@@ -2954,5 +3158,25 @@ const styles: Record<string, React.CSSProperties> = {
     border: 'none',
     borderRadius: '8px',
     cursor: 'pointer',
+  },
+  breakdownSection: {
+    backgroundColor: 'rgba(255, 255, 255, 0.05)',
+    borderRadius: '8px',
+    padding: '12px',
+    marginBottom: '12px',
+  },
+  breakdownHeader: {
+    margin: '0 0 8px 0',
+    fontSize: '1rem',
+    color: '#ffd700',
+    borderBottom: '1px solid rgba(255, 215, 0, 0.3)',
+    paddingBottom: '6px',
+  },
+  breakdownItem: {
+    display: 'flex',
+    justifyContent: 'space-between',
+    padding: '4px 0',
+    fontSize: '0.9rem',
+    color: '#ccc',
   },
 };
