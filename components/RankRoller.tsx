@@ -43,6 +43,13 @@ interface SaveData {
   runeRollCount: number;
   // Legitimate rune rolls (not cheatable, used for milestones)
   legitimateRuneRollCounts?: Record<number, number>;
+  // Bulk roll upgrade
+  bulkRollLevel?: number;
+  // Game speed cheat multiplier
+  gameSpeedMultiplier?: number;
+  // Prestige system
+  rollerPrestigeLevel?: number;
+  runePrestigeLevel?: number;
 }
 
 interface MilestoneState {
@@ -867,7 +874,17 @@ export default function RankRoller() {
   const [cheatBuffer, setCheatBuffer] = useState('');
   const [showMultiplierBreakdown, setShowMultiplierBreakdown] = useState(false);
   const [showSaveModal, setShowSaveModal] = useState(false);
+  const [bulkRollLevel, setBulkRollLevel] = useState(0); // 0-4, each level adds +1 bulk
+  const [gameSpeedMultiplier, setGameSpeedMultiplier] = useState(1); // Cheat: game speed multiplier
+  const [rollerPrestigeLevel, setRollerPrestigeLevel] = useState(0); // Prestige level for roller
+  const [runePrestigeLevel, setRunePrestigeLevel] = useState(0); // Prestige level for runes
+  const [showPrestigeModal, setShowPrestigeModal] = useState(false);
   const rollCountRef = useRef(rollCount);
+
+  // Bulk roll upgrade costs
+  const BULK_UPGRADE_COSTS = [10000, 100000, 1000000, 10000000];
+  const bulkUpgradeCost = bulkRollLevel < 4 ? BULK_UPGRADE_COSTS[bulkRollLevel] : Infinity;
+  const canAffordBulkUpgrade = totalPoints >= bulkUpgradeCost && bulkRollLevel < 4;
 
   // Load save data from cookies on mount
   useEffect(() => {
@@ -910,6 +927,12 @@ export default function RankRoller() {
         setRuneRollCounts(data.runeRollCounts || {});
         setLegitimateRuneRollCounts(data.legitimateRuneRollCounts || data.runeRollCounts || {});
         setRuneRollCount(data.runeRollCount || 0);
+        // Load bulk roll upgrade and game speed
+        setBulkRollLevel(data.bulkRollLevel || 0);
+        setGameSpeedMultiplier(data.gameSpeedMultiplier || 1);
+        // Load prestige levels
+        setRollerPrestigeLevel(data.rollerPrestigeLevel || 0);
+        setRunePrestigeLevel(data.runePrestigeLevel || 0);
       } catch (e) {
         console.error('Failed to load save data:', e);
       }
@@ -944,9 +967,15 @@ export default function RankRoller() {
       runeRollCounts,
       legitimateRuneRollCounts,
       runeRollCount,
+      // Bulk roll upgrade and game speed
+      bulkRollLevel,
+      gameSpeedMultiplier,
+      // Prestige levels
+      rollerPrestigeLevel,
+      runePrestigeLevel,
     };
     setCookie(SAVE_KEY, obfuscateSave(JSON.stringify(saveData)));
-  }, [isLoaded, rollCount, totalPoints, highestRank, highestRankRoll, collectedRanks, rankRollCounts, ascendedRanks, luckLevel, pointsMultiLevel, speedLevel, claimedMilestones, collectedRunes, runeRollCounts, legitimateRuneRollCounts, runeRollCount]);
+  }, [isLoaded, rollCount, totalPoints, highestRank, highestRankRoll, collectedRanks, rankRollCounts, ascendedRanks, luckLevel, pointsMultiLevel, speedLevel, claimedMilestones, collectedRunes, runeRollCounts, legitimateRuneRollCounts, runeRollCount, bulkRollLevel, gameSpeedMultiplier, rollerPrestigeLevel, runePrestigeLevel]);
 
   useEffect(() => {
     saveGame();
@@ -1054,15 +1083,21 @@ export default function RankRoller() {
   const runeLuckBonus = Math.min((1 + (runeOfEmbersCount * 0.1)) * eternityMultiplier, 1e15);
   const runeSpeedBonus = Math.min((1 + (runeOfTidesCount * 0.5)) * eternityMultiplier, 1e15);
   const runeRuneSpeedBonus = Math.min((1 + (runeOfGalesCount * 0.2)) * eternityMultiplier, 1e15);
-  const bulkRollCount = Math.min(Math.floor((1 + runeOfStoneCount) * eternityMultiplier), 1000); // Cap bulk at 1000
-  const runeRuneLuckBonus = Math.min((1 + (runeOfThunderCount * 0.5)) * eternityMultiplier, 1e15);
+  // Bulk roll now includes upgrade level (each level adds +1 bulk)
+  const bulkRollCount = Math.min(Math.floor((1 + runeOfStoneCount + bulkRollLevel) * eternityMultiplier), 1000); // Cap bulk at 1000
+  // Thunder rune luck is now logarithmic, capping at 20x
+  const runeRuneLuckBonus = Math.min((1 + Math.log10(1 + runeOfThunderCount) * 6.33) * eternityMultiplier, 20); // Log scaling, cap at 20x
   const runeBulkCount = Math.min(Math.floor((1 + runeOfFrostCount) * eternityMultiplier), 1000); // Cap bulk at 1000
   const shadowCostReduction = Math.max(Math.pow(0.9, runeOfShadowCount) / eternityMultiplier, 1e-15); // Floor to prevent 0
   const lightAscensionBonus = Math.min(2 + runeOfLightCount + (eternityMultiplier - 1), 1e15);
 
+  // Prestige bonuses (10% per prestige level for roller, 5% for runes)
+  const rollerPrestigeBonus = 1 + (rollerPrestigeLevel * 0.1);
+  const runePrestigeBonus = 1 + (runePrestigeLevel * 0.05);
+
   // Luck calculations
   const baseLuckMulti = Math.pow(1.1, luckLevel);
-  const luckMulti = baseLuckMulti * milestoneLuckBonus * runeLuckBonus;
+  const luckMulti = baseLuckMulti * milestoneLuckBonus * runeLuckBonus * rollerPrestigeBonus;
   const luckUpgradeCost = Math.floor(100 * Math.pow(2, luckLevel) * shadowCostReduction);
   const canAffordLuckUpgrade = totalPoints >= luckUpgradeCost;
 
@@ -1091,12 +1126,21 @@ export default function RankRoller() {
   const speedMulti = baseSpeedMulti * milestoneSpeedBonus * runeSpeedBonus;
   const speedUpgradeCost = Math.floor(100 * Math.pow(2, speedLevel) * shadowCostReduction);
   const canAffordSpeedUpgrade = totalPoints >= speedUpgradeCost;
-  const animationInterval = Math.floor(50 / speedMulti);
+  // Game speed cheat multiplier affects animation interval
+  const animationInterval = Math.max(1, Math.floor(50 / (speedMulti * gameSpeedMultiplier)));
 
   const handleUpgradeSpeed = () => {
     if (canAffordSpeedUpgrade) {
       setTotalPoints((p) => p - speedUpgradeCost);
       setSpeedLevel((l) => l + 1);
+    }
+  };
+
+  // Bulk roll upgrade handler
+  const handleUpgradeBulk = () => {
+    if (canAffordBulkUpgrade) {
+      setTotalPoints((p) => p - bulkUpgradeCost);
+      setBulkRollLevel((l) => l + 1);
     }
   };
 
@@ -1129,6 +1173,24 @@ export default function RankRoller() {
         next.add(milestone.id);
         return next;
       });
+    }
+  };
+
+  // Claim all available milestones at once
+  const handleClaimAllMilestones = () => {
+    let totalReward = 0;
+    const newClaimed = new Set(claimedMilestones);
+
+    for (const milestone of MILESTONES) {
+      if (milestone.requirement(milestoneState) && !claimedMilestones.has(milestone.id)) {
+        totalReward += milestone.reward;
+        newClaimed.add(milestone.id);
+      }
+    }
+
+    if (totalReward > 0) {
+      setTotalPoints((p) => p + totalReward);
+      setClaimedMilestones(newClaimed);
     }
   };
 
@@ -1207,6 +1269,98 @@ export default function RankRoller() {
     setAscendPrompt(null);
   };
 
+  // Handle ascend all - ascend all available ranks
+  const handleAscendAll = () => {
+    setAscendedRanks((prev) => {
+      const next = new Map(prev);
+      // Go through all collected ranks and ascend any that can be ascended
+      for (const rankIndex of collectedRanks) {
+        let changed = true;
+        // Keep ascending until no more tiers available
+        while (changed) {
+          const currentLevel = next.get(rankIndex) || 0;
+          const nextTier = getNextAscensionTier(rankIndex, rankRollCounts, next);
+          if (nextTier !== null) {
+            next.set(rankIndex, nextTier + 1);
+          } else {
+            changed = false;
+          }
+        }
+      }
+      return next;
+    });
+  };
+
+  // Check if any ranks can be ascended
+  const hasAnyAscendable = useMemo(() => {
+    for (const rankIndex of collectedRanks) {
+      const nextTier = getNextAscensionTier(rankIndex, rankRollCounts, ascendedRanks);
+      if (nextTier !== null) return true;
+    }
+    return false;
+  }, [collectedRanks, rankRollCounts, ascendedRanks]);
+
+  // Prestige requirements and checks
+  const ROLLER_PRESTIGE_REQ = 100; // 100 Ultimate 10's to prestige
+  const RUNE_PRESTIGE_TIERS = [100, 400, 1000]; // Rune rolls needed per tier
+  const ultimate10Index = 99; // Ultimate 10 is rank index 99
+  const ultimate10Rolls = rankRollCounts[ultimate10Index] || 0;
+  const canRollerPrestige = ultimate10Rolls >= ROLLER_PRESTIGE_REQ;
+
+  // Rune prestige tiers based on total rune rolls
+  const runePrestigeTierIndex = RUNE_PRESTIGE_TIERS.findIndex(req => runeRollCount < req);
+  const nextRunePrestigeReq = runePrestigeTierIndex >= 0 ? RUNE_PRESTIGE_TIERS[runePrestigeTierIndex] : null;
+  const canRunePrestige = runePrestigeTierIndex === -1 || (runePrestigeTierIndex < RUNE_PRESTIGE_TIERS.length && runeRollCount >= RUNE_PRESTIGE_TIERS[runePrestigeTierIndex]);
+
+  // Handle roller prestige - resets ranks but keeps runes and increases prestige bonus
+  const handleRollerPrestige = () => {
+    if (!canRollerPrestige) return;
+
+    // Increase prestige level
+    setRollerPrestigeLevel(prev => prev + 1);
+
+    // Reset rank-related progress
+    setCurrentRoll(null);
+    setHighestRank(null);
+    setHighestRankRoll(null);
+    setRollCount(0);
+    setTotalPoints(0);
+    setLastPointsGained(null);
+    setCollectedRanks(new Set());
+    setRankRollCounts({});
+    setAscendedRanks(new Map());
+    setExpandedTiers(new Set());
+    setLuckLevel(0);
+    setPointsMultiLevel(0);
+    setSpeedLevel(0);
+    setClaimedMilestones(new Set());
+    setAutoRollEnabled(false);
+    setBulkRollLevel(0);
+
+    // Close modal
+    setShowPrestigeModal(false);
+  };
+
+  // Handle rune prestige - resets runes but increases rune prestige bonus
+  const handleRunePrestige = () => {
+    if (!canRunePrestige) return;
+
+    // Increase prestige level
+    setRunePrestigeLevel(prev => prev + 1);
+
+    // Reset rune progress
+    setCurrentRuneRoll(null);
+    setCollectedRunes(new Set());
+    setRuneRollCounts({});
+    setLegitimateRuneRollCounts({});
+    setRuneRollCount(0);
+    setIsRollingRune(false);
+    setRuneAutoRollEnabled(false);
+
+    // Close modal
+    setShowPrestigeModal(false);
+  };
+
   // Handle reset progress
   const handleReset = () => {
     if (resetInput === 'RESET') {
@@ -1242,6 +1396,9 @@ export default function RankRoller() {
       setResetInput('');
       setShowCheatMenu(false);
       setCheatBuffer('');
+      // Reset bulk and game speed
+      setBulkRollLevel(0);
+      setGameSpeedMultiplier(1);
     }
   };
 
@@ -1261,7 +1418,7 @@ export default function RankRoller() {
   }, [runes, unlockedRunes]);
 
   // Total rune luck (from milestones and Thunder runes)
-  const totalRuneLuck = milestoneRuneLuckBonus * runeRuneLuckBonus;
+  const totalRuneLuck = milestoneRuneLuckBonus * runeRuneLuckBonus * runePrestigeBonus;
 
   // Handle rune roll
   const handleRuneRoll = useCallback(() => {
@@ -2136,6 +2293,26 @@ export default function RankRoller() {
               {formatNumber(speedUpgradeCost)}
             </button>
           </div>
+          {/* Bulk Roll Upgrade */}
+          <div className="upgrade-item" style={styles.upgradeItem}>
+            <div className="upgrade-info" style={styles.upgradeInfo}>
+              <span className="upgrade-name" style={styles.upgradeName}>Bulk</span>
+              <span className="upgrade-value" style={styles.upgradeValue}>+{bulkRollLevel}</span>
+              <span className="upgrade-level" style={styles.upgradeLevel}>Lv.{bulkRollLevel}/4</span>
+            </div>
+            <button
+              className="upgrade-btn"
+              onClick={handleUpgradeBulk}
+              disabled={!canAffordBulkUpgrade}
+              style={{
+                ...styles.upgradeBtn,
+                opacity: canAffordBulkUpgrade ? 1 : 0.5,
+                cursor: canAffordBulkUpgrade ? 'pointer' : 'not-allowed',
+              }}
+            >
+              {bulkRollLevel >= 4 ? 'MAX' : formatNumber(bulkUpgradeCost)}
+            </button>
+          </div>
         </div>
       </div>
 
@@ -2203,12 +2380,22 @@ export default function RankRoller() {
                 );
               })}
             </div>
-            <button
-              onClick={() => setShowMilestones(false)}
-              style={styles.closeBtn}
-            >
-              Close
-            </button>
+            <div style={{display: 'flex', gap: '10px', justifyContent: 'center'}}>
+              {unclaimedMilestones.length > 0 && (
+                <button
+                  onClick={handleClaimAllMilestones}
+                  style={{...styles.closeBtn, backgroundColor: '#22c55e'}}
+                >
+                  Claim All ({unclaimedMilestones.length})
+                </button>
+              )}
+              <button
+                onClick={() => setShowMilestones(false)}
+                style={styles.closeBtn}
+              >
+                Close
+              </button>
+            </div>
           </div>
         </div>
       )}
@@ -2527,9 +2714,29 @@ export default function RankRoller() {
 
       {/* Catalogue */}
       <div className="catalogue-section" style={styles.catalogue}>
-        <h3 style={styles.catalogueTitle}>
-          Catalogue ({collectedCount}/100)
-        </h3>
+        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '1rem' }}>
+          <h3 style={{ ...styles.catalogueTitle, marginBottom: 0 }}>
+            Catalogue ({collectedCount}/100)
+          </h3>
+          {hasAnyAscendable && (
+            <button
+              onClick={handleAscendAll}
+              style={{
+                padding: '0.4rem 0.8rem',
+                fontSize: '0.85rem',
+                backgroundColor: '#ffd700',
+                color: '#000',
+                border: 'none',
+                borderRadius: '6px',
+                cursor: 'pointer',
+                fontWeight: 'bold',
+                boxShadow: '0 0 10px rgba(255, 215, 0, 0.5)',
+              }}
+            >
+              Ascend All
+            </button>
+          )}
+        </div>
         {collectedCount === 0 ? (
           <div style={styles.emptyMessage}>Roll to start collecting ranks!</div>
         ) : (
@@ -2712,6 +2919,19 @@ export default function RankRoller() {
         >
           Reset Progress
         </button>
+        {(canRollerPrestige || canRunePrestige) && (
+          <button
+            onClick={() => setShowPrestigeModal(true)}
+            style={{
+              ...styles.resetBtn,
+              backgroundColor: '#9932cc',
+              marginTop: '0.5rem',
+              boxShadow: '0 0 15px rgba(153, 50, 204, 0.5)',
+            }}
+          >
+            Prestige Available!
+          </button>
+        )}
       </div>
 
       {/* Reset Modal */}
@@ -2751,6 +2971,112 @@ export default function RankRoller() {
                 Cancel
               </button>
             </div>
+          </div>
+        </div>
+      )}
+
+      {/* Prestige Modal */}
+      {showPrestigeModal && (
+        <div style={styles.modalOverlay} onClick={() => setShowPrestigeModal(false)}>
+          <div className="modal" style={{ ...styles.modal, maxWidth: '500px' }} onClick={(e) => e.stopPropagation()}>
+            <h2 style={{ ...styles.resetTitle, color: '#9932cc' }}>⭐ Prestige</h2>
+            <div style={{ marginBottom: '1.5rem', color: '#aaa', textAlign: 'center' }}>
+              Prestige resets your progress but grants permanent bonuses!
+            </div>
+
+            {/* Roller Prestige */}
+            <div style={{
+              backgroundColor: '#1a1a2e',
+              padding: '1rem',
+              borderRadius: '8px',
+              marginBottom: '1rem',
+              border: canRollerPrestige ? '2px solid #9932cc' : '1px solid #333',
+            }}>
+              <h3 style={{ margin: '0 0 0.5rem 0', color: '#ffd700' }}>
+                Roller Prestige (Level {rollerPrestigeLevel})
+              </h3>
+              <div style={{ color: '#aaa', fontSize: '0.9rem', marginBottom: '0.5rem' }}>
+                Requirement: {ROLLER_PRESTIGE_REQ} Ultimate 10 rolls
+              </div>
+              <div style={{ color: '#fff', marginBottom: '0.5rem' }}>
+                Progress: {ultimate10Rolls} / {ROLLER_PRESTIGE_REQ}
+              </div>
+              <div style={{ color: '#4CAF50', fontSize: '0.9rem', marginBottom: '0.5rem' }}>
+                Current bonus: +{rollerPrestigeLevel * 10}% Luck
+              </div>
+              <div style={{ color: '#9932cc', fontSize: '0.9rem', marginBottom: '1rem' }}>
+                Next prestige: +{(rollerPrestigeLevel + 1) * 10}% Luck
+              </div>
+              <div style={{ color: '#ff6b6b', fontSize: '0.85rem', marginBottom: '1rem' }}>
+                Resets: Ranks, points, upgrades, milestones, ascensions
+                <br />
+                Keeps: Runes, rune rolls, rune prestige
+              </div>
+              <button
+                onClick={handleRollerPrestige}
+                disabled={!canRollerPrestige}
+                style={{
+                  ...styles.resetConfirmBtn,
+                  backgroundColor: canRollerPrestige ? '#9932cc' : '#444',
+                  opacity: canRollerPrestige ? 1 : 0.5,
+                  cursor: canRollerPrestige ? 'pointer' : 'not-allowed',
+                  width: '100%',
+                }}
+              >
+                {canRollerPrestige ? 'Prestige Roller' : `Need ${ROLLER_PRESTIGE_REQ - ultimate10Rolls} more Ultimate 10s`}
+              </button>
+            </div>
+
+            {/* Rune Prestige */}
+            <div style={{
+              backgroundColor: '#1a1a2e',
+              padding: '1rem',
+              borderRadius: '8px',
+              marginBottom: '1rem',
+              border: canRunePrestige ? '2px solid #00bcd4' : '1px solid #333',
+            }}>
+              <h3 style={{ margin: '0 0 0.5rem 0', color: '#00bcd4' }}>
+                Rune Prestige (Level {runePrestigeLevel})
+              </h3>
+              <div style={{ color: '#aaa', fontSize: '0.9rem', marginBottom: '0.5rem' }}>
+                Requirements: 100 / 400 / 1000 rune rolls per tier
+              </div>
+              <div style={{ color: '#fff', marginBottom: '0.5rem' }}>
+                Total rune rolls: {runeRollCount}
+                {nextRunePrestigeReq && ` (next tier at ${nextRunePrestigeReq})`}
+              </div>
+              <div style={{ color: '#4CAF50', fontSize: '0.9rem', marginBottom: '0.5rem' }}>
+                Current bonus: +{runePrestigeLevel * 5}% Rune Luck
+              </div>
+              <div style={{ color: '#00bcd4', fontSize: '0.9rem', marginBottom: '1rem' }}>
+                Next prestige: +{(runePrestigeLevel + 1) * 5}% Rune Luck
+              </div>
+              <div style={{ color: '#ff6b6b', fontSize: '0.85rem', marginBottom: '1rem' }}>
+                Resets: Collected runes, rune roll counts
+                <br />
+                Keeps: Ranks, points, upgrades, roller prestige
+              </div>
+              <button
+                onClick={handleRunePrestige}
+                disabled={!canRunePrestige}
+                style={{
+                  ...styles.resetConfirmBtn,
+                  backgroundColor: canRunePrestige ? '#00bcd4' : '#444',
+                  opacity: canRunePrestige ? 1 : 0.5,
+                  cursor: canRunePrestige ? 'pointer' : 'not-allowed',
+                  width: '100%',
+                }}
+              >
+                {canRunePrestige ? 'Prestige Runes' : `Need ${(nextRunePrestigeReq || 100) - runeRollCount} more rune rolls`}
+              </button>
+            </div>
+
+            <button
+              onClick={() => setShowPrestigeModal(false)}
+              style={{ ...styles.closeBtn, width: '100%' }}
+            >
+              Close
+            </button>
           </div>
         </div>
       )}
@@ -2839,6 +3165,28 @@ export default function RankRoller() {
                   type="number"
                   value={runeRollCounts[6] || 0}
                   onChange={(e) => setRuneRollCounts(prev => ({ ...prev, 6: Number(e.target.value) }))}
+                  style={styles.cheatInput}
+                />
+              </div>
+              <div style={styles.cheatItem}>
+                <label style={styles.cheatLabel}>Game Speed (1-100x):</label>
+                <input
+                  type="number"
+                  min={1}
+                  max={100}
+                  value={gameSpeedMultiplier}
+                  onChange={(e) => setGameSpeedMultiplier(Math.max(1, Math.min(100, Number(e.target.value) || 1)))}
+                  style={styles.cheatInput}
+                />
+              </div>
+              <div style={styles.cheatItem}>
+                <label style={styles.cheatLabel}>Bulk Upgrade Level (0-4):</label>
+                <input
+                  type="number"
+                  min={0}
+                  max={4}
+                  value={bulkRollLevel}
+                  onChange={(e) => setBulkRollLevel(Math.max(0, Math.min(4, Number(e.target.value) || 0)))}
                   style={styles.cheatInput}
                 />
               </div>
