@@ -1274,7 +1274,7 @@ export default function RankRoller() {
     setAscendedRanks((prev) => {
       const next = new Map(prev);
       // Go through all collected ranks and ascend any that can be ascended
-      for (const rankIndex of collectedRanks) {
+      for (const rankIndex of Array.from(collectedRanks)) {
         let changed = true;
         // Keep ascending until no more tiers available
         while (changed) {
@@ -1293,7 +1293,7 @@ export default function RankRoller() {
 
   // Check if any ranks can be ascended
   const hasAnyAscendable = useMemo(() => {
-    for (const rankIndex of collectedRanks) {
+    for (const rankIndex of Array.from(collectedRanks)) {
       const nextTier = getNextAscensionTier(rankIndex, rankRollCounts, ascendedRanks);
       if (nextTier !== null) return true;
     }
