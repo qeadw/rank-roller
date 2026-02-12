@@ -1198,16 +1198,20 @@ export default function RankRoller() {
   const handleClaimAllMilestones = () => {
     let totalReward = 0;
     const newClaimed = new Set(claimedMilestones);
+    let claimedAny = false;
 
     for (const milestone of MILESTONES) {
       if (milestone.requirement(milestoneState) && !claimedMilestones.has(milestone.id)) {
         totalReward += milestone.reward;
         newClaimed.add(milestone.id);
+        claimedAny = true;
       }
     }
 
-    if (totalReward > 0) {
-      setTotalPoints((p) => p + totalReward);
+    if (claimedAny) {
+      if (totalReward > 0) {
+        setTotalPoints((p) => p + totalReward);
+      }
       setClaimedMilestones(newClaimed);
     }
   };
