@@ -1508,6 +1508,55 @@ export default function RankRoller() {
     }, runeAnimationInterval);
   }, [availableRunes, canAffordRuneRoll, isRollingRune, runeRollTime, totalRuneLuck, runeRollCost, runeBulkCount]);
 
+  // Instant rune roll for fast auto-roll (no animation)
+  const handleInstantRuneRoll = useCallback(() => {
+    if (!canAffordRuneRoll || availableRunes.length === 0) return;
+
+    setTotalPoints((p) => p - runeRollCost);
+
+    // Roll multiple times, keep the best/rarest for display
+    const results: Rune[] = [];
+    for (let i = 0; i < runeBulkCount; i++) {
+      results.push(rollRuneWithLuck(availableRunes, totalRuneLuck));
+    }
+    const bestResult = results.reduce((best, current) =>
+      current.index > best.index ? current : best
+    );
+
+    setCurrentRuneRoll(bestResult);
+    setRuneRollCount((c) => c + runeBulkCount);
+
+    // Track all runes collected and their counts
+    const newCollected = new Set<number>();
+    const runeCountUpdates: Record<number, number> = {};
+    for (const result of results) {
+      newCollected.add(result.index);
+      runeCountUpdates[result.index] = (runeCountUpdates[result.index] || 0) + 1;
+    }
+
+    setCollectedRunes((prev) => {
+      const next = new Set(prev);
+      newCollected.forEach((idx) => next.add(idx));
+      return next;
+    });
+
+    setRuneRollCounts((prev) => {
+      const next = { ...prev };
+      for (const [idx, count] of Object.entries(runeCountUpdates)) {
+        next[Number(idx)] = (next[Number(idx)] || 0) + count;
+      }
+      return next;
+    });
+
+    setLegitimateRuneRollCounts((prev) => {
+      const next = { ...prev };
+      for (const [idx, count] of Object.entries(runeCountUpdates)) {
+        next[Number(idx)] = (next[Number(idx)] || 0) + count;
+      }
+      return next;
+    });
+  }, [availableRunes, canAffordRuneRoll, totalRuneLuck, runeRollCost, runeBulkCount]);
+
   // Get total roll count for a tier
   const getTierRollCount = (tierIndex: number): number => {
     let total = 0;
@@ -1593,6 +1642,61 @@ export default function RankRoller() {
     }, animationInterval);
   }, [ranks, luckMulti, pointsMulti, animationInterval, highestRank, ascendedRanks, bulkRollCount, lightAscensionBonus]);
 
+  // Instant roll for auto-roll (no animation, just results)
+  const handleInstantRoll = useCallback(() => {
+    // Bulk roll - roll multiple times based on bulkRollCount
+    const results: Rank[] = [];
+    for (let i = 0; i < bulkRollCount; i++) {
+      results.push(rollRankWithLuck(ranks, luckMulti));
+    }
+
+    // Find the best result to display
+    const bestResult = results.reduce((best, current) =>
+      current.index > best.index ? current : best
+    );
+    setCurrentRoll(bestResult);
+    setRollCount((c) => c + bulkRollCount);
+
+    // Calculate total points from all rolls
+    let totalPointsGained = 0;
+    const newCollected = new Set<number>();
+    const rollCountUpdates: Record<number, number> = {};
+
+    for (const result of results) {
+      const basePoints = calculatePoints(result);
+      const baseAscensionMulti = getAscensionMultiplier(result.index, ascendedRanks);
+      const ascensionMulti = baseAscensionMulti > 1
+        ? baseAscensionMulti + (lightAscensionBonus - 2)
+        : 1;
+      totalPointsGained += Math.floor(basePoints * ascensionMulti * pointsMulti);
+      newCollected.add(result.index);
+      rollCountUpdates[result.index] = (rollCountUpdates[result.index] || 0) + 1;
+    }
+
+    setTotalPoints((p) => p + totalPointsGained);
+    setLastPointsGained(totalPointsGained);
+
+    setCollectedRanks((prev) => {
+      const next = new Set(prev);
+      newCollected.forEach((idx) => next.add(idx));
+      return next;
+    });
+
+    setRankRollCounts((prev) => {
+      const next = { ...prev };
+      for (const [idx, count] of Object.entries(rollCountUpdates)) {
+        next[Number(idx)] = (next[Number(idx)] || 0) + count;
+      }
+      return next;
+    });
+
+    const newRollCount = rollCountRef.current + bulkRollCount;
+    if (!highestRank || bestResult.index > highestRank.index) {
+      setHighestRank(bestResult);
+      setHighestRankRoll(newRollCount);
+    }
+  }, [ranks, luckMulti, pointsMulti, highestRank, ascendedRanks, bulkRollCount, lightAscensionBonus]);
+
   // Check if auto-roll is unlocked (slow at 100 rolls, fast at 5000 rolls)
   const slowAutoRollUnlocked = claimedMilestones.has('rolls_100');
   const fastAutoRollUnlocked = claimedMilestones.has('rolls_5000');
@@ -1610,26 +1714,34 @@ export default function RankRoller() {
   useEffect(() => {
     if (!autoRollEnabled || !autoRollUnlocked) return;
 
+    // Animation takes 10 frames × animationInterval
+    const animationDuration = animationInterval * 10;
     // Auto-roll interval: slow = 10x base roll time, fast = 5x base roll time
-    // Normal roll time = 10 frames × animationInterval
-    const baseRollTime = animationInterval * 10;
-    let autoRollInterval = fastAutoRollUnlocked ? baseRollTime * 5 : baseRollTime * 10;
+    let autoRollInterval = fastAutoRollUnlocked ? animationDuration * 5 : animationDuration * 10;
     // Cap at 500 rolls per second: interval must be at least bulkRollCount * 2ms
     const minInterval = bulkRollCount * 2;
     autoRollInterval = Math.max(autoRollInterval, minInterval);
 
+    // Use instant roll (no animation) if rolling faster than animation can handle
+    const useInstantRoll = autoRollInterval < animationDuration;
+
     const autoRollTimer = setInterval(() => {
-      // Only trigger if not currently rolling
-      setIsRolling((currentlyRolling) => {
-        if (!currentlyRolling) {
-          handleRoll();
-        }
-        return currentlyRolling;
-      });
+      if (useInstantRoll) {
+        // Skip animation for fast rolling
+        handleInstantRoll();
+      } else {
+        // Use animated roll, only trigger if not currently rolling
+        setIsRolling((currentlyRolling) => {
+          if (!currentlyRolling) {
+            handleRoll();
+          }
+          return currentlyRolling;
+        });
+      }
     }, autoRollInterval);
 
     return () => clearInterval(autoRollTimer);
-  }, [autoRollEnabled, autoRollUnlocked, fastAutoRollUnlocked, animationInterval, handleRoll, bulkRollCount]);
+  }, [autoRollEnabled, autoRollUnlocked, fastAutoRollUnlocked, animationInterval, handleRoll, handleInstantRoll, bulkRollCount]);
 
   // Rune auto-roll effect (works on all screens)
   useEffect(() => {
@@ -1641,15 +1753,25 @@ export default function RankRoller() {
     const minRuneInterval = runeBulkCount * 2;
     autoRuneRollInterval = Math.max(autoRuneRollInterval, minRuneInterval);
 
+    // Use instant roll if rolling faster than animation can handle
+    const useInstantRuneRoll = autoRuneRollInterval < runeRollTime;
+
     const autoRuneRollTimer = setInterval(() => {
-      // Only trigger if not currently rolling and can afford
-      if (!isRollingRune && canAffordRuneRoll) {
-        handleRuneRoll();
+      if (!canAffordRuneRoll) return;
+
+      if (useInstantRuneRoll) {
+        // Skip animation for fast rolling
+        handleInstantRuneRoll();
+      } else {
+        // Use animated roll, only trigger if not currently rolling
+        if (!isRollingRune) {
+          handleRuneRoll();
+        }
       }
     }, autoRuneRollInterval);
 
     return () => clearInterval(autoRuneRollTimer);
-  }, [runeAutoRollEnabled, runeAutoRollUnlocked, fastRuneAutoRollUnlocked, runeRollTime, isRollingRune, canAffordRuneRoll, handleRuneRoll, runeBulkCount]);
+  }, [runeAutoRollEnabled, runeAutoRollUnlocked, fastRuneAutoRollUnlocked, runeRollTime, isRollingRune, canAffordRuneRoll, handleRuneRoll, handleInstantRuneRoll, runeBulkCount]);
 
   // Spacebar to roll
   useEffect(() => {
