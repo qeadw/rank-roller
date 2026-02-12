@@ -45,6 +45,8 @@ interface SaveData {
   legitimateRuneRollCounts?: Record<number, number>;
   // Bulk roll upgrade
   bulkRollLevel?: number;
+  // Rune bulk roll upgrade (0-2, costs 1B and 1T)
+  runeBulkRollLevel?: number;
   // Game speed cheat multiplier
   gameSpeedMultiplier?: number;
   // Prestige system
@@ -875,6 +877,7 @@ export default function RankRoller() {
   const [showMultiplierBreakdown, setShowMultiplierBreakdown] = useState(false);
   const [showSaveModal, setShowSaveModal] = useState(false);
   const [bulkRollLevel, setBulkRollLevel] = useState(0); // 0-4, each level adds +1 bulk
+  const [runeBulkRollLevel, setRuneBulkRollLevel] = useState(0); // 0-2, each level adds +1 rune bulk
   const [gameSpeedMultiplier, setGameSpeedMultiplier] = useState(1); // Cheat: game speed multiplier
   const [rollerPrestigeLevel, setRollerPrestigeLevel] = useState(0); // Prestige level for roller
   const [runePrestigeLevel, setRunePrestigeLevel] = useState(0); // Prestige level for runes
@@ -885,6 +888,11 @@ export default function RankRoller() {
   const BULK_UPGRADE_COSTS = [10000, 100000, 1000000, 10000000];
   const bulkUpgradeCost = bulkRollLevel < 4 ? BULK_UPGRADE_COSTS[bulkRollLevel] : Infinity;
   const canAffordBulkUpgrade = totalPoints >= bulkUpgradeCost && bulkRollLevel < 4;
+
+  // Rune bulk roll upgrade costs (1B, 1T)
+  const RUNE_BULK_UPGRADE_COSTS = [1000000000, 1000000000000];
+  const runeBulkUpgradeCost = runeBulkRollLevel < 2 ? RUNE_BULK_UPGRADE_COSTS[runeBulkRollLevel] : Infinity;
+  const canAffordRuneBulkUpgrade = totalPoints >= runeBulkUpgradeCost && runeBulkRollLevel < 2;
 
   // Load save data from cookies on mount
   useEffect(() => {
@@ -929,6 +937,7 @@ export default function RankRoller() {
         setRuneRollCount(data.runeRollCount || 0);
         // Load bulk roll upgrade and game speed
         setBulkRollLevel(data.bulkRollLevel || 0);
+        setRuneBulkRollLevel(data.runeBulkRollLevel || 0);
         setGameSpeedMultiplier(data.gameSpeedMultiplier || 1);
         // Load prestige levels
         setRollerPrestigeLevel(data.rollerPrestigeLevel || 0);
@@ -969,13 +978,14 @@ export default function RankRoller() {
       runeRollCount,
       // Bulk roll upgrade and game speed
       bulkRollLevel,
+      runeBulkRollLevel,
       gameSpeedMultiplier,
       // Prestige levels
       rollerPrestigeLevel,
       runePrestigeLevel,
     };
     setCookie(SAVE_KEY, obfuscateSave(JSON.stringify(saveData)));
-  }, [isLoaded, rollCount, totalPoints, highestRank, highestRankRoll, collectedRanks, rankRollCounts, ascendedRanks, luckLevel, pointsMultiLevel, speedLevel, claimedMilestones, collectedRunes, runeRollCounts, legitimateRuneRollCounts, runeRollCount, bulkRollLevel, gameSpeedMultiplier, rollerPrestigeLevel, runePrestigeLevel]);
+  }, [isLoaded, rollCount, totalPoints, highestRank, highestRankRoll, collectedRanks, rankRollCounts, ascendedRanks, luckLevel, pointsMultiLevel, speedLevel, claimedMilestones, collectedRunes, runeRollCounts, legitimateRuneRollCounts, runeRollCount, bulkRollLevel, runeBulkRollLevel, gameSpeedMultiplier, rollerPrestigeLevel, runePrestigeLevel]);
 
   useEffect(() => {
     saveGame();
@@ -1087,7 +1097,7 @@ export default function RankRoller() {
   const bulkRollCount = Math.min(Math.floor((1 + runeOfStoneCount + bulkRollLevel) * eternityMultiplier), 1000); // Cap bulk at 1000
   // Thunder rune luck is now logarithmic, capping at 20x
   const runeRuneLuckBonus = Math.min((1 + Math.log10(1 + runeOfThunderCount) * 6.33) * eternityMultiplier, 20); // Log scaling, cap at 20x
-  const runeBulkCount = Math.min(Math.floor((1 + runeOfFrostCount) * eternityMultiplier), 1000); // Cap bulk at 1000
+  const runeBulkCount = Math.min(Math.floor((1 + runeOfFrostCount + runeBulkRollLevel) * eternityMultiplier), 1000); // Cap bulk at 1000
   const shadowCostReduction = Math.max(Math.pow(0.9, runeOfShadowCount) / eternityMultiplier, 1e-15); // Floor to prevent 0
   const lightAscensionBonus = Math.min(2 + runeOfLightCount + (eternityMultiplier - 1), 1e15);
 
@@ -1141,6 +1151,14 @@ export default function RankRoller() {
     if (canAffordBulkUpgrade) {
       setTotalPoints((p) => p - bulkUpgradeCost);
       setBulkRollLevel((l) => l + 1);
+    }
+  };
+
+  // Rune bulk roll upgrade handler
+  const handleUpgradeRuneBulk = () => {
+    if (canAffordRuneBulkUpgrade) {
+      setTotalPoints((p) => p - runeBulkUpgradeCost);
+      setRuneBulkRollLevel((l) => l + 1);
     }
   };
 
@@ -2313,6 +2331,28 @@ export default function RankRoller() {
               {bulkRollLevel >= 4 ? 'MAX' : formatNumber(bulkUpgradeCost)}
             </button>
           </div>
+          {/* Rune Bulk Upgrade - only show after runes unlocked */}
+          {runesUnlocked && (
+            <div className="upgrade-item" style={styles.upgradeItem}>
+              <div className="upgrade-info" style={styles.upgradeInfo}>
+                <span className="upgrade-name" style={styles.upgradeName}>Rune Bulk</span>
+                <span className="upgrade-value" style={styles.upgradeValue}>+{runeBulkRollLevel}</span>
+                <span className="upgrade-level" style={styles.upgradeLevel}>Lv.{runeBulkRollLevel}/2</span>
+              </div>
+              <button
+                className="upgrade-btn"
+                onClick={handleUpgradeRuneBulk}
+                disabled={!canAffordRuneBulkUpgrade}
+                style={{
+                  ...styles.upgradeBtn,
+                  opacity: canAffordRuneBulkUpgrade ? 1 : 0.5,
+                  cursor: canAffordRuneBulkUpgrade ? 'pointer' : 'not-allowed',
+                }}
+              >
+                {runeBulkRollLevel >= 2 ? 'MAX' : formatNumber(runeBulkUpgradeCost)}
+              </button>
+            </div>
+          )}
         </div>
       </div>
 
