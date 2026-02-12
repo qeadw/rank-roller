@@ -872,6 +872,8 @@ export default function RankRoller() {
   const [runePrestigeLevel, setRunePrestigeLevel] = useState(0); // Prestige level for runes
   const [showPrestigeModal, setShowPrestigeModal] = useState(false);
   const rollCountRef = useRef(rollCount);
+  const totalPointsRef = useRef(totalPoints);
+  const isRollingRuneRef = useRef(isRollingRune);
 
   // Bulk roll upgrade costs
   const BULK_UPGRADE_COSTS = [10000, 100000, 1000000, 10000000];
@@ -1431,9 +1433,11 @@ export default function RankRoller() {
   // Total rune luck (from milestones and Thunder runes)
   const totalRuneLuck = milestoneRuneLuckBonus * runeRuneLuckBonus * runePrestigeBonus;
 
-  // Handle rune roll
+  // Handle rune roll (animated)
+  // Uses refs for points/rolling checks to avoid stale closure issues in auto-roll
   const handleRuneRoll = useCallback(() => {
-    if (!canAffordRuneRoll || isRollingRune || availableRunes.length === 0) return;
+    // Check current state using refs to avoid stale closure
+    if (totalPointsRef.current < runeRollCost || isRollingRuneRef.current || availableRunes.length === 0) return;
 
     setTotalPoints((p) => p - runeRollCost);
     setIsRollingRune(true);
@@ -1495,11 +1499,13 @@ export default function RankRoller() {
         setIsRollingRune(false);
       }
     }, runeAnimationInterval);
-  }, [availableRunes, canAffordRuneRoll, isRollingRune, runeRollTime, totalRuneLuck, runeRollCost, runeBulkCount]);
+  }, [availableRunes, runeRollTime, totalRuneLuck, runeRollCost, runeBulkCount, runeAnimationInterval]);
 
   // Instant rune roll for fast auto-roll (no animation)
+  // Uses ref for points check to avoid stale closure issues in auto-roll
   const handleInstantRuneRoll = useCallback(() => {
-    if (!canAffordRuneRoll || availableRunes.length === 0) return;
+    // Check current points using ref to avoid stale closure
+    if (totalPointsRef.current < runeRollCost || availableRunes.length === 0) return;
 
     setTotalPoints((p) => p - runeRollCost);
 
@@ -1544,7 +1550,7 @@ export default function RankRoller() {
       }
       return next;
     });
-  }, [availableRunes, canAffordRuneRoll, totalRuneLuck, runeRollCost, runeBulkCount]);
+  }, [availableRunes, totalRuneLuck, runeRollCost, runeBulkCount]);
 
   // Get total roll count for a tier
   const getTierRollCount = (tierIndex: number): number => {
@@ -1555,10 +1561,18 @@ export default function RankRoller() {
     return total;
   };
 
-  // Keep rollCountRef updated
+  // Keep refs updated
   useEffect(() => {
     rollCountRef.current = rollCount;
   }, [rollCount]);
+
+  useEffect(() => {
+    totalPointsRef.current = totalPoints;
+  }, [totalPoints]);
+
+  useEffect(() => {
+    isRollingRuneRef.current = isRollingRune;
+  }, [isRollingRune]);
 
   const handleRoll = useCallback(() => {
     setIsRolling(true);
