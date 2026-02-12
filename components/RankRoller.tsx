@@ -1613,7 +1613,10 @@ export default function RankRoller() {
     // Auto-roll interval: slow = 10x base roll time, fast = 5x base roll time
     // Normal roll time = 10 frames × animationInterval
     const baseRollTime = animationInterval * 10;
-    const autoRollInterval = fastAutoRollUnlocked ? baseRollTime * 5 : baseRollTime * 10;
+    let autoRollInterval = fastAutoRollUnlocked ? baseRollTime * 5 : baseRollTime * 10;
+    // Cap at 500 rolls per second: interval must be at least bulkRollCount * 2ms
+    const minInterval = bulkRollCount * 2;
+    autoRollInterval = Math.max(autoRollInterval, minInterval);
 
     const autoRollTimer = setInterval(() => {
       // Only trigger if not currently rolling
@@ -1626,14 +1629,17 @@ export default function RankRoller() {
     }, autoRollInterval);
 
     return () => clearInterval(autoRollTimer);
-  }, [autoRollEnabled, autoRollUnlocked, fastAutoRollUnlocked, animationInterval, handleRoll]);
+  }, [autoRollEnabled, autoRollUnlocked, fastAutoRollUnlocked, animationInterval, handleRoll, bulkRollCount]);
 
   // Rune auto-roll effect (works on all screens)
   useEffect(() => {
     if (!runeAutoRollEnabled || !runeAutoRollUnlocked) return;
 
     // Rune auto-roll interval: slow = 5x rune roll time, fast = 2x rune roll time
-    const autoRuneRollInterval = fastRuneAutoRollUnlocked ? runeRollTime * 2 : runeRollTime * 5;
+    let autoRuneRollInterval = fastRuneAutoRollUnlocked ? runeRollTime * 2 : runeRollTime * 5;
+    // Cap at 500 rolls per second: interval must be at least runeBulkCount * 2ms
+    const minRuneInterval = runeBulkCount * 2;
+    autoRuneRollInterval = Math.max(autoRuneRollInterval, minRuneInterval);
 
     const autoRuneRollTimer = setInterval(() => {
       // Only trigger if not currently rolling and can afford
@@ -1643,7 +1649,7 @@ export default function RankRoller() {
     }, autoRuneRollInterval);
 
     return () => clearInterval(autoRuneRollTimer);
-  }, [runeAutoRollEnabled, runeAutoRollUnlocked, fastRuneAutoRollUnlocked, runeRollTime, isRollingRune, canAffordRuneRoll, handleRuneRoll]);
+  }, [runeAutoRollEnabled, runeAutoRollUnlocked, fastRuneAutoRollUnlocked, runeRollTime, isRollingRune, canAffordRuneRoll, handleRuneRoll, runeBulkCount]);
 
   // Spacebar to roll
   useEffect(() => {
