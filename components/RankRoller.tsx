@@ -61,6 +61,7 @@ interface MilestoneState {
   collectedRunes: Set<number>;
   runeRollCounts: Record<number, number>;
   legitimateRuneRollCounts: Record<number, number>;
+  runeRollCount: number; // Total number of rune rolls
 }
 
 // Ascension tier thresholds and multipliers
@@ -678,13 +679,7 @@ const MILESTONES: Milestone[] = [
     id: 'rune_rolls_500',
     name: '500 Rune Rolls',
     description: 'Roll runes 500 times',
-    requirement: (state) => {
-      let total = 0;
-      for (const count of Object.values(state.legitimateRuneRollCounts)) {
-        total += count;
-      }
-      return total >= 500;
-    },
+    requirement: (state) => state.runeRollCount >= 500,
     reward: 0,
     unlockSlowRuneAutoRoll: true,
   },
@@ -692,13 +687,7 @@ const MILESTONES: Milestone[] = [
     id: 'rune_rolls_5000',
     name: '5,000 Rune Rolls',
     description: 'Roll runes 5,000 times',
-    requirement: (state) => {
-      let total = 0;
-      for (const count of Object.values(state.legitimateRuneRollCounts)) {
-        total += count;
-      }
-      return total >= 5000;
-    },
+    requirement: (state) => state.runeRollCount >= 5000,
     reward: 0,
     unlockFastRuneAutoRoll: true,
   },
@@ -1095,8 +1084,8 @@ export default function RankRoller() {
   const runeRuneSpeedBonus = Math.min((1 + (runeOfGalesCount * 0.2)) * eternityMultiplier, 1e15);
   // Bulk roll now includes upgrade level (each level adds +1 bulk)
   const bulkRollCount = Math.min(Math.floor((1 + runeOfStoneCount + bulkRollLevel) * eternityMultiplier), 1000); // Cap bulk at 1000
-  // Thunder rune luck is now logarithmic, capping at 20x
-  const runeRuneLuckBonus = Math.min((1 + Math.log10(1 + runeOfThunderCount) * 6.33) * eternityMultiplier, 20); // Log scaling, cap at 20x
+  // Thunder rune luck is logarithmic, approaching 5x
+  const runeRuneLuckBonus = Math.min((1 + Math.log10(1 + runeOfThunderCount) * 1.33) * eternityMultiplier, 5); // Log scaling, cap at 5x
   const runeBulkCount = Math.min(Math.floor((1 + runeOfFrostCount + runeBulkRollLevel) * eternityMultiplier), 1000); // Cap bulk at 1000
   const shadowCostReduction = Math.max(Math.pow(0.9, runeOfShadowCount) / eternityMultiplier, 1e-15); // Floor to prevent 0
   const lightAscensionBonus = Math.min(2 + runeOfLightCount + (eternityMultiplier - 1), 1e15);
@@ -1163,7 +1152,7 @@ export default function RankRoller() {
   };
 
   // Milestone helpers
-  const milestoneState: MilestoneState = { rollCount, collectedRanks, ascendedRanks, collectedRunes, runeRollCounts, legitimateRuneRollCounts };
+  const milestoneState: MilestoneState = { rollCount, collectedRanks, ascendedRanks, collectedRunes, runeRollCounts, legitimateRuneRollCounts, runeRollCount };
   const unclaimedMilestones = MILESTONES.filter(
     (m) => m.requirement(milestoneState) && !claimedMilestones.has(m.id)
   );
@@ -1325,14 +1314,14 @@ export default function RankRoller() {
   // Prestige requirements and checks
   const ROLLER_PRESTIGE_REQ = 100; // 100 Ultimate 10's to prestige
   const RUNE_PRESTIGE_TIERS = [100, 400, 1000]; // Rune rolls needed per tier
+  const MAX_RUNE_PRESTIGE = 3; // Max prestige level
   const ultimate10Index = 99; // Ultimate 10 is rank index 99
   const ultimate10Rolls = rankRollCounts[ultimate10Index] || 0;
   const canRollerPrestige = ultimate10Rolls >= ROLLER_PRESTIGE_REQ;
 
-  // Rune prestige tiers based on total rune rolls
-  const runePrestigeTierIndex = RUNE_PRESTIGE_TIERS.findIndex(req => runeRollCount < req);
-  const nextRunePrestigeReq = runePrestigeTierIndex >= 0 ? RUNE_PRESTIGE_TIERS[runePrestigeTierIndex] : null;
-  const canRunePrestige = runePrestigeTierIndex === -1 || (runePrestigeTierIndex < RUNE_PRESTIGE_TIERS.length && runeRollCount >= RUNE_PRESTIGE_TIERS[runePrestigeTierIndex]);
+  // Rune prestige - can only prestige if not at max level and have enough rune rolls for current tier
+  const nextRunePrestigeReq = runePrestigeLevel < MAX_RUNE_PRESTIGE ? RUNE_PRESTIGE_TIERS[runePrestigeLevel] : null;
+  const canRunePrestige = runePrestigeLevel < MAX_RUNE_PRESTIGE && runeRollCount >= RUNE_PRESTIGE_TIERS[runePrestigeLevel];
 
   // Handle roller prestige - resets ranks but keeps runes and increases prestige bonus
   const handleRollerPrestige = () => {
@@ -1424,10 +1413,10 @@ export default function RankRoller() {
     }
   };
 
-  // Rune roll time (5 seconds base, affected by rune speed milestones)
+  // Rune roll time (5 seconds base, affected by rune speed milestones and game speed)
   const baseRuneRollTime = 5000;
-  const runeRollTime = Math.floor(baseRuneRollTime / (milestoneRuneSpeedBonus * runeRuneSpeedBonus));
-  const runeAnimationInterval = 100; // Animation frame rate for runes
+  const runeRollTime = Math.floor(baseRuneRollTime / (milestoneRuneSpeedBonus * runeRuneSpeedBonus * gameSpeedMultiplier));
+  const runeAnimationInterval = Math.max(10, Math.floor(100 / gameSpeedMultiplier)); // Animation frame rate for runes
   const runeRollCost = 1000 * runeBulkCount; // Cost scales with rune bulk
   const canAffordRuneRoll = totalPoints >= runeRollCost;
 
@@ -1757,21 +1746,17 @@ export default function RankRoller() {
     const useInstantRuneRoll = autoRuneRollInterval < runeRollTime;
 
     const autoRuneRollTimer = setInterval(() => {
-      if (!canAffordRuneRoll) return;
-
       if (useInstantRuneRoll) {
-        // Skip animation for fast rolling
+        // Skip animation for fast rolling - handleInstantRuneRoll checks canAfford internally
         handleInstantRuneRoll();
       } else {
-        // Use animated roll, only trigger if not currently rolling
-        if (!isRollingRune) {
-          handleRuneRoll();
-        }
+        // Use animated roll - handleRuneRoll checks canAfford and isRolling internally
+        handleRuneRoll();
       }
     }, autoRuneRollInterval);
 
     return () => clearInterval(autoRuneRollTimer);
-  }, [runeAutoRollEnabled, runeAutoRollUnlocked, fastRuneAutoRollUnlocked, runeRollTime, isRollingRune, canAffordRuneRoll, handleRuneRoll, handleInstantRuneRoll, runeBulkCount]);
+  }, [runeAutoRollEnabled, runeAutoRollUnlocked, fastRuneAutoRollUnlocked, runeRollTime, handleRuneRoll, handleInstantRuneRoll, runeBulkCount]);
 
   // Spacebar to roll
   useEffect(() => {
@@ -2182,6 +2167,17 @@ export default function RankRoller() {
                     type="number"
                     value={runeRollCounts[6] || 0}
                     onChange={(e) => setRuneRollCounts(prev => ({ ...prev, 6: Number(e.target.value) }))}
+                    style={styles.cheatInput}
+                  />
+                </div>
+                <div style={styles.cheatItem}>
+                  <label style={styles.cheatLabel}>Game Speed (1-100x):</label>
+                  <input
+                    type="number"
+                    min="1"
+                    max="100"
+                    value={gameSpeedMultiplier}
+                    onChange={(e) => setGameSpeedMultiplier(Math.max(1, Math.min(100, Number(e.target.value))))}
                     style={styles.cheatInput}
                   />
                 </div>
