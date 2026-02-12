@@ -874,6 +874,10 @@ export default function RankRoller() {
   const rollCountRef = useRef(rollCount);
   const totalPointsRef = useRef(totalPoints);
   const isRollingRuneRef = useRef(isRollingRune);
+  const availableRunesRef = useRef<typeof runes>([]);
+  const runeRollCostRef = useRef(0);
+  const runeBulkCountRef = useRef(1);
+  const totalRuneLuckRef = useRef(1);
 
   // Bulk roll upgrade costs
   const BULK_UPGRADE_COSTS = [10000, 100000, 1000000, 10000000];
@@ -1434,19 +1438,23 @@ export default function RankRoller() {
   const totalRuneLuck = milestoneRuneLuckBonus * runeRuneLuckBonus * runePrestigeBonus;
 
   // Handle rune roll (animated)
-  // Uses refs for points/rolling checks to avoid stale closure issues in auto-roll
+  // Uses refs for all state checks to avoid stale closure issues in auto-roll
   const handleRuneRoll = useCallback(() => {
+    const currentAvailableRunes = availableRunesRef.current;
+    const currentRuneRollCost = runeRollCostRef.current;
+    const currentRuneBulkCount = runeBulkCountRef.current;
+    const currentTotalRuneLuck = totalRuneLuckRef.current;
     // Check current state using refs to avoid stale closure
-    if (totalPointsRef.current < runeRollCost || isRollingRuneRef.current || availableRunes.length === 0) return;
+    if (totalPointsRef.current < currentRuneRollCost || isRollingRuneRef.current || currentAvailableRunes.length === 0) return;
 
-    setTotalPoints((p) => p - runeRollCost);
+    setTotalPoints((p) => p - currentRuneRollCost);
     setIsRollingRune(true);
 
     const animationFrames = Math.floor(runeRollTime / runeAnimationInterval);
     let animationCount = 0;
 
     const rollTimer = setInterval(() => {
-      const simulatedRoll = rollRuneWithLuck(availableRunes, totalRuneLuck);
+      const simulatedRoll = rollRuneWithLuck(currentAvailableRunes, currentTotalRuneLuck);
       setCurrentRuneRoll(simulatedRoll);
       animationCount++;
 
@@ -1455,15 +1463,15 @@ export default function RankRoller() {
 
         // Final roll with bulk (roll multiple times, keep the best/rarest for display)
         const results: Rune[] = [];
-        for (let i = 0; i < runeBulkCount; i++) {
-          results.push(rollRuneWithLuck(availableRunes, totalRuneLuck));
+        for (let i = 0; i < currentRuneBulkCount; i++) {
+          results.push(rollRuneWithLuck(currentAvailableRunes, currentTotalRuneLuck));
         }
         const bestResult = results.reduce((best, current) =>
           current.index > best.index ? current : best
         );
 
         setCurrentRuneRoll(bestResult);
-        setRuneRollCount((c) => c + runeBulkCount);
+        setRuneRollCount((c) => c + currentRuneBulkCount);
 
         // Track all runes collected and their counts
         const newCollected = new Set<number>();
@@ -1499,27 +1507,31 @@ export default function RankRoller() {
         setIsRollingRune(false);
       }
     }, runeAnimationInterval);
-  }, [availableRunes, runeRollTime, totalRuneLuck, runeRollCost, runeBulkCount, runeAnimationInterval]);
+  }, [runeRollTime, runeAnimationInterval]);
 
   // Instant rune roll for fast auto-roll (no animation)
-  // Uses ref for points check to avoid stale closure issues in auto-roll
+  // Uses refs for all state to avoid stale closure issues in auto-roll
   const handleInstantRuneRoll = useCallback(() => {
-    // Check current points using ref to avoid stale closure
-    if (totalPointsRef.current < runeRollCost || availableRunes.length === 0) return;
+    const currentAvailableRunes = availableRunesRef.current;
+    const currentRuneRollCost = runeRollCostRef.current;
+    const currentRuneBulkCount = runeBulkCountRef.current;
+    const currentTotalRuneLuck = totalRuneLuckRef.current;
+    // Check current state using refs to avoid stale closure
+    if (totalPointsRef.current < currentRuneRollCost || currentAvailableRunes.length === 0) return;
 
-    setTotalPoints((p) => p - runeRollCost);
+    setTotalPoints((p) => p - currentRuneRollCost);
 
     // Roll multiple times, keep the best/rarest for display
     const results: Rune[] = [];
-    for (let i = 0; i < runeBulkCount; i++) {
-      results.push(rollRuneWithLuck(availableRunes, totalRuneLuck));
+    for (let i = 0; i < currentRuneBulkCount; i++) {
+      results.push(rollRuneWithLuck(currentAvailableRunes, currentTotalRuneLuck));
     }
     const bestResult = results.reduce((best, current) =>
       current.index > best.index ? current : best
     );
 
     setCurrentRuneRoll(bestResult);
-    setRuneRollCount((c) => c + runeBulkCount);
+    setRuneRollCount((c) => c + currentRuneBulkCount);
 
     // Track all runes collected and their counts
     const newCollected = new Set<number>();
@@ -1550,7 +1562,7 @@ export default function RankRoller() {
       }
       return next;
     });
-  }, [availableRunes, totalRuneLuck, runeRollCost, runeBulkCount]);
+  }, []);
 
   // Get total roll count for a tier
   const getTierRollCount = (tierIndex: number): number => {
@@ -1573,6 +1585,22 @@ export default function RankRoller() {
   useEffect(() => {
     isRollingRuneRef.current = isRollingRune;
   }, [isRollingRune]);
+
+  useEffect(() => {
+    availableRunesRef.current = availableRunes;
+  }, [availableRunes]);
+
+  useEffect(() => {
+    runeRollCostRef.current = runeRollCost;
+  }, [runeRollCost]);
+
+  useEffect(() => {
+    runeBulkCountRef.current = runeBulkCount;
+  }, [runeBulkCount]);
+
+  useEffect(() => {
+    totalRuneLuckRef.current = totalRuneLuck;
+  }, [totalRuneLuck]);
 
   const handleRoll = useCallback(() => {
     setIsRolling(true);
