@@ -1086,7 +1086,34 @@ export default function RankRoller() {
 
   const runePointsBonus = Math.min((1 + (runeOfBeginningCount * 0.1)) * eternityMultiplier, 1e15);
   const runeLuckBonus = Math.min((1 + (runeOfEmbersCount * 0.1)) * eternityMultiplier, 1e15);
-  const runeSpeedBonus = Math.min((1 + (runeOfTidesCount * 0.5)) * eternityMultiplier, 1e15);
+  // Rune speed with soft cap at 100x:
+  // 0-100x: 1 Tides = +0.5x speed (normal, reaches 100x at 198 Tides)
+  // 100-1000x: 1000 Tides = +1x speed
+  // 1000x+: 1M Tides = +1x speed
+  const calculateRuneSpeedBonus = (tidesRunes: number, eternityMult: number): number => {
+    const rawTides = tidesRunes * eternityMult;
+    const rawSpeed = 1 + rawTides * 0.5; // Base calculation
+
+    if (rawSpeed <= 100) {
+      return rawSpeed;
+    } else if (rawSpeed <= 100 + 900 * 1000 * 0.5) { // 100 + (900x speed from 900k Tides / 1000 per 1x)
+      const excessSpeed = rawSpeed - 100;
+      // excessSpeed was calculated at 0.5 per Tides, but we want 0.001 per Tides (1/1000 rate)
+      // So we need to convert: excess Tides = excessSpeed / 0.5, new speed = excess Tides * 0.001
+      const excessTides = excessSpeed / 0.5;
+      const softcappedExtra = excessTides * 0.001;
+      return 100 + softcappedExtra;
+    } else {
+      // Tier 3: even slower scaling
+      const tier2Speed = 900; // 900x from tier 2
+      const tier2Tides = 900 * 1000; // Tides needed for tier 2
+      const totalTidesAtTier2End = 198 + tier2Tides; // 198 to reach 100x + tier 2 tides
+      const excessTides = rawTides - totalTidesAtTier2End * eternityMult / eternityMult;
+      const tier3Extra = excessTides * 0.000001; // 1M Tides = 1x speed
+      return 100 + tier2Speed + tier3Extra;
+    }
+  };
+  const runeSpeedBonus = Math.min(calculateRuneSpeedBonus(runeOfTidesCount, eternityMultiplier), 1e15);
   const runeRuneSpeedBonus = Math.min((1 + (runeOfGalesCount * 0.2)) * eternityMultiplier, 1e15);
   // Bulk roll with soft caps:
   // 0-1000: 1 stone rune = 1 bulk roll
