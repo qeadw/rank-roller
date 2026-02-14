@@ -1206,8 +1206,38 @@ export default function RankRoller() {
     }
   };
   const bulkRollCount = calculateBulkRollCount(runeOfStoneCount, bulkRollLevel, eternityMultiplier);
-  // Thunder rune luck is logarithmic, approaching 5x
-  const runeRuneLuckBonus = Math.min((1 + Math.log10(1 + runeOfThunderCount) * 1.33) * eternityMultiplier, 5); // Log scaling, cap at 5x
+  // Rune luck with soft caps:
+  // 0-2x: 1 Thunder = +0.5x rune luck (normal, reaches 2x at 2 Thunder)
+  // 2-3x: 10 Thunder = +0.5x rune luck (10x harder)
+  // 3-4x: 100 Thunder = +0.5x rune luck (100x harder)
+  // 4-5x: 1000 Thunder = +0.5x rune luck (1000x harder)
+  // etc. Each +1x costs 10x more Thunder
+  const calculateRuneRuneLuckBonus = (thunderRunes: number, eternityMult: number): number => {
+    const rawThunder = thunderRunes * eternityMult;
+    let bonus = 1.0;
+    let remainingThunder = rawThunder;
+    let costPerHalf = 1; // Cost for +0.5x luck
+
+    // First tier: up to 2x (needs 2 Thunder at 0.5x each)
+    const tier1Thunder = Math.min(remainingThunder, 2);
+    bonus += tier1Thunder * 0.5;
+    remainingThunder -= tier1Thunder;
+
+    // Subsequent tiers: each +1x costs 10x more
+    let tierMultiplier = 10;
+    while (remainingThunder > 0 && bonus < 10) { // Cap at 10x
+      // Each +0.5x now costs tierMultiplier Thunder
+      const thunderForHalf = tierMultiplier;
+      const halves = Math.floor(remainingThunder / thunderForHalf);
+      const actualHalves = Math.min(halves, 2); // Max 2 halves (+1x) per tier
+      bonus += actualHalves * 0.5;
+      remainingThunder -= actualHalves * thunderForHalf;
+      tierMultiplier *= 10;
+    }
+
+    return bonus;
+  };
+  const runeRuneLuckBonus = calculateRuneRuneLuckBonus(runeOfThunderCount, eternityMultiplier);
   // Rune bulk with soft caps:
   // 0-10: 1 frost rune = 1 rune bulk
   // 10-100: 10,000 frost runes = 1 rune bulk
