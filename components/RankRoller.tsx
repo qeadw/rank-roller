@@ -879,15 +879,11 @@ export default function RankRoller() {
   const runeBulkCountRef = useRef(1);
   const totalRuneLuckRef = useRef(1);
 
-  // Bulk roll upgrade costs
+  // Bulk roll upgrade base costs (actual costs calculated after shadowCostReduction)
   const BULK_UPGRADE_COSTS = [10000, 100000, 1000000, 10000000];
-  const bulkUpgradeCost = bulkRollLevel < 4 ? BULK_UPGRADE_COSTS[bulkRollLevel] : Infinity;
-  const canAffordBulkUpgrade = totalPoints >= bulkUpgradeCost && bulkRollLevel < 4;
 
-  // Rune bulk roll upgrade costs (1B, 1T)
+  // Rune bulk roll upgrade base costs (actual costs calculated after shadowCostReduction)
   const RUNE_BULK_UPGRADE_COSTS = [1000000000, 1000000000000];
-  const runeBulkUpgradeCost = runeBulkRollLevel < 2 ? RUNE_BULK_UPGRADE_COSTS[runeBulkRollLevel] : Infinity;
-  const canAffordRuneBulkUpgrade = totalPoints >= runeBulkUpgradeCost && runeBulkRollLevel < 2;
 
   // Load save data from cookies on mount
   useEffect(() => {
@@ -1264,6 +1260,13 @@ export default function RankRoller() {
     return Math.max(costMultiplier, 1e-15);
   };
   const shadowCostReduction = calculateShadowCostReduction(runeOfShadowCount, eternityMultiplier);
+
+  // Apply shadow cost reduction to all upgrade costs
+  const bulkUpgradeCost = bulkRollLevel < 4 ? Math.floor(BULK_UPGRADE_COSTS[bulkRollLevel] * shadowCostReduction) : Infinity;
+  const canAffordBulkUpgrade = totalPoints >= bulkUpgradeCost && bulkRollLevel < 4;
+  const runeBulkUpgradeCost = runeBulkRollLevel < 2 ? Math.floor(RUNE_BULK_UPGRADE_COSTS[runeBulkRollLevel] * shadowCostReduction) : Infinity;
+  const canAffordRuneBulkUpgrade = totalPoints >= runeBulkUpgradeCost && runeBulkRollLevel < 2;
+
   // Ascension bonus with soft cap at 100x:
   // 0-100x: 1 Light = +1x ascension (normal, starts at 2x, reaches 100x at 98 Light)
   // 100-1000x: 1000 Light = +1x ascension
@@ -1627,7 +1630,7 @@ export default function RankRoller() {
   const baseRuneRollTime = 5000;
   const runeRollTime = Math.floor(baseRuneRollTime / (milestoneRuneSpeedBonus * runeRuneSpeedBonus * gameSpeedMultiplier));
   const runeAnimationInterval = Math.max(10, Math.floor(100 / gameSpeedMultiplier)); // Animation frame rate for runes
-  const runeRollCost = 1000 * runeBulkCount; // Cost scales with rune bulk
+  const runeRollCost = Math.floor(1000 * runeBulkCount * shadowCostReduction); // Cost scales with rune bulk, reduced by shadow
   const canAffordRuneRoll = totalPoints >= runeRollCost;
 
   // Calculate which runes are unlocked based on progression
