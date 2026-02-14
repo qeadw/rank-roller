@@ -1088,8 +1088,28 @@ export default function RankRoller() {
   const runeLuckBonus = Math.min((1 + (runeOfEmbersCount * 0.1)) * eternityMultiplier, 1e15);
   const runeSpeedBonus = Math.min((1 + (runeOfTidesCount * 0.5)) * eternityMultiplier, 1e15);
   const runeRuneSpeedBonus = Math.min((1 + (runeOfGalesCount * 0.2)) * eternityMultiplier, 1e15);
-  // Bulk roll now includes upgrade level (each level adds +1 bulk)
-  const bulkRollCount = Math.min(Math.floor((1 + runeOfStoneCount + bulkRollLevel) * eternityMultiplier), 1000); // Cap bulk at 1000
+  // Bulk roll with soft caps:
+  // 0-1000: 1 stone rune = 1 bulk roll
+  // 1000-10000: 1000 stone runes = 1 bulk roll
+  // 10000+: 1M stone runes = 1 bulk roll
+  const calculateBulkRollCount = (stoneRunes: number, bulkLevel: number, eternityMult: number): number => {
+    const rawStones = (stoneRunes + bulkLevel) * eternityMult;
+    if (rawStones <= 1000) {
+      return Math.floor(1 + rawStones);
+    } else if (rawStones <= 1000 + 9000 * 1000) { // 1000 + (9000 bulk rolls * 1000 runes each)
+      const extraStones = rawStones - 1000;
+      const extraBulk = Math.floor(extraStones / 1000);
+      return Math.floor(1001 + extraBulk);
+    } else {
+      const tier1Bulk = 1000; // First 1000 bulk from first 1000 stones
+      const tier2Bulk = 9000; // Next 9000 bulk from 9M stones
+      const tier2StonesUsed = 9000 * 1000;
+      const remainingStones = rawStones - 1000 - tier2StonesUsed;
+      const tier3Bulk = Math.floor(remainingStones / 1000000);
+      return Math.floor(1 + tier1Bulk + tier2Bulk + tier3Bulk);
+    }
+  };
+  const bulkRollCount = calculateBulkRollCount(runeOfStoneCount, bulkRollLevel, eternityMultiplier);
   // Thunder rune luck is logarithmic, approaching 5x
   const runeRuneLuckBonus = Math.min((1 + Math.log10(1 + runeOfThunderCount) * 1.33) * eternityMultiplier, 5); // Log scaling, cap at 5x
   const runeBulkCount = Math.min(Math.floor((1 + runeOfFrostCount + runeBulkRollLevel) * eternityMultiplier), 1000); // Cap bulk at 1000
@@ -1747,14 +1767,21 @@ export default function RankRoller() {
 
     // Animation takes 10 frames × animationInterval
     const animationDuration = animationInterval * 10;
-    // Auto-roll interval: slow = 10x base roll time, fast = 5x base roll time
-    let autoRollInterval = fastAutoRollUnlocked ? animationDuration * 5 : animationDuration * 10;
-    // Cap at 500 rolls per second: interval must be at least bulkRollCount * 2ms
-    const minInterval = bulkRollCount * 2;
-    autoRollInterval = Math.max(autoRollInterval, minInterval);
+    // Auto-roll interval: at high speeds (animationInterval <= 5ms), just use animationInterval directly
+    // Otherwise use multiplier: Slow = 10x, Fast = 5x
+    let autoRollInterval: number;
+    if (animationInterval <= 5) {
+      // Very high speed - roll as fast as possible (every animationInterval ms)
+      autoRollInterval = animationInterval;
+    } else {
+      const baseMultiplier = fastAutoRollUnlocked ? 5 : 10;
+      autoRollInterval = animationDuration * baseMultiplier;
+    }
+    // Browser minimum is ~1ms for setInterval
+    autoRollInterval = Math.max(autoRollInterval, 1);
 
-    // Use instant roll (no animation) if rolling faster than animation can handle
-    const useInstantRoll = autoRollInterval < animationDuration;
+    // Use instant roll (no animation) at high speeds
+    const useInstantRoll = animationInterval <= 10;
 
     const autoRollTimer = setInterval(() => {
       if (useInstantRoll) {
@@ -1967,8 +1994,8 @@ export default function RankRoller() {
               {runeOfStoneCount > 0 && (
                 <div style={styles.runeBuffItem}>
                   <span style={styles.runeBuffName}>Bulk Roll</span>
-                  <span style={styles.runeBuffValue}>{bulkRollCount}</span>
-                  <span style={styles.runeBuffSource}>({runeOfStoneCount}x Stone)</span>
+                  <span style={styles.runeBuffValue}>{formatNumber(bulkRollCount)}</span>
+                  <span style={styles.runeBuffSource}>({formatNumber(runeOfStoneCount)}x Stone)</span>
                 </div>
               )}
               {runeOfThunderCount > 0 && (
@@ -2399,7 +2426,7 @@ export default function RankRoller() {
           {bulkRollCount > 1 && (
             <div style={styles.statsPanelItem}>
               <span className="stats-panel-label" style={styles.statsPanelLabel}>Bulk Roll</span>
-              <span className="stats-panel-value" style={styles.statsPanelValue}>{bulkRollCount}x</span>
+              <span className="stats-panel-value" style={styles.statsPanelValue}>{formatNumber(bulkRollCount)}x</span>
             </div>
           )}
         </div>
@@ -2682,11 +2709,21 @@ export default function RankRoller() {
               {/* Bulk Breakdown */}
               {bulkRollCount > 1 && (
                 <div style={styles.breakdownSection}>
-                  <h3 style={styles.breakdownHeader}>Bulk Roll ({bulkRollCount}x total)</h3>
+                  <h3 style={styles.breakdownHeader}>Bulk Roll ({formatNumber(bulkRollCount)}x total)</h3>
                   <div style={styles.breakdownItem}>
-                    <span>Runes (Stone + Eternity)</span>
-                    <span>{bulkRollCount}x</span>
+                    <span>Stone Runes</span>
+                    <span>{formatNumber(runeOfStoneCount)}</span>
                   </div>
+                  {bulkRollCount > 1001 && (
+                    <div style={styles.breakdownItem}>
+                      <span style={{ fontSize: '0.8em', color: '#888' }}>Soft cap: 1k runes/bulk after 1000</span>
+                    </div>
+                  )}
+                  {bulkRollCount > 10001 && (
+                    <div style={styles.breakdownItem}>
+                      <span style={{ fontSize: '0.8em', color: '#888' }}>Soft cap: 1M runes/bulk after 10k</span>
+                    </div>
+                  )}
                 </div>
               )}
 
