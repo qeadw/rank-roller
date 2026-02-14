@@ -2014,9 +2014,9 @@ export default function RankRoller() {
     return () => clearInterval(autoRuneRollTimer);
   }, [runeAutoRollEnabled, runeAutoRollUnlocked, fastRuneAutoRollUnlocked, runeRollTime, handleRuneRoll, handleInstantRuneRoll, runeBulkCount]);
 
-  // Spacebar to roll
+  // Spacebar to roll, A to toggle auto roll
   useEffect(() => {
-    const handleSpacebar = (e: KeyboardEvent) => {
+    const handleKeyPress = (e: KeyboardEvent) => {
       if (e.code === 'Space' && !e.repeat) {
         // Prevent scrolling
         e.preventDefault();
@@ -2031,10 +2031,20 @@ export default function RankRoller() {
           }
         }
       }
+      // A key to toggle auto roll (only when auto roll is unlocked)
+      if (e.code === 'KeyA' && !e.repeat && autoRollUnlocked) {
+        if (showRunes) {
+          if (runeAutoRollUnlocked) {
+            setRuneAutoRollEnabled((prev) => !prev);
+          }
+        } else {
+          setAutoRollEnabled((prev) => !prev);
+        }
+      }
     };
-    window.addEventListener('keydown', handleSpacebar);
-    return () => window.removeEventListener('keydown', handleSpacebar);
-  }, [showRunes, isRolling, isRollingRune, canAffordRuneRoll, autoRollEnabled, handleRoll, handleRuneRoll]);
+    window.addEventListener('keydown', handleKeyPress);
+    return () => window.removeEventListener('keydown', handleKeyPress);
+  }, [showRunes, isRolling, isRollingRune, canAffordRuneRoll, autoRollEnabled, autoRollUnlocked, runeAutoRollUnlocked, handleRoll, handleRuneRoll]);
 
   const collectedCount = collectedRanks.size;
 
@@ -3672,6 +3682,12 @@ export default function RankRoller() {
           </div>
         </div>
       )}
+
+      {/* Keybind hints - bottom left */}
+      <div style={styles.keybindHints}>
+        <span style={styles.keybindHint}>[SPACE] Roll</span>
+        {autoRollUnlocked && <span style={styles.keybindHint}>[A] Auto Roll</span>}
+      </div>
     </div>
   );
 }
@@ -4493,5 +4509,22 @@ const styles: Record<string, React.CSSProperties> = {
     padding: '4px 0',
     fontSize: '0.9rem',
     color: '#ccc',
+  },
+  keybindHints: {
+    position: 'fixed',
+    bottom: '15px',
+    left: '15px',
+    display: 'flex',
+    flexDirection: 'column',
+    gap: '5px',
+    zIndex: 100,
+  },
+  keybindHint: {
+    fontSize: '0.8rem',
+    color: '#666',
+    backgroundColor: 'rgba(0, 0, 0, 0.5)',
+    padding: '4px 8px',
+    borderRadius: '4px',
+    fontFamily: 'monospace',
   },
 };
