@@ -1435,7 +1435,11 @@ export default function RankRoller() {
       setCheatBuffer('');
       // Reset bulk and game speed
       setBulkRollLevel(0);
+      setRuneBulkRollLevel(0);
       setGameSpeedMultiplier(1);
+      // Reset prestige levels
+      setRollerPrestigeLevel(0);
+      setRunePrestigeLevel(0);
     }
   };
 
