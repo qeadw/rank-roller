@@ -1410,9 +1410,11 @@ export default function RankRoller() {
       setRollCount(0);
       setTotalPoints(0);
       setLastPointsGained(null);
+      setIsRolling(false);
       setCollectedRanks(new Set());
       setRankRollCounts({});
       setAscendedRanks(new Map());
+      setAscendPrompt(null);
       setExpandedTiers(new Set());
       setLuckLevel(0);
       setPointsMultiLevel(0);
@@ -1433,6 +1435,10 @@ export default function RankRoller() {
       setResetInput('');
       setShowCheatMenu(false);
       setCheatBuffer('');
+      setShowMilestones(false);
+      setShowMultiplierBreakdown(false);
+      setShowSaveModal(false);
+      setShowPrestigeModal(false);
       // Reset bulk and game speed
       setBulkRollLevel(0);
       setRuneBulkRollLevel(0);
