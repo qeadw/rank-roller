@@ -1084,8 +1084,57 @@ export default function RankRoller() {
   // 0 runes: 1x, 1 rune: 1.1x, 2 runes: 1.19x, 3 runes: 1.271x, etc.
   const eternityMultiplier = 1 + (1 - Math.pow(0.9, runeOfEternityCount));
 
-  const runePointsBonus = Math.min((1 + (runeOfBeginningCount * 0.1)) * eternityMultiplier, 1e15);
-  const runeLuckBonus = Math.min((1 + (runeOfEmbersCount * 0.1)) * eternityMultiplier, 1e15);
+  // Points bonus with soft cap at 100x:
+  // 0-100x: 1 Beginning = +0.1x points (normal, reaches 100x at 990 Beginning)
+  // 100-1000x: 1000 Beginning = +1x points
+  // 1000x+: 1M Beginning = +1x points
+  const calculateRunePointsBonus = (beginningRunes: number, eternityMult: number): number => {
+    const rawRunes = beginningRunes * eternityMult;
+    const rawBonus = 1 + rawRunes * 0.1;
+
+    if (rawBonus <= 100) {
+      return rawBonus;
+    } else if (rawBonus <= 100 + 900 * 1000 * 0.1) {
+      const excessBonus = rawBonus - 100;
+      const excessRunes = excessBonus / 0.1;
+      const softcappedExtra = excessRunes * 0.001;
+      return 100 + softcappedExtra;
+    } else {
+      const tier2Bonus = 900;
+      const tier2Runes = 900 * 1000;
+      const totalRunesAtTier2End = 990 + tier2Runes;
+      const excessRunes = rawRunes - totalRunesAtTier2End;
+      const tier3Extra = excessRunes * 0.000001;
+      return 100 + tier2Bonus + tier3Extra;
+    }
+  };
+  const runePointsBonus = calculateRunePointsBonus(runeOfBeginningCount, eternityMultiplier);
+
+  // Luck bonus with soft cap at 100x:
+  // 0-100x: 1 Embers = +0.1x luck (normal, reaches 100x at 990 Embers)
+  // 100-1000x: 1000 Embers = +1x luck
+  // 1000x+: 1M Embers = +1x luck
+  const calculateRuneLuckBonus = (embersRunes: number, eternityMult: number): number => {
+    const rawRunes = embersRunes * eternityMult;
+    const rawBonus = 1 + rawRunes * 0.1;
+
+    if (rawBonus <= 100) {
+      return rawBonus;
+    } else if (rawBonus <= 100 + 900 * 1000 * 0.1) {
+      const excessBonus = rawBonus - 100;
+      const excessRunes = excessBonus / 0.1;
+      const softcappedExtra = excessRunes * 0.001;
+      return 100 + softcappedExtra;
+    } else {
+      const tier2Bonus = 900;
+      const tier2Runes = 900 * 1000;
+      const totalRunesAtTier2End = 990 + tier2Runes;
+      const excessRunes = rawRunes - totalRunesAtTier2End;
+      const tier3Extra = excessRunes * 0.000001;
+      return 100 + tier2Bonus + tier3Extra;
+    }
+  };
+  const runeLuckBonus = calculateRuneLuckBonus(runeOfEmbersCount, eternityMultiplier);
   // Rune speed with soft cap at 100x:
   // 0-100x: 1 Tides = +0.5x speed (normal, reaches 100x at 198 Tides)
   // 100-1000x: 1000 Tides = +1x speed
@@ -1113,8 +1162,32 @@ export default function RankRoller() {
       return 100 + tier2Speed + tier3Extra;
     }
   };
-  const runeSpeedBonus = Math.min(calculateRuneSpeedBonus(runeOfTidesCount, eternityMultiplier), 1e15);
-  const runeRuneSpeedBonus = Math.min((1 + (runeOfGalesCount * 0.2)) * eternityMultiplier, 1e15);
+  const runeSpeedBonus = calculateRuneSpeedBonus(runeOfTidesCount, eternityMultiplier);
+  // Rune roll speed bonus with soft cap at 100x:
+  // 0-100x: 1 Gales = +0.2x rune speed (normal, reaches 100x at 495 Gales)
+  // 100-1000x: 1000 Gales = +1x rune speed
+  // 1000x+: 1M Gales = +1x rune speed
+  const calculateRuneRuneSpeedBonus = (galesRunes: number, eternityMult: number): number => {
+    const rawRunes = galesRunes * eternityMult;
+    const rawBonus = 1 + rawRunes * 0.2;
+
+    if (rawBonus <= 100) {
+      return rawBonus;
+    } else if (rawBonus <= 100 + 900 * 1000 * 0.2) {
+      const excessBonus = rawBonus - 100;
+      const excessRunes = excessBonus / 0.2;
+      const softcappedExtra = excessRunes * 0.001;
+      return 100 + softcappedExtra;
+    } else {
+      const tier2Bonus = 900;
+      const tier2Runes = 900 * 1000;
+      const totalRunesAtTier2End = 495 + tier2Runes;
+      const excessRunes = rawRunes - totalRunesAtTier2End;
+      const tier3Extra = excessRunes * 0.000001;
+      return 100 + tier2Bonus + tier3Extra;
+    }
+  };
+  const runeRuneSpeedBonus = calculateRuneRuneSpeedBonus(runeOfGalesCount, eternityMultiplier);
   // Bulk roll with soft caps:
   // 0-1000: 1 stone rune = 1 bulk roll
   // 1000-10000: 1000 stone runes = 1 bulk roll
@@ -1162,7 +1235,31 @@ export default function RankRoller() {
   };
   const runeBulkCount = calculateRuneBulkCount(runeOfFrostCount, runeBulkRollLevel, eternityMultiplier);
   const shadowCostReduction = Math.max(Math.pow(0.9, runeOfShadowCount) / eternityMultiplier, 1e-15); // Floor to prevent 0
-  const lightAscensionBonus = Math.min(2 + runeOfLightCount + (eternityMultiplier - 1), 1e15);
+  // Ascension bonus with soft cap at 100x:
+  // 0-100x: 1 Light = +1x ascension (normal, starts at 2x, reaches 100x at 98 Light)
+  // 100-1000x: 1000 Light = +1x ascension
+  // 1000x+: 1M Light = +1x ascension
+  const calculateLightAscensionBonus = (lightRunes: number, eternityMult: number): number => {
+    const rawRunes = lightRunes * eternityMult;
+    const rawBonus = 2 + rawRunes; // Starts at 2x, +1x per rune
+
+    if (rawBonus <= 100) {
+      return rawBonus;
+    } else if (rawBonus <= 100 + 900 * 1000) {
+      const excessBonus = rawBonus - 100;
+      const excessRunes = excessBonus; // 1:1 ratio originally
+      const softcappedExtra = excessRunes * 0.001;
+      return 100 + softcappedExtra;
+    } else {
+      const tier2Bonus = 900;
+      const tier2Runes = 900 * 1000;
+      const totalRunesAtTier2End = 98 + tier2Runes;
+      const excessRunes = rawRunes - totalRunesAtTier2End;
+      const tier3Extra = excessRunes * 0.000001;
+      return 100 + tier2Bonus + tier3Extra;
+    }
+  };
+  const lightAscensionBonus = calculateLightAscensionBonus(runeOfLightCount, eternityMultiplier);
 
   // Prestige bonuses (10% per prestige level for roller, 5% for runes)
   const rollerPrestigeBonus = 1 + (rollerPrestigeLevel * 0.1);
