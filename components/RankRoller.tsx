@@ -1208,23 +1208,22 @@ export default function RankRoller() {
   const bulkRollCount = calculateBulkRollCount(runeOfStoneCount, bulkRollLevel, eternityMultiplier);
   // Rune luck with soft caps:
   // 0-2x: 1 Thunder = +0.5x rune luck (normal, reaches 2x at 2 Thunder)
-  // 2-3x: 10 Thunder = +0.5x rune luck (10x harder)
-  // 3-4x: 100 Thunder = +0.5x rune luck (100x harder)
-  // 4-5x: 1000 Thunder = +0.5x rune luck (1000x harder)
-  // etc. Each +1x costs 10x more Thunder
+  // 2-3x: 15 Thunder = +0.5x rune luck (15x harder)
+  // 3-4x: 225 Thunder = +0.5x rune luck (225x harder)
+  // 4-5x: 3375 Thunder = +0.5x rune luck (3375x harder)
+  // etc. Each +1x costs 15x more Thunder
   const calculateRuneRuneLuckBonus = (thunderRunes: number, eternityMult: number): number => {
     const rawThunder = thunderRunes * eternityMult;
     let bonus = 1.0;
     let remainingThunder = rawThunder;
-    let costPerHalf = 1; // Cost for +0.5x luck
 
     // First tier: up to 2x (needs 2 Thunder at 0.5x each)
     const tier1Thunder = Math.min(remainingThunder, 2);
     bonus += tier1Thunder * 0.5;
     remainingThunder -= tier1Thunder;
 
-    // Subsequent tiers: each +1x costs 10x more
-    let tierMultiplier = 10;
+    // Subsequent tiers: each +1x costs 15x more
+    let tierMultiplier = 15;
     while (remainingThunder > 0 && bonus < 10) { // Cap at 10x
       // Each +0.5x now costs tierMultiplier Thunder
       const thunderForHalf = tierMultiplier;
@@ -1232,7 +1231,7 @@ export default function RankRoller() {
       const actualHalves = Math.min(halves, 2); // Max 2 halves (+1x) per tier
       bonus += actualHalves * 0.5;
       remainingThunder -= actualHalves * thunderForHalf;
-      tierMultiplier *= 10;
+      tierMultiplier *= 15;
     }
 
     return bonus;
