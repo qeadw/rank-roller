@@ -1234,7 +1234,36 @@ export default function RankRoller() {
     }
   };
   const runeBulkCount = calculateRuneBulkCount(runeOfFrostCount, runeBulkRollLevel, eternityMultiplier);
-  const shadowCostReduction = Math.max(Math.pow(0.9, runeOfShadowCount) / eternityMultiplier, 1e-15); // Floor to prevent 0
+  // Shadow cost reduction with soft caps:
+  // Tier 1: 1 Shadow = 10% reduction (to 0.9x cost)
+  // Tier 2: 100 Shadows = next 10% (to 0.8x cost)
+  // Tier 3: 10,000 Shadows = next 10% (to 0.7x cost)
+  // Tier 4: 1,000,000 Shadows = next 10% (to 0.6x cost)
+  // Each tier costs 100x more runes for 10% reduction
+  const calculateShadowCostReduction = (shadowRunes: number, eternityMult: number): number => {
+    const rawShadows = shadowRunes * eternityMult;
+
+    let costMultiplier = 1.0;
+    let remainingShadows = rawShadows;
+    let tierCost = 1; // First tier: 1 shadow = 10%
+
+    while (remainingShadows >= tierCost && costMultiplier > 0.01) {
+      // How many full 10% reductions can we get at this tier?
+      const reductionsAtTier = Math.floor(remainingShadows / tierCost);
+
+      if (reductionsAtTier >= 1) {
+        // Apply one 10% reduction
+        costMultiplier *= 0.9;
+        remainingShadows -= tierCost;
+        tierCost *= 100; // Next 10% costs 100x more
+      } else {
+        break;
+      }
+    }
+
+    return Math.max(costMultiplier, 1e-15);
+  };
+  const shadowCostReduction = calculateShadowCostReduction(runeOfShadowCount, eternityMultiplier);
   // Ascension bonus with soft cap at 100x:
   // 0-100x: 1 Light = +1x ascension (normal, starts at 2x, reaches 100x at 98 Light)
   // 100-1000x: 1000 Light = +1x ascension
