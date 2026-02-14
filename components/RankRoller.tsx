@@ -1112,7 +1112,28 @@ export default function RankRoller() {
   const bulkRollCount = calculateBulkRollCount(runeOfStoneCount, bulkRollLevel, eternityMultiplier);
   // Thunder rune luck is logarithmic, approaching 5x
   const runeRuneLuckBonus = Math.min((1 + Math.log10(1 + runeOfThunderCount) * 1.33) * eternityMultiplier, 5); // Log scaling, cap at 5x
-  const runeBulkCount = Math.min(Math.floor((1 + runeOfFrostCount + runeBulkRollLevel) * eternityMultiplier), 1000); // Cap bulk at 1000
+  // Rune bulk with soft caps:
+  // 0-10: 1 frost rune = 1 rune bulk
+  // 10-100: 10,000 frost runes = 1 rune bulk
+  // 100-1000: 10,000,000 frost runes = 1 rune bulk
+  const calculateRuneBulkCount = (frostRunes: number, bulkLevel: number, eternityMult: number): number => {
+    const rawFrost = (frostRunes + bulkLevel) * eternityMult;
+    if (rawFrost <= 10) {
+      return Math.floor(1 + rawFrost);
+    } else if (rawFrost <= 10 + 90 * 10000) { // 10 + (90 rune bulk * 10,000 runes each)
+      const extraFrost = rawFrost - 10;
+      const extraBulk = Math.floor(extraFrost / 10000);
+      return Math.floor(11 + extraBulk);
+    } else {
+      const tier1Bulk = 10; // First 10 bulk from first 10 frost
+      const tier2Bulk = 90; // Next 90 bulk from 900k frost
+      const tier2FrostUsed = 90 * 10000;
+      const remainingFrost = rawFrost - 10 - tier2FrostUsed;
+      const tier3Bulk = Math.floor(remainingFrost / 10000000);
+      return Math.floor(1 + tier1Bulk + tier2Bulk + tier3Bulk);
+    }
+  };
+  const runeBulkCount = calculateRuneBulkCount(runeOfFrostCount, runeBulkRollLevel, eternityMultiplier);
   const shadowCostReduction = Math.max(Math.pow(0.9, runeOfShadowCount) / eternityMultiplier, 1e-15); // Floor to prevent 0
   const lightAscensionBonus = Math.min(2 + runeOfLightCount + (eternityMultiplier - 1), 1e15);
 
@@ -1943,7 +1964,7 @@ export default function RankRoller() {
             {runeBulkCount > 1 && (
               <div style={styles.statsPanelItem}>
                 <span className="stats-panel-label" style={styles.statsPanelLabel}>Rune Bulk</span>
-                <span className="stats-panel-value" style={styles.statsPanelValue}>{runeBulkCount}x</span>
+                <span className="stats-panel-value" style={styles.statsPanelValue}>{formatNumber(runeBulkCount)}x</span>
               </div>
             )}
           </div>
@@ -2018,8 +2039,8 @@ export default function RankRoller() {
               {runeOfFrostCount > 0 && (
                 <div style={styles.runeBuffItem}>
                   <span style={styles.runeBuffName}>Rune Bulk</span>
-                  <span style={styles.runeBuffValue}>{runeBulkCount}</span>
-                  <span style={styles.runeBuffSource}>({runeOfFrostCount}x Frost)</span>
+                  <span style={styles.runeBuffValue}>{formatNumber(runeBulkCount)}</span>
+                  <span style={styles.runeBuffSource}>({formatNumber(runeOfFrostCount)}x Frost)</span>
                 </div>
               )}
               {runeOfShadowCount > 0 && (
@@ -2759,11 +2780,21 @@ export default function RankRoller() {
               {/* Rune Bulk Breakdown */}
               {runeBulkCount > 1 && (
                 <div style={styles.breakdownSection}>
-                  <h3 style={styles.breakdownHeader}>Rune Bulk ({runeBulkCount}x total)</h3>
+                  <h3 style={styles.breakdownHeader}>Rune Bulk ({formatNumber(runeBulkCount)}x total)</h3>
                   <div style={styles.breakdownItem}>
-                    <span>Runes (Frost + Eternity)</span>
-                    <span>{runeBulkCount}x</span>
+                    <span>Frost Runes</span>
+                    <span>{formatNumber(runeOfFrostCount)}</span>
                   </div>
+                  {runeBulkCount > 11 && (
+                    <div style={styles.breakdownItem}>
+                      <span style={{ fontSize: '0.8em', color: '#888' }}>Soft cap: 10k runes/bulk after 10</span>
+                    </div>
+                  )}
+                  {runeBulkCount > 101 && (
+                    <div style={styles.breakdownItem}>
+                      <span style={{ fontSize: '0.8em', color: '#888' }}>Soft cap: 10M runes/bulk after 100</span>
+                    </div>
+                  )}
                 </div>
               )}
 
