@@ -2305,12 +2305,18 @@ export default function RankRoller() {
                 <span className="stats-panel-value" style={styles.statsPanelValue}>{formatNumber(bulkRollCount)}x</span>
               </div>
             )}
-            {autoRollUnlocked && (
-              <div style={styles.statsPanelItem}>
-                <span className="stats-panel-label" style={styles.statsPanelLabel}>Rolls/sec</span>
-                <span className="stats-panel-value" style={styles.statsPanelValue}>{formatNumber((1000 / (animationInterval * 10 * (fastAutoRollUnlocked ? 5 : 10))) * bulkRollCount)}</span>
-              </div>
-            )}
+            {autoRollUnlocked && (() => {
+              // Match actual auto roll interval logic
+              const actualAutoInterval = animationInterval <= 5
+                ? Math.max(animationInterval, 1)
+                : animationInterval * 10 * (fastAutoRollUnlocked ? 5 : 10);
+              return (
+                <div style={styles.statsPanelItem}>
+                  <span className="stats-panel-label" style={styles.statsPanelLabel}>Rolls/sec</span>
+                  <span className="stats-panel-value" style={styles.statsPanelValue}>{formatNumber((1000 / actualAutoInterval) * bulkRollCount)}</span>
+                </div>
+              );
+            })()}
             {totalRuneLuck > 1.0 && (
               <div style={styles.statsPanelItem}>
                 <span className="stats-panel-label" style={styles.statsPanelLabel}>Rune Luck</span>
@@ -2333,12 +2339,18 @@ export default function RankRoller() {
                 <span className="stats-panel-value" style={styles.statsPanelValue}>{formatNumber(runeBulkCount)}x</span>
               </div>
             )}
-            {runeAutoRollUnlocked && (
-              <div style={styles.statsPanelItem}>
-                <span className="stats-panel-label" style={styles.statsPanelLabel}>Runes/sec</span>
-                <span className="stats-panel-value" style={styles.statsPanelValue}>{formatNumber((1000 / (runeRollTime * (fastRuneAutoRollUnlocked ? 2 : 5))) * runeBulkCount)}</span>
-              </div>
-            )}
+            {runeAutoRollUnlocked && (() => {
+              // Match actual rune auto roll interval logic
+              let actualRuneAutoInterval = fastRuneAutoRollUnlocked ? runeRollTime * 2 : runeRollTime * 5;
+              const minRuneInterval = runeBulkCount * 2;
+              actualRuneAutoInterval = Math.max(actualRuneAutoInterval, minRuneInterval);
+              return (
+                <div style={styles.statsPanelItem}>
+                  <span className="stats-panel-label" style={styles.statsPanelLabel}>Runes/sec</span>
+                  <span className="stats-panel-value" style={styles.statsPanelValue}>{formatNumber((1000 / actualRuneAutoInterval) * runeBulkCount)}</span>
+                </div>
+              );
+            })()}
             {totalCostReduction < 1 && (
               <div style={styles.statsPanelItem}>
                 <span className="stats-panel-label" style={styles.statsPanelLabel}>Cost Reduction</span>
@@ -2838,12 +2850,18 @@ export default function RankRoller() {
               <span className="stats-panel-value" style={styles.statsPanelValue}>{formatNumber(bulkRollCount)}x</span>
             </div>
           )}
-          {autoRollUnlocked && (
-            <div style={styles.statsPanelItem}>
-              <span className="stats-panel-label" style={styles.statsPanelLabel}>Rolls/sec</span>
-              <span className="stats-panel-value" style={styles.statsPanelValue}>{formatNumber((1000 / (animationInterval * 10 * (fastAutoRollUnlocked ? 5 : 10))) * bulkRollCount)}</span>
-            </div>
-          )}
+          {autoRollUnlocked && (() => {
+            // Match actual auto roll interval logic
+            const actualAutoInterval = animationInterval <= 5
+              ? Math.max(animationInterval, 1)
+              : animationInterval * 10 * (fastAutoRollUnlocked ? 5 : 10);
+            return (
+              <div style={styles.statsPanelItem}>
+                <span className="stats-panel-label" style={styles.statsPanelLabel}>Rolls/sec</span>
+                <span className="stats-panel-value" style={styles.statsPanelValue}>{formatNumber((1000 / actualAutoInterval) * bulkRollCount)}</span>
+              </div>
+            );
+          })()}
           {totalRuneLuck > 1.0 && (
             <div style={styles.statsPanelItem}>
               <span className="stats-panel-label" style={styles.statsPanelLabel}>Rune Luck</span>
@@ -2866,12 +2884,18 @@ export default function RankRoller() {
               <span className="stats-panel-value" style={styles.statsPanelValue}>{formatNumber(runeBulkCount)}x</span>
             </div>
           )}
-          {runeAutoRollUnlocked && (
-            <div style={styles.statsPanelItem}>
-              <span className="stats-panel-label" style={styles.statsPanelLabel}>Runes/sec</span>
-              <span className="stats-panel-value" style={styles.statsPanelValue}>{formatNumber((1000 / (runeRollTime * (fastRuneAutoRollUnlocked ? 2 : 5))) * runeBulkCount)}</span>
-            </div>
-          )}
+          {runeAutoRollUnlocked && (() => {
+            // Match actual rune auto roll interval logic
+            let actualRuneAutoInterval = fastRuneAutoRollUnlocked ? runeRollTime * 2 : runeRollTime * 5;
+            const minRuneInterval = runeBulkCount * 2;
+            actualRuneAutoInterval = Math.max(actualRuneAutoInterval, minRuneInterval);
+            return (
+              <div style={styles.statsPanelItem}>
+                <span className="stats-panel-label" style={styles.statsPanelLabel}>Runes/sec</span>
+                <span className="stats-panel-value" style={styles.statsPanelValue}>{formatNumber((1000 / actualRuneAutoInterval) * runeBulkCount)}</span>
+              </div>
+            );
+          })()}
           {totalCostReduction < 1 && (
             <div style={styles.statsPanelItem}>
               <span className="stats-panel-label" style={styles.statsPanelLabel}>Cost Reduction</span>
