@@ -2305,6 +2305,12 @@ export default function RankRoller() {
                 <span className="stats-panel-value" style={styles.statsPanelValue}>{formatNumber(bulkRollCount)}x</span>
               </div>
             )}
+            {autoRollUnlocked && (
+              <div style={styles.statsPanelItem}>
+                <span className="stats-panel-label" style={styles.statsPanelLabel}>Rolls/sec</span>
+                <span className="stats-panel-value" style={styles.statsPanelValue}>{formatNumber((1000 / (animationInterval * 10 * (fastAutoRollUnlocked ? 5 : 10))) * bulkRollCount)}</span>
+              </div>
+            )}
             {totalRuneLuck > 1.0 && (
               <div style={styles.statsPanelItem}>
                 <span className="stats-panel-label" style={styles.statsPanelLabel}>Rune Luck</span>
@@ -2325,6 +2331,12 @@ export default function RankRoller() {
               <div style={styles.statsPanelItem}>
                 <span className="stats-panel-label" style={styles.statsPanelLabel}>Rune Bulk</span>
                 <span className="stats-panel-value" style={styles.statsPanelValue}>{formatNumber(runeBulkCount)}x</span>
+              </div>
+            )}
+            {runeAutoRollUnlocked && (
+              <div style={styles.statsPanelItem}>
+                <span className="stats-panel-label" style={styles.statsPanelLabel}>Runes/sec</span>
+                <span className="stats-panel-value" style={styles.statsPanelValue}>{formatNumber((1000 / (runeRollTime * (fastRuneAutoRollUnlocked ? 2 : 5))) * runeBulkCount)}</span>
               </div>
             )}
             {totalCostReduction < 1 && (
@@ -2826,6 +2838,12 @@ export default function RankRoller() {
               <span className="stats-panel-value" style={styles.statsPanelValue}>{formatNumber(bulkRollCount)}x</span>
             </div>
           )}
+          {autoRollUnlocked && (
+            <div style={styles.statsPanelItem}>
+              <span className="stats-panel-label" style={styles.statsPanelLabel}>Rolls/sec</span>
+              <span className="stats-panel-value" style={styles.statsPanelValue}>{formatNumber((1000 / (animationInterval * 10 * (fastAutoRollUnlocked ? 5 : 10))) * bulkRollCount)}</span>
+            </div>
+          )}
           {totalRuneLuck > 1.0 && (
             <div style={styles.statsPanelItem}>
               <span className="stats-panel-label" style={styles.statsPanelLabel}>Rune Luck</span>
@@ -2846,6 +2864,12 @@ export default function RankRoller() {
             <div style={styles.statsPanelItem}>
               <span className="stats-panel-label" style={styles.statsPanelLabel}>Rune Bulk</span>
               <span className="stats-panel-value" style={styles.statsPanelValue}>{formatNumber(runeBulkCount)}x</span>
+            </div>
+          )}
+          {runeAutoRollUnlocked && (
+            <div style={styles.statsPanelItem}>
+              <span className="stats-panel-label" style={styles.statsPanelLabel}>Runes/sec</span>
+              <span className="stats-panel-value" style={styles.statsPanelValue}>{formatNumber((1000 / (runeRollTime * (fastRuneAutoRollUnlocked ? 2 : 5))) * runeBulkCount)}</span>
             </div>
           )}
           {totalCostReduction < 1 && (
