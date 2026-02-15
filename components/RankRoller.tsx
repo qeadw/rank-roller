@@ -1308,21 +1308,24 @@ export default function RankRoller() {
   // 1000-10000: 1000 stone runes = 1 bulk roll
   // 10000+: 1M stone runes = 1 bulk roll
   const calculateBulkRollCount = (stoneRunes: number, bulkLevel: number, eternityMult: number): number => {
-    const rawStones = (stoneRunes + bulkLevel) * eternityMult;
+    const rawStones = stoneRunes * eternityMult;
+    let baseBulk: number;
     if (rawStones <= 1000) {
-      return Math.floor(1 + rawStones);
+      baseBulk = Math.floor(1 + rawStones);
     } else if (rawStones <= 1000 + 9000 * 1000) { // 1000 + (9000 bulk rolls * 1000 runes each)
       const extraStones = rawStones - 1000;
       const extraBulk = Math.floor(extraStones / 1000);
-      return Math.floor(1001 + extraBulk);
+      baseBulk = Math.floor(1001 + extraBulk);
     } else {
       const tier1Bulk = 1000; // First 1000 bulk from first 1000 stones
       const tier2Bulk = 9000; // Next 9000 bulk from 9M stones
       const tier2StonesUsed = 9000 * 1000;
       const remainingStones = rawStones - 1000 - tier2StonesUsed;
       const tier3Bulk = Math.floor(remainingStones / 1000000);
-      return Math.floor(1 + tier1Bulk + tier2Bulk + tier3Bulk);
+      baseBulk = Math.floor(1 + tier1Bulk + tier2Bulk + tier3Bulk);
     }
+    // Add upgrade bonus directly to bulk count
+    return baseBulk + bulkLevel;
   };
   const bulkRollCount = calculateBulkRollCount(runeOfStoneCount, bulkRollLevel, eternityMultiplier);
   // Rune luck with soft caps:
@@ -1361,21 +1364,24 @@ export default function RankRoller() {
   // 10-100: 10,000 frost runes = 1 rune bulk
   // 100-1000: 10,000,000 frost runes = 1 rune bulk
   const calculateRuneBulkCount = (frostRunes: number, bulkLevel: number, eternityMult: number): number => {
-    const rawFrost = (frostRunes + bulkLevel) * eternityMult;
+    const rawFrost = frostRunes * eternityMult;
+    let baseBulk: number;
     if (rawFrost <= 10) {
-      return Math.floor(1 + rawFrost);
+      baseBulk = Math.floor(1 + rawFrost);
     } else if (rawFrost <= 10 + 90 * 10000) { // 10 + (90 rune bulk * 10,000 runes each)
       const extraFrost = rawFrost - 10;
       const extraBulk = Math.floor(extraFrost / 10000);
-      return Math.floor(11 + extraBulk);
+      baseBulk = Math.floor(11 + extraBulk);
     } else {
       const tier1Bulk = 10; // First 10 bulk from first 10 frost
       const tier2Bulk = 90; // Next 90 bulk from 900k frost
       const tier2FrostUsed = 90 * 10000;
       const remainingFrost = rawFrost - 10 - tier2FrostUsed;
       const tier3Bulk = Math.floor(remainingFrost / 10000000);
-      return Math.floor(1 + tier1Bulk + tier2Bulk + tier3Bulk);
+      baseBulk = Math.floor(1 + tier1Bulk + tier2Bulk + tier3Bulk);
     }
+    // Add upgrade bonus directly to bulk count
+    return baseBulk + bulkLevel;
   };
   const runeBulkCount = calculateRuneBulkCount(runeOfFrostCount, runeBulkRollLevel, eternityMultiplier);
   // Shadow cost reduction with gradual soft caps:
@@ -1467,9 +1473,9 @@ export default function RankRoller() {
   const rawRuneLuckBonus = calculateRuneLuckBonus(runeOfEmbersCount, 1);
   const rawRuneSpeedBonus = calculateRuneSpeedBonus(runeOfTidesCount, 1);
   const rawRuneRuneSpeedBonus = calculateRuneRuneSpeedBonus(runeOfGalesCount, 1);
-  const rawBulkRollCount = calculateBulkRollCount(runeOfStoneCount, bulkRollLevel, 1);
+  const rawBulkRollCount = calculateBulkRollCount(runeOfStoneCount, 0, 1); // Raw = just runes, no upgrade
   const rawRuneRuneLuckBonus = calculateRuneRuneLuckBonus(runeOfThunderCount, 1);
-  const rawRuneBulkCount = calculateRuneBulkCount(runeOfFrostCount, runeBulkRollLevel, 1);
+  const rawRuneBulkCount = calculateRuneBulkCount(runeOfFrostCount, 0, 1); // Raw = just runes, no upgrade
   const rawShadowCostReduction = calculateShadowCostReduction(runeOfShadowCount, 1);
   const rawLightAscensionBonus = calculateLightAscensionBonus(runeOfLightCount, 1);
 
