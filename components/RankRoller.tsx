@@ -1223,17 +1223,17 @@ export default function RankRoller() {
   const runeOfLightCount = runeRollCounts[8] || 0; // Gives +1x ascension multiplier per roll (2x -> 3x -> 4x...)
   const runeOfEternityCount = runeRollCounts[9] || 0; // Gives +50% to ALL bonuses per roll (multiplicative)
 
-  // Eternity multiplier with soft caps (gradual):
+  // Eternity multiplier with soft caps (gradual, no cap):
   // 1-2x: First 10 runes give +0.1x each (reaches 2x at 10 runes)
   // 2-3x: Next 100 runes give +0.01x each (reaches 3x at 110 runes)
   // 3-4x: Next 1000 runes give +0.001x each (reaches 4x at 1110 runes)
-  // Each tier needs 10x more runes for +1x bonus
+  // Each tier needs 10x more runes for +1x bonus, continues forever
   const calculateEternityMultiplier = (eternityRunes: number): number => {
     let multiplier = 1.0;
     let remaining = eternityRunes;
     let runesPerBonus = 10; // First 10 runes = +1x total
 
-    while (remaining > 0 && multiplier < 10) { // Cap at 10x
+    while (remaining > 0) {
       const runesForTier = runesPerBonus;
       const runesUsed = Math.min(remaining, runesForTier);
       const bonusGained = runesUsed / runesPerBonus; // Gradual +1x
