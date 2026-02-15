@@ -208,6 +208,15 @@ function hasAnyFromTier(collectedRanks: Set<number>, tierIndex: number): boolean
   return false;
 }
 
+// Helper to check if all ranks in a tier have tier 5 ascension (level 5)
+function hasTierFullAscension(ascendedRanks: Map<number, number>, tierIndex: number): boolean {
+  for (let i = 0; i < 10; i++) {
+    const rankIndex = tierIndex * 10 + i;
+    if ((ascendedRanks.get(rankIndex) || 0) < 5) return false;
+  }
+  return true;
+}
+
 // Helper to get which runes are unlocked based on progression
 // First 3 runes available, then unlock more with higher tier firsts
 function getUnlockedRunes(collectedRanks: Set<number>): Set<number> {
@@ -399,6 +408,87 @@ const MILESTONES: Milestone[] = [
     requirement: (state) => isTierComplete(state.collectedRanks, 9),
     reward: 0,
     luckBonus: 10,
+  },
+  // Tier 5 Ascension milestones (50M rolls on all 10 of a rarity)
+  {
+    id: 'ascend5_common',
+    name: 'Common Mastery',
+    description: 'Tier 5 ascension on all Common ranks',
+    requirement: (state) => hasTierFullAscension(state.ascendedRanks, 0),
+    reward: 0,
+    luckBonus: 3,
+  },
+  {
+    id: 'ascend5_uncommon',
+    name: 'Uncommon Mastery',
+    description: 'Tier 5 ascension on all Uncommon ranks',
+    requirement: (state) => hasTierFullAscension(state.ascendedRanks, 1),
+    reward: 0,
+    luckBonus: 3,
+  },
+  {
+    id: 'ascend5_rare',
+    name: 'Rare Mastery',
+    description: 'Tier 5 ascension on all Rare ranks',
+    requirement: (state) => hasTierFullAscension(state.ascendedRanks, 2),
+    reward: 0,
+    luckBonus: 3,
+  },
+  {
+    id: 'ascend5_epic',
+    name: 'Epic Mastery',
+    description: 'Tier 5 ascension on all Epic ranks',
+    requirement: (state) => hasTierFullAscension(state.ascendedRanks, 3),
+    reward: 0,
+    luckBonus: 3,
+  },
+  {
+    id: 'ascend5_legendary',
+    name: 'Legendary Mastery',
+    description: 'Tier 5 ascension on all Legendary ranks',
+    requirement: (state) => hasTierFullAscension(state.ascendedRanks, 4),
+    reward: 0,
+    luckBonus: 3,
+  },
+  {
+    id: 'ascend5_mythic',
+    name: 'Mythic Mastery',
+    description: 'Tier 5 ascension on all Mythic ranks',
+    requirement: (state) => hasTierFullAscension(state.ascendedRanks, 5),
+    reward: 0,
+    luckBonus: 3,
+  },
+  {
+    id: 'ascend5_divine',
+    name: 'Divine Mastery',
+    description: 'Tier 5 ascension on all Divine ranks',
+    requirement: (state) => hasTierFullAscension(state.ascendedRanks, 6),
+    reward: 0,
+    luckBonus: 3,
+  },
+  {
+    id: 'ascend5_celestial',
+    name: 'Celestial Mastery',
+    description: 'Tier 5 ascension on all Celestial ranks',
+    requirement: (state) => hasTierFullAscension(state.ascendedRanks, 7),
+    reward: 0,
+    luckBonus: 3,
+  },
+  {
+    id: 'ascend5_cosmic',
+    name: 'Cosmic Mastery',
+    description: 'Tier 5 ascension on all Cosmic ranks',
+    requirement: (state) => hasTierFullAscension(state.ascendedRanks, 8),
+    reward: 0,
+    luckBonus: 3,
+  },
+  {
+    id: 'ascend5_ultimate',
+    name: 'Ultimate Mastery',
+    description: 'Tier 5 ascension on all Ultimate ranks',
+    requirement: (state) => hasTierFullAscension(state.ascendedRanks, 9),
+    reward: 0,
+    luckBonus: 3,
   },
   {
     id: 'rolls_5000',
@@ -2222,8 +2312,14 @@ export default function RankRoller() {
             )}
             {totalCostReduction < 1 && (
               <div style={styles.statsPanelItem}>
-                <span className="stats-panel-label" style={{...styles.statsPanelLabel, color: '#4a0080'}}>Cost Reduction</span>
-                <span className="stats-panel-value" style={{...styles.statsPanelValue, color: '#4a0080'}}>{((1 - totalCostReduction) * 100).toFixed(0)}%</span>
+                <span className="stats-panel-label" style={styles.statsPanelLabel}>Cost Reduction</span>
+                <span className="stats-panel-value" style={styles.statsPanelValue}>{((1 - totalCostReduction) * 100).toFixed(0)}%</span>
+              </div>
+            )}
+            {bulkRollCount > 1 && (
+              <div style={styles.statsPanelItem}>
+                <span className="stats-panel-label" style={styles.statsPanelLabel}>Bulk Roll</span>
+                <span className="stats-panel-value" style={styles.statsPanelValue}>{formatNumber(bulkRollCount)}x</span>
               </div>
             )}
           </div>
@@ -2717,6 +2813,34 @@ export default function RankRoller() {
             <div style={styles.statsPanelItem}>
               <span className="stats-panel-label" style={styles.statsPanelLabel}>Bulk Roll</span>
               <span className="stats-panel-value" style={styles.statsPanelValue}>{formatNumber(bulkRollCount)}x</span>
+            </div>
+          )}
+          <div style={styles.statsPanelItem}>
+            <span className="stats-panel-label" style={styles.statsPanelLabel}>Rune Roll</span>
+            <span className="stats-panel-value" style={styles.statsPanelValue}>{(runeRollTime / 1000).toFixed(2)}s</span>
+          </div>
+          {runeAutoRollUnlocked && (
+            <div style={styles.statsPanelItem}>
+              <span className="stats-panel-label" style={styles.statsPanelLabel}>Rune Auto{fastRuneAutoRollUnlocked ? '' : ' (Slow)'}</span>
+              <span className="stats-panel-value" style={styles.statsPanelValue}>{((runeRollTime * (fastRuneAutoRollUnlocked ? 2 : 5)) / 1000).toFixed(2)}s</span>
+            </div>
+          )}
+          {totalRuneLuck > 1.0 && (
+            <div style={styles.statsPanelItem}>
+              <span className="stats-panel-label" style={styles.statsPanelLabel}>Rune Luck</span>
+              <span className="stats-panel-value" style={styles.statsPanelValue}>{totalRuneLuck.toFixed(2)}x</span>
+            </div>
+          )}
+          {runeBulkCount > 1 && (
+            <div style={styles.statsPanelItem}>
+              <span className="stats-panel-label" style={styles.statsPanelLabel}>Rune Bulk</span>
+              <span className="stats-panel-value" style={styles.statsPanelValue}>{formatNumber(runeBulkCount)}x</span>
+            </div>
+          )}
+          {totalCostReduction < 1 && (
+            <div style={styles.statsPanelItem}>
+              <span className="stats-panel-label" style={styles.statsPanelLabel}>Cost Reduction</span>
+              <span className="stats-panel-value" style={styles.statsPanelValue}>{((1 - totalCostReduction) * 100).toFixed(0)}%</span>
             </div>
           )}
         </div>
