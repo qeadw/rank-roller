@@ -1964,19 +1964,28 @@ export default function RankRoller() {
 
   // Instant rune roll for fast auto-roll (no animation)
   // Uses refs for all state to avoid stale closure issues in auto-roll
-  const handleInstantRuneRoll = useCallback(() => {
+  // batchCount allows multiple batches per call to reduce React overhead at high speeds
+  const handleInstantRuneRoll = useCallback((batchCount: number = 1) => {
     const currentAvailableRunes = availableRunesRef.current;
     const currentRuneRollCost = runeRollCostRef.current;
     const currentRuneBulkCount = runeBulkCountRef.current;
     const currentTotalRuneLuck = totalRuneLuckRef.current;
-    // Check current state using refs to avoid stale closure
-    if (totalPointsRef.current < currentRuneRollCost || currentAvailableRunes.length === 0) return;
 
-    setTotalPoints((p) => p - currentRuneRollCost);
+    if (currentAvailableRunes.length === 0) return;
 
-    // Roll multiple times, keep the best/rarest for display
+    // Calculate how many batches we can afford
+    const maxAffordableBatches = Math.floor(totalPointsRef.current / currentRuneRollCost);
+    const actualBatches = Math.min(batchCount, maxAffordableBatches);
+    if (actualBatches <= 0) return;
+
+    const totalCost = currentRuneRollCost * actualBatches;
+    const totalRolls = currentRuneBulkCount * actualBatches;
+
+    setTotalPoints((p) => p - totalCost);
+
+    // Roll all at once
     const results: Rune[] = [];
-    for (let i = 0; i < currentRuneBulkCount; i++) {
+    for (let i = 0; i < totalRolls; i++) {
       results.push(rollRuneWithLuck(currentAvailableRunes, currentTotalRuneLuck));
     }
     const bestResult = results.reduce((best, current) =>
@@ -1984,7 +1993,7 @@ export default function RankRoller() {
     );
 
     setCurrentRuneRoll(bestResult);
-    setRuneRollCount((c) => c + currentRuneBulkCount);
+    setRuneRollCount((c) => c + totalRolls);
 
     // Track all runes collected and their counts
     const newCollected = new Set<number>();
@@ -2238,30 +2247,38 @@ export default function RankRoller() {
   useEffect(() => {
     if (!runeAutoRollEnabled || !runeAutoRollUnlocked) return;
 
-    // Rune auto-roll interval: at high speeds (runeRollTime <= 50ms), use runeRollTime directly
-    // Otherwise: slow = 5x rune roll time, fast = 2x rune roll time
-    let autoRuneRollInterval: number;
+    // Calculate target rolls per interval
+    // At very high speeds, batch multiple rolls per setInterval call to reduce React overhead
+    let targetInterval = 16; // ~60fps, smooth UI updates
+    let batchesPerInterval = 1;
+
+    // Calculate how fast we want to roll
+    let desiredRollInterval: number;
     if (runeRollTime <= 50) {
-      // Very high speed - roll as fast as possible
-      autoRuneRollInterval = runeRollTime;
+      desiredRollInterval = Math.max(runeRollTime, 1);
     } else {
-      autoRuneRollInterval = fastRuneAutoRollUnlocked ? runeRollTime * 2 : runeRollTime * 5;
+      desiredRollInterval = fastRuneAutoRollUnlocked ? runeRollTime * 2 : runeRollTime * 5;
     }
-    // Minimum 1ms interval
-    autoRuneRollInterval = Math.max(autoRuneRollInterval, 1);
+
+    // If we want to roll faster than our target interval, batch multiple rolls
+    if (desiredRollInterval < targetInterval) {
+      batchesPerInterval = Math.ceil(targetInterval / desiredRollInterval);
+    } else {
+      targetInterval = desiredRollInterval;
+    }
 
     // Use instant roll at high speeds (no animation)
     const useInstantRuneRoll = runeRollTime <= 100;
 
     const autoRuneRollTimer = setInterval(() => {
       if (useInstantRuneRoll) {
-        // Skip animation for fast rolling - handleInstantRuneRoll checks canAfford internally
-        handleInstantRuneRoll();
+        // Batch multiple rolls to reduce React overhead
+        handleInstantRuneRoll(batchesPerInterval);
       } else {
         // Use animated roll - handleRuneRoll checks canAfford and isRolling internally
         handleRuneRoll();
       }
-    }, autoRuneRollInterval);
+    }, targetInterval);
 
     return () => clearInterval(autoRuneRollTimer);
   }, [runeAutoRollEnabled, runeAutoRollUnlocked, fastRuneAutoRollUnlocked, runeRollTime, handleRuneRoll, handleInstantRuneRoll]);
