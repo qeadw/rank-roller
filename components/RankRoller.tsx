@@ -133,11 +133,11 @@ function generateRunes(): Rune[] {
 
   // First rune is 1/2, each subsequent is 12x rarer
   // Rune of Light (index 8) is 1000x rarer than normal
-  // Rune of Eternity (index 9) is 100000x rarer than normal
+  // Rune of Eternity (index 9) is 1500000x rarer than normal
   for (let i = 0; i < 10; i++) {
     let weight = 1 / Math.pow(12, i);
-    if (i === 8) weight /= 1000;      // Light: 1000x rarer
-    if (i === 9) weight /= 100000;   // Eternity: 100000x rarer
+    if (i === 8) weight /= 1000;       // Light: 1000x rarer
+    if (i === 9) weight /= 1500000;    // Eternity: 1500000x rarer
     totalWeight += weight;
 
     runes.push({
@@ -1223,10 +1223,29 @@ export default function RankRoller() {
   const runeOfLightCount = runeRollCounts[8] || 0; // Gives +1x ascension multiplier per roll (2x -> 3x -> 4x...)
   const runeOfEternityCount = runeRollCounts[9] || 0; // Gives +50% to ALL bonuses per roll (multiplicative)
 
-  // Eternity multiplier affects everything
-  // Asymptotic formula: approaches 2x but never reaches it
-  // 0 runes: 1x, 1 rune: 1.1x, 2 runes: 1.19x, 3 runes: 1.271x, etc.
-  const eternityMultiplier = 1 + (1 - Math.pow(0.9, runeOfEternityCount));
+  // Eternity multiplier with soft caps (gradual):
+  // 1-2x: First 10 runes give +0.1x each (reaches 2x at 10 runes)
+  // 2-3x: Next 100 runes give +0.01x each (reaches 3x at 110 runes)
+  // 3-4x: Next 1000 runes give +0.001x each (reaches 4x at 1110 runes)
+  // Each tier needs 10x more runes for +1x bonus
+  const calculateEternityMultiplier = (eternityRunes: number): number => {
+    let multiplier = 1.0;
+    let remaining = eternityRunes;
+    let runesPerBonus = 10; // First 10 runes = +1x total
+
+    while (remaining > 0 && multiplier < 10) { // Cap at 10x
+      const runesForTier = runesPerBonus;
+      const runesUsed = Math.min(remaining, runesForTier);
+      const bonusGained = runesUsed / runesPerBonus; // Gradual +1x
+      multiplier += bonusGained;
+      remaining -= runesUsed;
+      if (runesUsed < runesForTier) break;
+      runesPerBonus *= 10; // 10x harder each tier
+    }
+
+    return multiplier;
+  };
+  const eternityMultiplier = calculateEternityMultiplier(runeOfEternityCount);
 
   // Points bonus with soft cap at 100x:
   // 0-100x: 1 Beginning = +0.1x points (normal, reaches 100x at 990 Beginning)
