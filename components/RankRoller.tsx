@@ -1367,6 +1367,17 @@ export default function RankRoller() {
   };
   const lightAscensionBonus = calculateLightAscensionBonus(runeOfLightCount, eternityMultiplier);
 
+  // Raw rune bonuses (without eternity multiplier) for display in Rune Buffs panel
+  const rawRunePointsBonus = calculateRunePointsBonus(runeOfBeginningCount, 1);
+  const rawRuneLuckBonus = calculateRuneLuckBonus(runeOfEmbersCount, 1);
+  const rawRuneSpeedBonus = calculateRuneSpeedBonus(runeOfTidesCount, 1);
+  const rawRuneRuneSpeedBonus = calculateRuneRuneSpeedBonus(runeOfGalesCount, 1);
+  const rawBulkRollCount = calculateBulkRollCount(runeOfStoneCount, bulkRollLevel, 1);
+  const rawRuneRuneLuckBonus = calculateRuneRuneLuckBonus(runeOfThunderCount, 1);
+  const rawRuneBulkCount = calculateRuneBulkCount(runeOfFrostCount, runeBulkRollLevel, 1);
+  const rawShadowCostReduction = calculateShadowCostReduction(runeOfShadowCount, 1);
+  const rawLightAscensionBonus = calculateLightAscensionBonus(runeOfLightCount, 1);
+
   // Prestige bonuses (10% per prestige level for roller, 5% for runes)
   const rollerPrestigeBonus = 1 + (rollerPrestigeLevel * 0.1);
   const runePrestigeBonus = 1 + (runePrestigeLevel * 0.05);
@@ -2209,6 +2220,12 @@ export default function RankRoller() {
                 <span className="stats-panel-value" style={styles.statsPanelValue}>{formatNumber(runeBulkCount)}x</span>
               </div>
             )}
+            {totalCostReduction < 1 && (
+              <div style={styles.statsPanelItem}>
+                <span className="stats-panel-label" style={{...styles.statsPanelLabel, color: '#4a0080'}}>Cost Reduction</span>
+                <span className="stats-panel-value" style={{...styles.statsPanelValue, color: '#4a0080'}}>{((1 - totalCostReduction) * 100).toFixed(0)}%</span>
+              </div>
+            )}
           </div>
           <button
             onClick={() => setShowPercentFormat(!showPercentFormat)}
@@ -2239,63 +2256,63 @@ export default function RankRoller() {
               {runeOfBeginningCount > 0 && (
                 <div style={styles.runeBuffItem}>
                   <span style={styles.runeBuffName}>Points</span>
-                  <span style={styles.runeBuffValue}>{runePointsBonus.toFixed(2)}x</span>
+                  <span style={styles.runeBuffValue}>{rawRunePointsBonus.toFixed(2)}x</span>
                   <span style={styles.runeBuffSource}>({runeOfBeginningCount}x Beginning)</span>
                 </div>
               )}
               {runeOfEmbersCount > 0 && (
                 <div style={styles.runeBuffItem}>
                   <span style={styles.runeBuffName}>Luck</span>
-                  <span style={styles.runeBuffValue}>{runeLuckBonus.toFixed(2)}x</span>
+                  <span style={styles.runeBuffValue}>{rawRuneLuckBonus.toFixed(2)}x</span>
                   <span style={styles.runeBuffSource}>({runeOfEmbersCount}x Embers)</span>
                 </div>
               )}
               {runeOfTidesCount > 0 && (
                 <div style={styles.runeBuffItem}>
                   <span style={styles.runeBuffName}>Speed</span>
-                  <span style={styles.runeBuffValue}>{runeSpeedBonus.toFixed(2)}x</span>
+                  <span style={styles.runeBuffValue}>{rawRuneSpeedBonus.toFixed(2)}x</span>
                   <span style={styles.runeBuffSource}>({runeOfTidesCount}x Tides)</span>
                 </div>
               )}
               {runeOfGalesCount > 0 && (
                 <div style={styles.runeBuffItem}>
                   <span style={styles.runeBuffName}>Rune Speed</span>
-                  <span style={styles.runeBuffValue}>{runeRuneSpeedBonus.toFixed(2)}x</span>
+                  <span style={styles.runeBuffValue}>{rawRuneRuneSpeedBonus.toFixed(2)}x</span>
                   <span style={styles.runeBuffSource}>({runeOfGalesCount}x Gales)</span>
                 </div>
               )}
               {runeOfStoneCount > 0 && (
                 <div style={styles.runeBuffItem}>
                   <span style={styles.runeBuffName}>Bulk Roll</span>
-                  <span style={styles.runeBuffValue}>{formatNumber(bulkRollCount)}</span>
+                  <span style={styles.runeBuffValue}>{formatNumber(rawBulkRollCount)}</span>
                   <span style={styles.runeBuffSource}>({formatNumber(runeOfStoneCount)}x Stone)</span>
                 </div>
               )}
               {runeOfThunderCount > 0 && (
                 <div style={styles.runeBuffItem}>
                   <span style={styles.runeBuffName}>Rune Luck</span>
-                  <span style={styles.runeBuffValue}>{runeRuneLuckBonus.toFixed(2)}x</span>
+                  <span style={styles.runeBuffValue}>{rawRuneRuneLuckBonus.toFixed(2)}x</span>
                   <span style={styles.runeBuffSource}>({runeOfThunderCount}x Thunder)</span>
                 </div>
               )}
               {runeOfFrostCount > 0 && (
                 <div style={styles.runeBuffItem}>
                   <span style={styles.runeBuffName}>Rune Bulk</span>
-                  <span style={styles.runeBuffValue}>{formatNumber(runeBulkCount)}</span>
+                  <span style={styles.runeBuffValue}>{formatNumber(rawRuneBulkCount)}</span>
                   <span style={styles.runeBuffSource}>({formatNumber(runeOfFrostCount)}x Frost)</span>
                 </div>
               )}
               {runeOfShadowCount > 0 && (
                 <div style={styles.runeBuffItem}>
                   <span style={{...styles.runeBuffName, color: '#4a0080'}}>Cost Reduction</span>
-                  <span style={{...styles.runeBuffValue, color: '#4a0080'}}>{((1 - shadowCostReduction) * 100).toFixed(0)}%</span>
+                  <span style={{...styles.runeBuffValue, color: '#4a0080'}}>{((1 - rawShadowCostReduction) * 100).toFixed(0)}%</span>
                   <span style={styles.runeBuffSource}>({runeOfShadowCount}x Shadow)</span>
                 </div>
               )}
               {runeOfLightCount > 0 && (
                 <div style={styles.runeBuffItem}>
                   <span style={{...styles.runeBuffName, color: '#ffffff'}}>Ascension</span>
-                  <span style={{...styles.runeBuffValue, color: '#ffffff'}}>{lightAscensionBonus.toFixed(1)}x</span>
+                  <span style={{...styles.runeBuffValue, color: '#ffffff'}}>{rawLightAscensionBonus.toFixed(1)}x</span>
                   <span style={styles.runeBuffSource}>({runeOfLightCount}x Light)</span>
                 </div>
               )}
