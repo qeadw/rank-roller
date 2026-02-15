@@ -1378,34 +1378,39 @@ export default function RankRoller() {
     }
   };
   const runeBulkCount = calculateRuneBulkCount(runeOfFrostCount, runeBulkRollLevel, eternityMultiplier);
-  // Shadow cost reduction with soft caps:
-  // Tier 1: 1 Shadow = 10% reduction (to 0.9x cost)
-  // Tier 2: 100 Shadows = next 10% (to 0.8x cost)
-  // Tier 3: 10,000 Shadows = next 10% (to 0.7x cost)
-  // Tier 4: 1,000,000 Shadows = next 10% (to 0.6x cost)
-  // Each tier costs 100x more runes for 10% reduction
+  // Shadow cost reduction with gradual soft caps:
+  // Tier 1: 0-10 shadows = 0-10% reduction (1% per shadow)
+  // Tier 2: 10-1010 shadows = 10-20% reduction (1% per 100 shadows)
+  // Tier 3: 1010-101010 shadows = 20-30% reduction (1% per 10000 shadows)
+  // Each tier is 100x harder, but reduction is gradual within each tier
   const calculateShadowCostReduction = (shadowRunes: number, eternityMult: number): number => {
     const rawShadows = shadowRunes * eternityMult;
 
-    let costMultiplier = 1.0;
+    let reductionPercent = 0; // Total reduction percentage (0-100)
     let remainingShadows = rawShadows;
-    let tierCost = 1; // First tier: 1 shadow = 10%
+    let shadowsPerPercent = 1; // How many shadows needed for 1% reduction
 
-    while (remainingShadows >= tierCost && costMultiplier > 0.01) {
-      // How many full 10% reductions can we get at this tier?
-      const reductionsAtTier = Math.floor(remainingShadows / tierCost);
+    // Each tier gives up to 10% reduction, then next tier is 100x harder
+    while (remainingShadows > 0 && reductionPercent < 90) { // Cap at 90% reduction
+      const maxPercentThisTier = 10;
+      const shadowsNeededForTier = maxPercentThisTier * shadowsPerPercent;
 
-      if (reductionsAtTier >= 1) {
-        // Apply one 10% reduction
-        costMultiplier *= 0.9;
-        remainingShadows -= tierCost;
-        tierCost *= 100; // Next 10% costs 100x more
+      if (remainingShadows >= shadowsNeededForTier) {
+        // Complete this tier
+        reductionPercent += maxPercentThisTier;
+        remainingShadows -= shadowsNeededForTier;
+        shadowsPerPercent *= 100; // Next tier is 100x harder
       } else {
-        break;
+        // Partial tier - gradual reduction
+        const percentGained = remainingShadows / shadowsPerPercent;
+        reductionPercent += percentGained;
+        remainingShadows = 0;
       }
     }
 
-    return Math.max(costMultiplier, 1e-15);
+    // Convert reduction percent to multiplier (10% reduction = 0.9x cost)
+    const costMultiplier = Math.max(1 - (reductionPercent / 100), 0.01);
+    return costMultiplier;
   };
   const shadowCostReduction = calculateShadowCostReduction(runeOfShadowCount, eternityMultiplier);
 
