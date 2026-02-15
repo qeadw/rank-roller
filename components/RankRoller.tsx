@@ -795,6 +795,14 @@ const MILESTONES: Milestone[] = [
     reward: 0,
     runeLuckBonus: 1.1,
   },
+  {
+    id: 'fifty_rune_9',
+    name: 'Eternity Master',
+    description: 'Roll 50 Runes of Eternity',
+    requirement: (state) => (state.legitimateRuneRollCounts[9] || 0) >= 50,
+    reward: 0,
+    runeBulkBonus: 5,
+  },
   // Rune autoroll milestones
   {
     id: 'rune_rolls_500',
@@ -2355,19 +2363,19 @@ export default function RankRoller() {
             {luckMulti > 1.0 && (
               <div style={styles.statsPanelItem}>
                 <span className="stats-panel-label" style={styles.statsPanelLabel}>Luck</span>
-                <span className="stats-panel-value" style={styles.statsPanelValue}>{luckMulti.toFixed(2)}x</span>
+                <span className="stats-panel-value" style={styles.statsPanelValue}>{luckMulti >= 1e9 ? formatNumber(luckMulti) : luckMulti.toFixed(2)}x</span>
               </div>
             )}
             {pointsMulti > 1.0 && (
               <div style={styles.statsPanelItem}>
                 <span className="stats-panel-label" style={styles.statsPanelLabel}>Points</span>
-                <span className="stats-panel-value" style={styles.statsPanelValue}>{pointsMulti.toFixed(2)}x</span>
+                <span className="stats-panel-value" style={styles.statsPanelValue}>{pointsMulti >= 1e9 ? formatNumber(pointsMulti) : pointsMulti.toFixed(2)}x</span>
               </div>
             )}
             {speedMulti > 1.0 && (
               <div style={styles.statsPanelItem}>
                 <span className="stats-panel-label" style={styles.statsPanelLabel}>Speed</span>
-                <span className="stats-panel-value" style={styles.statsPanelValue}>{speedMulti.toFixed(2)}x</span>
+                <span className="stats-panel-value" style={styles.statsPanelValue}>{speedMulti >= 1e9 ? formatNumber(speedMulti) : speedMulti.toFixed(2)}x</span>
               </div>
             )}
             <div style={styles.statsPanelItem}>
@@ -2422,13 +2430,13 @@ export default function RankRoller() {
             )}
             {milestoneRuneSpeedBonus > 1 && (
               <div style={styles.statsPanelItem}>
-                <span className="stats-panel-label" style={styles.statsPanelLabel}>MS Rune Speed</span>
+                <span className="stats-panel-label" style={styles.statsPanelLabel}>Rune Speed</span>
                 <span className="stats-panel-value" style={styles.statsPanelValue}>{milestoneRuneSpeedBonus.toFixed(2)}x</span>
               </div>
             )}
             {milestoneRuneBulkBonus > 1 && (
               <div style={styles.statsPanelItem}>
-                <span className="stats-panel-label" style={styles.statsPanelLabel}>MS Rune Bulk</span>
+                <span className="stats-panel-label" style={styles.statsPanelLabel}>Rune Bulk Bonus</span>
                 <span className="stats-panel-value" style={styles.statsPanelValue}>{milestoneRuneBulkBonus.toFixed(2)}x</span>
               </div>
             )}
@@ -2911,19 +2919,19 @@ export default function RankRoller() {
           {luckMulti > 1.0 && (
             <div style={styles.statsPanelItem}>
               <span className="stats-panel-label" style={styles.statsPanelLabel}>Luck</span>
-              <span className="stats-panel-value" style={styles.statsPanelValue}>{luckMulti.toFixed(2)}x</span>
+              <span className="stats-panel-value" style={styles.statsPanelValue}>{luckMulti >= 1e9 ? formatNumber(luckMulti) : luckMulti.toFixed(2)}x</span>
             </div>
           )}
           {pointsMulti > 1.0 && (
             <div style={styles.statsPanelItem}>
               <span className="stats-panel-label" style={styles.statsPanelLabel}>Points</span>
-              <span className="stats-panel-value" style={styles.statsPanelValue}>{pointsMulti.toFixed(2)}x</span>
+              <span className="stats-panel-value" style={styles.statsPanelValue}>{pointsMulti >= 1e9 ? formatNumber(pointsMulti) : pointsMulti.toFixed(2)}x</span>
             </div>
           )}
           {speedMulti > 1.0 && (
             <div style={styles.statsPanelItem}>
               <span className="stats-panel-label" style={styles.statsPanelLabel}>Speed</span>
-              <span className="stats-panel-value" style={styles.statsPanelValue}>{speedMulti.toFixed(2)}x</span>
+              <span className="stats-panel-value" style={styles.statsPanelValue}>{speedMulti >= 1e9 ? formatNumber(speedMulti) : speedMulti.toFixed(2)}x</span>
             </div>
           )}
           <div style={styles.statsPanelItem}>
@@ -2978,13 +2986,13 @@ export default function RankRoller() {
           )}
           {milestoneRuneSpeedBonus > 1 && (
             <div style={styles.statsPanelItem}>
-              <span className="stats-panel-label" style={styles.statsPanelLabel}>MS Rune Speed</span>
+              <span className="stats-panel-label" style={styles.statsPanelLabel}>Rune Speed</span>
               <span className="stats-panel-value" style={styles.statsPanelValue}>{milestoneRuneSpeedBonus.toFixed(2)}x</span>
             </div>
           )}
           {milestoneRuneBulkBonus > 1 && (
             <div style={styles.statsPanelItem}>
-              <span className="stats-panel-label" style={styles.statsPanelLabel}>MS Rune Bulk</span>
+              <span className="stats-panel-label" style={styles.statsPanelLabel}>Rune Bulk Bonus</span>
               <span className="stats-panel-value" style={styles.statsPanelValue}>{milestoneRuneBulkBonus.toFixed(2)}x</span>
             </div>
           )}
