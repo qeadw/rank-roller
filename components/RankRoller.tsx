@@ -2459,7 +2459,7 @@ export default function RankRoller() {
 
         <div style={styles.runesPointsDisplay}>
           <span style={styles.runesPointsLabel}>Points</span>
-          <span style={styles.runesPointsValue}>{totalPoints.toLocaleString()}</span>
+          <span style={styles.runesPointsValue}>{totalPoints >= 1e15 ? formatNumber(totalPoints) : totalPoints.toLocaleString()}</span>
         </div>
 
         {/* Rune Roll Display */}
@@ -3383,7 +3383,7 @@ export default function RankRoller() {
         </div>
         <div style={styles.stat}>
           <span style={styles.statLabel}>Points</span>
-          <span style={styles.statValue}>{totalPoints.toLocaleString()}</span>
+          <span style={styles.statValue}>{totalPoints >= 1e15 ? formatNumber(totalPoints) : totalPoints.toLocaleString()}</span>
         </div>
         {lastPointsGained !== null && (
           <div style={styles.stat}>
