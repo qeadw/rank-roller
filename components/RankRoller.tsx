@@ -1357,12 +1357,12 @@ export default function RankRoller() {
     return baseBulk + bulkLevel;
   };
   const bulkRollCount = calculateBulkRollCount(runeOfStoneCount, bulkRollLevel, eternityMultiplier);
-  // Rune luck with soft caps:
+  // Rune luck with soft caps (gradual):
   // 0-2x: 1 Thunder = +0.5x rune luck (normal, reaches 2x at 2 Thunder)
   // 2-3x: 15 Thunder = +0.5x rune luck (15x harder)
   // 3-4x: 225 Thunder = +0.5x rune luck (225x harder)
   // 4-5x: 3375 Thunder = +0.5x rune luck (3375x harder)
-  // etc. Each +1x costs 15x more Thunder
+  // etc. Each +1x costs 15x more Thunder - progress is gradual within each tier
   const calculateRuneRuneLuckBonus = (thunderRunes: number, eternityMult: number): number => {
     const rawThunder = thunderRunes * eternityMult;
     let bonus = 1.0;
@@ -1370,18 +1370,19 @@ export default function RankRoller() {
 
     // First tier: up to 2x (needs 2 Thunder at 0.5x each)
     const tier1Thunder = Math.min(remainingThunder, 2);
-    bonus += tier1Thunder * 0.5;
+    bonus += tier1Thunder * 0.5; // Gradual: 0.5 Thunder = +0.25x
     remainingThunder -= tier1Thunder;
 
-    // Subsequent tiers: each +1x costs 15x more
+    // Subsequent tiers: each +1x costs 15x more (gradual progress)
     let tierMultiplier = 15;
     while (remainingThunder > 0 && bonus < 10) { // Cap at 10x
-      // Each +0.5x now costs tierMultiplier Thunder
-      const thunderForHalf = tierMultiplier;
-      const halves = Math.floor(remainingThunder / thunderForHalf);
-      const actualHalves = Math.min(halves, 2); // Max 2 halves (+1x) per tier
-      bonus += actualHalves * 0.5;
-      remainingThunder -= actualHalves * thunderForHalf;
+      // Each +1x in this tier needs tierMultiplier * 2 Thunder total
+      const thunderForFullTier = tierMultiplier * 2;
+      const thunderUsed = Math.min(remainingThunder, thunderForFullTier);
+      const bonusGained = (thunderUsed / thunderForFullTier) * 1.0; // Gradual +1x
+      bonus += bonusGained;
+      remainingThunder -= thunderUsed;
+      if (thunderUsed < thunderForFullTier) break; // Didn't complete tier
       tierMultiplier *= 15;
     }
 
