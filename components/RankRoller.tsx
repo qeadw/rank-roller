@@ -131,8 +131,12 @@ function generateRunes(): Rune[] {
   let totalWeight = 0;
 
   // First rune is 1/2, each subsequent is 12x rarer
+  // Rune of Light (index 8) is 100x rarer than normal
+  // Rune of Eternity (index 9) is 10000x rarer than normal
   for (let i = 0; i < 10; i++) {
-    const weight = 1 / Math.pow(12, i);
+    let weight = 1 / Math.pow(12, i);
+    if (i === 8) weight /= 100;      // Light: 100x rarer
+    if (i === 9) weight /= 10000;    // Eternity: 10000x rarer
     totalWeight += weight;
 
     runes.push({
