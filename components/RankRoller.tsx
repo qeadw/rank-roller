@@ -2227,9 +2227,8 @@ export default function RankRoller() {
     } else {
       autoRuneRollInterval = fastRuneAutoRollUnlocked ? runeRollTime * 2 : runeRollTime * 5;
     }
-    // Cap based on bulk count to prevent lag
-    const minRuneInterval = effectiveRuneBulkCount * 2;
-    autoRuneRollInterval = Math.max(autoRuneRollInterval, minRuneInterval, 1);
+    // Minimum 1ms interval
+    autoRuneRollInterval = Math.max(autoRuneRollInterval, 1);
 
     // Use instant roll at high speeds (no animation)
     const useInstantRuneRoll = runeRollTime <= 100;
@@ -2245,7 +2244,7 @@ export default function RankRoller() {
     }, autoRuneRollInterval);
 
     return () => clearInterval(autoRuneRollTimer);
-  }, [runeAutoRollEnabled, runeAutoRollUnlocked, fastRuneAutoRollUnlocked, runeRollTime, handleRuneRoll, handleInstantRuneRoll, effectiveRuneBulkCount]);
+  }, [runeAutoRollEnabled, runeAutoRollUnlocked, fastRuneAutoRollUnlocked, runeRollTime, handleRuneRoll, handleInstantRuneRoll]);
 
   // Spacebar to roll, A to toggle auto roll
   useEffect(() => {
@@ -2399,8 +2398,7 @@ export default function RankRoller() {
             {runeAutoRollUnlocked && (() => {
               // Match actual rune auto roll interval logic
               let actualRuneAutoInterval = runeRollTime <= 50 ? runeRollTime : (fastRuneAutoRollUnlocked ? runeRollTime * 2 : runeRollTime * 5);
-              const minRuneInterval = effectiveRuneBulkCount * 2;
-              actualRuneAutoInterval = Math.max(actualRuneAutoInterval, minRuneInterval, 1);
+              actualRuneAutoInterval = Math.max(actualRuneAutoInterval, 1);
               return (
                 <div style={styles.statsPanelItem}>
                   <span className="stats-panel-label" style={styles.statsPanelLabel}>Runes/sec</span>
@@ -2956,8 +2954,7 @@ export default function RankRoller() {
           {runeAutoRollUnlocked && (() => {
             // Match actual rune auto roll interval logic
             let actualRuneAutoInterval = runeRollTime <= 50 ? runeRollTime : (fastRuneAutoRollUnlocked ? runeRollTime * 2 : runeRollTime * 5);
-            const minRuneInterval = effectiveRuneBulkCount * 2;
-            actualRuneAutoInterval = Math.max(actualRuneAutoInterval, minRuneInterval, 1);
+            actualRuneAutoInterval = Math.max(actualRuneAutoInterval, 1);
             return (
               <div style={styles.statsPanelItem}>
                 <span className="stats-panel-label" style={styles.statsPanelLabel}>Runes/sec</span>
