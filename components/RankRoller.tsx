@@ -2324,7 +2324,7 @@ export default function RankRoller() {
             {totalCostReduction < 1 && (
               <div style={styles.statsPanelItem}>
                 <span className="stats-panel-label" style={styles.statsPanelLabel}>Cost Reduction</span>
-                <span className="stats-panel-value" style={styles.statsPanelValue}>{((1 - totalCostReduction) * 100).toFixed(0)}%</span>
+                <span className="stats-panel-value" style={styles.statsPanelValue}>{((1 - totalCostReduction) * 100).toFixed(2)}%</span>
               </div>
             )}
           </div>
@@ -2406,7 +2406,7 @@ export default function RankRoller() {
               {runeOfShadowCount > 0 && (
                 <div style={styles.runeBuffItem}>
                   <span style={{...styles.runeBuffName, color: '#4a0080'}}>Cost Reduction</span>
-                  <span style={{...styles.runeBuffValue, color: '#4a0080'}}>{((1 - rawShadowCostReduction) * 100).toFixed(0)}%</span>
+                  <span style={{...styles.runeBuffValue, color: '#4a0080'}}>{((1 - rawShadowCostReduction) * 100).toFixed(2)}%</span>
                   <span style={styles.runeBuffSource}>({runeOfShadowCount}x Shadow)</span>
                 </div>
               )}
@@ -2845,7 +2845,7 @@ export default function RankRoller() {
           {totalCostReduction < 1 && (
             <div style={styles.statsPanelItem}>
               <span className="stats-panel-label" style={styles.statsPanelLabel}>Cost Reduction</span>
-              <span className="stats-panel-value" style={styles.statsPanelValue}>{((1 - totalCostReduction) * 100).toFixed(0)}%</span>
+              <span className="stats-panel-value" style={styles.statsPanelValue}>{((1 - totalCostReduction) * 100).toFixed(2)}%</span>
             </div>
           )}
         </div>
