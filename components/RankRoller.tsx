@@ -72,7 +72,7 @@ const ASCENSION_TIERS = [
   { rolls: 15000, multiplier: 3, stars: 2 },
   { rolls: 250000, multiplier: 4, stars: 3 },
   { rolls: 5000000, multiplier: 5, stars: 4 },
-  { rolls: 50000000, multiplier: 6, stars: 5 },
+  { rolls: 50000000, multiplier: 100, stars: 5 },
 ];
 
 interface Milestone {
