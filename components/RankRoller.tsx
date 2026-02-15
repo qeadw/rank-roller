@@ -52,6 +52,8 @@ interface SaveData {
   // Prestige system
   rollerPrestigeLevel?: number;
   runePrestigeLevel?: number;
+  // Cost reduction upgrade
+  costReductionLevel?: number;
 }
 
 interface MilestoneState {
@@ -869,6 +871,7 @@ export default function RankRoller() {
   const [luckLevel, setLuckLevel] = useState(0);
   const [pointsMultiLevel, setPointsMultiLevel] = useState(0);
   const [speedLevel, setSpeedLevel] = useState(0);
+  const [costReductionLevel, setCostReductionLevel] = useState(0); // 0-5, each level gives 10% cost reduction
   const [claimedMilestones, setClaimedMilestones] = useState<Set<string>>(new Set());
   const [showMilestones, setShowMilestones] = useState(false);
   const [isLoaded, setIsLoaded] = useState(false);
@@ -944,6 +947,7 @@ export default function RankRoller() {
         setLuckLevel(data.luckLevel || 0);
         setPointsMultiLevel(data.pointsMultiLevel || 0);
         setSpeedLevel(data.speedLevel || 0);
+        setCostReductionLevel(data.costReductionLevel || 0);
         setClaimedMilestones(new Set(data.claimedMilestones || []));
         // Load rune data
         setCollectedRunes(new Set(data.collectedRunes || []));
@@ -985,6 +989,7 @@ export default function RankRoller() {
       luckLevel,
       pointsMultiLevel,
       speedLevel,
+      costReductionLevel,
       claimedMilestones: Array.from(claimedMilestones),
       // Rune data
       collectedRunes: Array.from(collectedRunes),
@@ -1000,7 +1005,7 @@ export default function RankRoller() {
       runePrestigeLevel,
     };
     setCookie(SAVE_KEY, obfuscateSave(JSON.stringify(saveData)));
-  }, [isLoaded, rollCount, totalPoints, highestRank, highestRankRoll, collectedRanks, rankRollCounts, ascendedRanks, luckLevel, pointsMultiLevel, speedLevel, claimedMilestones, collectedRunes, runeRollCounts, legitimateRuneRollCounts, runeRollCount, bulkRollLevel, runeBulkRollLevel, gameSpeedMultiplier, rollerPrestigeLevel, runePrestigeLevel]);
+  }, [isLoaded, rollCount, totalPoints, highestRank, highestRankRoll, collectedRanks, rankRollCounts, ascendedRanks, luckLevel, pointsMultiLevel, speedLevel, costReductionLevel, claimedMilestones, collectedRunes, runeRollCounts, legitimateRuneRollCounts, runeRollCount, bulkRollLevel, runeBulkRollLevel, gameSpeedMultiplier, rollerPrestigeLevel, runePrestigeLevel]);
 
   useEffect(() => {
     saveGame();
@@ -1314,10 +1319,26 @@ export default function RankRoller() {
   };
   const shadowCostReduction = calculateShadowCostReduction(runeOfShadowCount, eternityMultiplier);
 
-  // Apply shadow cost reduction to all upgrade costs
-  const bulkUpgradeCost = bulkRollLevel < 4 ? Math.floor(BULK_UPGRADE_COSTS[bulkRollLevel] * shadowCostReduction) : Infinity;
+  // Cost Reduction Upgrade - unlocks at 1 quadrillion, 5 tiers, each gives 10% compounding
+  // Costs: 1q, 100q, 10Q, 1s, 100s (1e15, 1e17, 1e19, 1e21, 1e23)
+  const COST_REDUCTION_UPGRADE_COSTS = [1e15, 1e17, 1e19, 1e21, 1e23];
+  const costReductionUnlocked = totalPoints >= 1e15 || costReductionLevel > 0;
+  const upgradeCostReduction = Math.pow(0.9, costReductionLevel); // Each level = 10% reduction (0.9^level)
+  const costReductionUpgradeCost = costReductionLevel < 5 ? COST_REDUCTION_UPGRADE_COSTS[costReductionLevel] : Infinity;
+  const canAffordCostReductionUpgrade = totalPoints >= costReductionUpgradeCost && costReductionLevel < 5;
+
+  const handleUpgradeCostReduction = () => {
+    if (canAffordCostReductionUpgrade) {
+      setTotalPoints((p) => p - costReductionUpgradeCost);
+      setCostReductionLevel((l) => l + 1);
+    }
+  };
+
+  // Apply shadow cost reduction AND upgrade cost reduction to all upgrade costs (except cost reduction itself)
+  const totalCostReduction = shadowCostReduction * upgradeCostReduction;
+  const bulkUpgradeCost = bulkRollLevel < 4 ? Math.floor(BULK_UPGRADE_COSTS[bulkRollLevel] * totalCostReduction) : Infinity;
   const canAffordBulkUpgrade = totalPoints >= bulkUpgradeCost && bulkRollLevel < 4;
-  const runeBulkUpgradeCost = runeBulkRollLevel < 2 ? Math.floor(RUNE_BULK_UPGRADE_COSTS[runeBulkRollLevel] * shadowCostReduction) : Infinity;
+  const runeBulkUpgradeCost = runeBulkRollLevel < 2 ? Math.floor(RUNE_BULK_UPGRADE_COSTS[runeBulkRollLevel] * totalCostReduction) : Infinity;
   const canAffordRuneBulkUpgrade = totalPoints >= runeBulkUpgradeCost && runeBulkRollLevel < 2;
 
   // Ascension bonus with soft cap at 100x:
@@ -1353,13 +1374,13 @@ export default function RankRoller() {
   // Luck calculations
   const baseLuckMulti = Math.pow(1.1, luckLevel);
   const luckMulti = baseLuckMulti * milestoneLuckBonus * runeLuckBonus * rollerPrestigeBonus;
-  const luckUpgradeCost = Math.floor(100 * Math.pow(2, luckLevel) * shadowCostReduction);
+  const luckUpgradeCost = Math.floor(100 * Math.pow(2, luckLevel) * totalCostReduction);
   const canAffordLuckUpgrade = totalPoints >= luckUpgradeCost;
 
   // Points multiplier calculations
   const basePointsMulti = Math.pow(1.1, pointsMultiLevel);
   const pointsMulti = basePointsMulti * milestonePointsBonus * runePointsBonus;
-  const pointsUpgradeCost = Math.floor(100 * Math.pow(2, pointsMultiLevel) * shadowCostReduction);
+  const pointsUpgradeCost = Math.floor(100 * Math.pow(2, pointsMultiLevel) * totalCostReduction);
   const canAffordPointsUpgrade = totalPoints >= pointsUpgradeCost;
 
   const handleUpgradeLuck = () => {
@@ -1379,7 +1400,7 @@ export default function RankRoller() {
   // Speed calculations
   const baseSpeedMulti = Math.pow(1.1, speedLevel);
   const speedMulti = baseSpeedMulti * milestoneSpeedBonus * runeSpeedBonus;
-  const speedUpgradeCost = Math.floor(100 * Math.pow(2, speedLevel) * shadowCostReduction);
+  const speedUpgradeCost = Math.floor(100 * Math.pow(2, speedLevel) * totalCostReduction);
   const canAffordSpeedUpgrade = totalPoints >= speedUpgradeCost;
   // Game speed cheat multiplier affects animation interval
   const animationInterval = Math.max(1, Math.floor(50 / (speedMulti * gameSpeedMultiplier)));
@@ -1600,6 +1621,7 @@ export default function RankRoller() {
     setLuckLevel(0);
     setPointsMultiLevel(0);
     setSpeedLevel(0);
+    setCostReductionLevel(0);
     setClaimedMilestones(new Set());
     setAutoRollEnabled(false);
     setBulkRollLevel(0);
@@ -1649,6 +1671,7 @@ export default function RankRoller() {
       setLuckLevel(0);
       setPointsMultiLevel(0);
       setSpeedLevel(0);
+      setCostReductionLevel(0);
       setClaimedMilestones(new Set());
       setAutoRollEnabled(false);
       setRuneAutoRollEnabled(false);
@@ -1683,7 +1706,7 @@ export default function RankRoller() {
   const baseRuneRollTime = 5000;
   const runeRollTime = Math.floor(baseRuneRollTime / (milestoneRuneSpeedBonus * runeRuneSpeedBonus * gameSpeedMultiplier));
   const runeAnimationInterval = Math.max(10, Math.floor(100 / gameSpeedMultiplier)); // Animation frame rate for runes
-  const runeRollCost = Math.floor(1000 * runeBulkCount * shadowCostReduction); // Cost scales with rune bulk, reduced by shadow
+  const runeRollCost = Math.floor(1000 * runeBulkCount * totalCostReduction); // Cost scales with rune bulk, reduced by shadow + upgrade
   const canAffordRuneRoll = totalPoints >= runeRollCost;
 
   // Calculate which runes are unlocked based on progression
@@ -2797,6 +2820,28 @@ export default function RankRoller() {
                 }}
               >
                 {runeBulkRollLevel >= 2 ? 'MAX' : formatNumber(runeBulkUpgradeCost)}
+              </button>
+            </div>
+          )}
+          {/* Cost Reduction Upgrade - unlocks at 1 quadrillion */}
+          {costReductionUnlocked && (
+            <div className="upgrade-item" style={styles.upgradeItem}>
+              <div className="upgrade-info" style={styles.upgradeInfo}>
+                <span className="upgrade-name" style={styles.upgradeName}>Discount</span>
+                <span className="upgrade-value" style={styles.upgradeValue}>{((1 - upgradeCostReduction) * 100).toFixed(0)}% off</span>
+                <span className="upgrade-level" style={styles.upgradeLevel}>Lv.{costReductionLevel}/5</span>
+              </div>
+              <button
+                className="upgrade-btn"
+                onClick={handleUpgradeCostReduction}
+                disabled={!canAffordCostReductionUpgrade}
+                style={{
+                  ...styles.upgradeBtn,
+                  opacity: canAffordCostReductionUpgrade ? 1 : 0.5,
+                  cursor: canAffordCostReductionUpgrade ? 'pointer' : 'not-allowed',
+                }}
+              >
+                {costReductionLevel >= 5 ? 'MAX' : formatNumber(costReductionUpgradeCost)}
               </button>
             </div>
           )}
