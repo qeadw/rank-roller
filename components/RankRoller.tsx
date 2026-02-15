@@ -2218,14 +2218,21 @@ export default function RankRoller() {
   useEffect(() => {
     if (!runeAutoRollEnabled || !runeAutoRollUnlocked) return;
 
-    // Rune auto-roll interval: slow = 5x rune roll time, fast = 2x rune roll time
-    let autoRuneRollInterval = fastRuneAutoRollUnlocked ? runeRollTime * 2 : runeRollTime * 5;
-    // Cap at 500 rolls per second: interval must be at least runeBulkCount * 2ms
+    // Rune auto-roll interval: at high speeds (runeRollTime <= 50ms), use runeRollTime directly
+    // Otherwise: slow = 5x rune roll time, fast = 2x rune roll time
+    let autoRuneRollInterval: number;
+    if (runeRollTime <= 50) {
+      // Very high speed - roll as fast as possible
+      autoRuneRollInterval = runeRollTime;
+    } else {
+      autoRuneRollInterval = fastRuneAutoRollUnlocked ? runeRollTime * 2 : runeRollTime * 5;
+    }
+    // Cap based on bulk count to prevent lag
     const minRuneInterval = effectiveRuneBulkCount * 2;
-    autoRuneRollInterval = Math.max(autoRuneRollInterval, minRuneInterval);
+    autoRuneRollInterval = Math.max(autoRuneRollInterval, minRuneInterval, 1);
 
-    // Use instant roll if rolling faster than animation can handle
-    const useInstantRuneRoll = autoRuneRollInterval < runeRollTime;
+    // Use instant roll at high speeds (no animation)
+    const useInstantRuneRoll = runeRollTime <= 100;
 
     const autoRuneRollTimer = setInterval(() => {
       if (useInstantRuneRoll) {
@@ -2238,7 +2245,7 @@ export default function RankRoller() {
     }, autoRuneRollInterval);
 
     return () => clearInterval(autoRuneRollTimer);
-  }, [runeAutoRollEnabled, runeAutoRollUnlocked, fastRuneAutoRollUnlocked, runeRollTime, handleRuneRoll, handleInstantRuneRoll, runeBulkCount]);
+  }, [runeAutoRollEnabled, runeAutoRollUnlocked, fastRuneAutoRollUnlocked, runeRollTime, handleRuneRoll, handleInstantRuneRoll, effectiveRuneBulkCount]);
 
   // Spacebar to roll, A to toggle auto roll
   useEffect(() => {
@@ -2368,7 +2375,7 @@ export default function RankRoller() {
             {runeAutoRollUnlocked && (
               <div style={styles.statsPanelItem}>
                 <span className="stats-panel-label" style={styles.statsPanelLabel}>Rune Auto{fastRuneAutoRollUnlocked ? '' : ' (Slow)'}</span>
-                <span className="stats-panel-value" style={styles.statsPanelValue}>{((runeRollTime * (fastRuneAutoRollUnlocked ? 2 : 5)) / 1000).toFixed(2)}s</span>
+                <span className="stats-panel-value" style={styles.statsPanelValue}>{((runeRollTime <= 50 ? runeRollTime : runeRollTime * (fastRuneAutoRollUnlocked ? 2 : 5)) / 1000).toFixed(2)}s</span>
               </div>
             )}
             {effectiveRuneBulkCount > 1 && (
@@ -2377,11 +2384,23 @@ export default function RankRoller() {
                 <span className="stats-panel-value" style={styles.statsPanelValue}>{formatNumber(effectiveRuneBulkCount)}x</span>
               </div>
             )}
+            {milestoneRuneSpeedBonus > 1 && (
+              <div style={styles.statsPanelItem}>
+                <span className="stats-panel-label" style={styles.statsPanelLabel}>MS Rune Speed</span>
+                <span className="stats-panel-value" style={styles.statsPanelValue}>{milestoneRuneSpeedBonus.toFixed(2)}x</span>
+              </div>
+            )}
+            {milestoneRuneBulkBonus > 1 && (
+              <div style={styles.statsPanelItem}>
+                <span className="stats-panel-label" style={styles.statsPanelLabel}>MS Rune Bulk</span>
+                <span className="stats-panel-value" style={styles.statsPanelValue}>{milestoneRuneBulkBonus.toFixed(2)}x</span>
+              </div>
+            )}
             {runeAutoRollUnlocked && (() => {
               // Match actual rune auto roll interval logic
-              let actualRuneAutoInterval = fastRuneAutoRollUnlocked ? runeRollTime * 2 : runeRollTime * 5;
+              let actualRuneAutoInterval = runeRollTime <= 50 ? runeRollTime : (fastRuneAutoRollUnlocked ? runeRollTime * 2 : runeRollTime * 5);
               const minRuneInterval = effectiveRuneBulkCount * 2;
-              actualRuneAutoInterval = Math.max(actualRuneAutoInterval, minRuneInterval);
+              actualRuneAutoInterval = Math.max(actualRuneAutoInterval, minRuneInterval, 1);
               return (
                 <div style={styles.statsPanelItem}>
                   <span className="stats-panel-label" style={styles.statsPanelLabel}>Runes/sec</span>
@@ -2913,7 +2932,7 @@ export default function RankRoller() {
           {runeAutoRollUnlocked && (
             <div style={styles.statsPanelItem}>
               <span className="stats-panel-label" style={styles.statsPanelLabel}>Rune Auto{fastRuneAutoRollUnlocked ? '' : ' (Slow)'}</span>
-              <span className="stats-panel-value" style={styles.statsPanelValue}>{((runeRollTime * (fastRuneAutoRollUnlocked ? 2 : 5)) / 1000).toFixed(2)}s</span>
+              <span className="stats-panel-value" style={styles.statsPanelValue}>{((runeRollTime <= 50 ? runeRollTime : runeRollTime * (fastRuneAutoRollUnlocked ? 2 : 5)) / 1000).toFixed(2)}s</span>
             </div>
           )}
           {effectiveRuneBulkCount > 1 && (
@@ -2922,11 +2941,23 @@ export default function RankRoller() {
               <span className="stats-panel-value" style={styles.statsPanelValue}>{formatNumber(effectiveRuneBulkCount)}x</span>
             </div>
           )}
+          {milestoneRuneSpeedBonus > 1 && (
+            <div style={styles.statsPanelItem}>
+              <span className="stats-panel-label" style={styles.statsPanelLabel}>MS Rune Speed</span>
+              <span className="stats-panel-value" style={styles.statsPanelValue}>{milestoneRuneSpeedBonus.toFixed(2)}x</span>
+            </div>
+          )}
+          {milestoneRuneBulkBonus > 1 && (
+            <div style={styles.statsPanelItem}>
+              <span className="stats-panel-label" style={styles.statsPanelLabel}>MS Rune Bulk</span>
+              <span className="stats-panel-value" style={styles.statsPanelValue}>{milestoneRuneBulkBonus.toFixed(2)}x</span>
+            </div>
+          )}
           {runeAutoRollUnlocked && (() => {
             // Match actual rune auto roll interval logic
-            let actualRuneAutoInterval = fastRuneAutoRollUnlocked ? runeRollTime * 2 : runeRollTime * 5;
+            let actualRuneAutoInterval = runeRollTime <= 50 ? runeRollTime : (fastRuneAutoRollUnlocked ? runeRollTime * 2 : runeRollTime * 5);
             const minRuneInterval = effectiveRuneBulkCount * 2;
-            actualRuneAutoInterval = Math.max(actualRuneAutoInterval, minRuneInterval);
+            actualRuneAutoInterval = Math.max(actualRuneAutoInterval, minRuneInterval, 1);
             return (
               <div style={styles.statsPanelItem}>
                 <span className="stats-panel-label" style={styles.statsPanelLabel}>Runes/sec</span>
@@ -3126,6 +3157,8 @@ export default function RankRoller() {
                           <>Reward: {milestone.runeSpeedBonus}x Rune Speed</>
                         ) : milestone.runeLuckBonus ? (
                           <>Reward: {milestone.runeLuckBonus}x Rune Luck</>
+                        ) : milestone.runeBulkBonus ? (
+                          <>Reward: {milestone.runeBulkBonus}x Rune Bulk</>
                         ) : (
                           <>Reward: {milestone.reward.toLocaleString()} pts</>
                         )}
