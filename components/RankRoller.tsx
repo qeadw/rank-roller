@@ -2288,6 +2288,12 @@ export default function RankRoller() {
                 <span className="stats-panel-value" style={styles.statsPanelValue}>{((animationInterval * 10 * (fastAutoRollUnlocked ? 5 : 10)) / 1000).toFixed(2)}s</span>
               </div>
             )}
+            {bulkRollCount > 1 && (
+              <div style={styles.statsPanelItem}>
+                <span className="stats-panel-label" style={styles.statsPanelLabel}>Bulk Roll</span>
+                <span className="stats-panel-value" style={styles.statsPanelValue}>{formatNumber(bulkRollCount)}x</span>
+              </div>
+            )}
             <div style={styles.statsPanelItem}>
               <span className="stats-panel-label" style={styles.statsPanelLabel}>Rune Roll</span>
               <span className="stats-panel-value" style={styles.statsPanelValue}>{(runeRollTime / 1000).toFixed(2)}s</span>
@@ -2314,12 +2320,6 @@ export default function RankRoller() {
               <div style={styles.statsPanelItem}>
                 <span className="stats-panel-label" style={styles.statsPanelLabel}>Cost Reduction</span>
                 <span className="stats-panel-value" style={styles.statsPanelValue}>{((1 - totalCostReduction) * 100).toFixed(0)}%</span>
-              </div>
-            )}
-            {bulkRollCount > 1 && (
-              <div style={styles.statsPanelItem}>
-                <span className="stats-panel-label" style={styles.statsPanelLabel}>Bulk Roll</span>
-                <span className="stats-panel-value" style={styles.statsPanelValue}>{formatNumber(bulkRollCount)}x</span>
               </div>
             )}
           </div>
