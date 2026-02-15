@@ -69,6 +69,8 @@ const ASCENSION_TIERS = [
   { rolls: 1000, multiplier: 2, stars: 1 },
   { rolls: 15000, multiplier: 3, stars: 2 },
   { rolls: 250000, multiplier: 4, stars: 3 },
+  { rolls: 5000000, multiplier: 5, stars: 4 },
+  { rolls: 50000000, multiplier: 6, stars: 5 },
 ];
 
 interface Milestone {
@@ -263,11 +265,33 @@ function getAscensionMultiplier(rankIndex: number, ascendedRanks: Map<number, nu
   return ASCENSION_TIERS[level - 1].multiplier;
 }
 
-// Get stars to display for a rank
+// Get stars to display for a rank (returns string for levels 1-4, special for level 5)
 function getAscensionStars(rankIndex: number, ascendedRanks: Map<number, number>): string {
   const level = ascendedRanks.get(rankIndex) || 0;
   if (level === 0) return '';
+  if (level === 5) return ''; // Level 5 uses special star component
   return ' ' + '★'.repeat(level);
+}
+
+// Special star component for level 5 ascension
+function AscensionStar5({ rankIndex, ascendedRanks }: { rankIndex: number; ascendedRanks: Map<number, number> }): JSX.Element | null {
+  const level = ascendedRanks.get(rankIndex) || 0;
+  if (level !== 5) return null;
+
+  // Get the current tier and next tier color
+  const tierIndex = Math.floor(rankIndex / 10);
+  const nextTierIndex = Math.min(tierIndex + 1, TIER_NAMES.length - 1);
+  const nextTierName = TIER_NAMES[nextTierIndex];
+  const nextTierColor = TIER_COLORS[nextTierName]?.bg || '#FFD700';
+
+  return (
+    <span style={{
+      marginLeft: '4px',
+      color: nextTierColor,
+      textShadow: '-1px -1px 0 #000, 1px -1px 0 #000, -1px 1px 0 #000, 1px 1px 0 #000, 0 0 3px #000',
+      fontWeight: 'bold',
+    }}>★</span>
+  );
 }
 
 const MILESTONES: Milestone[] = [
@@ -3067,7 +3091,7 @@ export default function RankRoller() {
               </h2>
               <div style={styles.ascendInfo}>
                 <div style={styles.ascendRankName}>
-                  {ranks[ascendPrompt].displayName}{getAscensionStars(ascendPrompt, ascendedRanks)}
+                  {ranks[ascendPrompt].displayName}{getAscensionStars(ascendPrompt, ascendedRanks)}<AscensionStar5 rankIndex={ascendPrompt} ascendedRanks={ascendedRanks} />
                 </div>
                 <div style={styles.ascendDesc}>
                   {currentLevel === 0
@@ -3275,7 +3299,7 @@ export default function RankRoller() {
                               }}
                             >
                               <div style={styles.tierRankNumber}>
-                                {rank.tierNumber}{getAscensionStars(rank.index, ascendedRanks)}
+                                {rank.tierNumber}{getAscensionStars(rank.index, ascendedRanks)}<AscensionStar5 rankIndex={rank.index} ascendedRanks={ascendedRanks} />
                               </div>
                               <div style={styles.tierRankChance}>
                                 {formatProbability(getEffectiveProbability(rank, ranks, luckMulti))}
@@ -3369,7 +3393,7 @@ export default function RankRoller() {
                       }}
                     >
                       <div className="catalogue-item-name" style={styles.catalogueItemName}>
-                        {rank.displayName}{getAscensionStars(rank.index, ascendedRanks)}
+                        {rank.displayName}{getAscensionStars(rank.index, ascendedRanks)}<AscensionStar5 rankIndex={rank.index} ascendedRanks={ascendedRanks} />
                       </div>
                       <div style={styles.catalogueItemChance}>
                         {formatProbability(getEffectiveProbability(rank, ranks, luckMulti))}
