@@ -90,6 +90,7 @@ interface Milestone {
   unlockFastRuneAutoRoll?: boolean;
   runeSpeedBonus?: number;
   runeLuckBonus?: number;
+  runeBulkBonus?: number;
 }
 
 interface Rune {
@@ -810,6 +811,30 @@ const MILESTONES: Milestone[] = [
     requirement: (state) => state.runeRollCount >= 5000,
     reward: 0,
     unlockFastRuneAutoRoll: true,
+  },
+  {
+    id: 'rune_rolls_50000',
+    name: '50,000 Rune Rolls',
+    description: 'Roll runes 50,000 times',
+    requirement: (state) => state.runeRollCount >= 50000,
+    reward: 0,
+    runeSpeedBonus: 1.4,
+  },
+  {
+    id: 'rune_rolls_500000',
+    name: '500,000 Rune Rolls',
+    description: 'Roll runes 500,000 times',
+    requirement: (state) => state.runeRollCount >= 500000,
+    reward: 0,
+    runeSpeedBonus: 1.4,
+  },
+  {
+    id: 'rune_rolls_1000000',
+    name: '1,000,000 Rune Rolls',
+    description: 'Roll runes 1,000,000 times',
+    requirement: (state) => state.runeRollCount >= 1000000,
+    reward: 0,
+    runeBulkBonus: 1.5,
   },
 ];
 
@@ -1565,6 +1590,13 @@ export default function RankRoller() {
     return acc;
   }, 1);
 
+  const milestoneRuneBulkBonus = MILESTONES.reduce((acc, m) => {
+    if (claimedMilestones.has(m.id) && m.runeBulkBonus) {
+      return acc * m.runeBulkBonus;
+    }
+    return acc;
+  }, 1);
+
   const handleClaimMilestone = (milestone: Milestone) => {
     if (milestone.requirement(milestoneState) && !claimedMilestones.has(milestone.id)) {
       setTotalPoints((p) => p + milestone.reward);
@@ -1822,7 +1854,9 @@ export default function RankRoller() {
   const baseRuneRollTime = 5000;
   const runeRollTime = Math.floor(baseRuneRollTime / (milestoneRuneSpeedBonus * runeRuneSpeedBonus * gameSpeedMultiplier));
   const runeAnimationInterval = Math.max(10, Math.floor(100 / gameSpeedMultiplier)); // Animation frame rate for runes
-  const runeRollCost = Math.floor(1000 * runeBulkCount * totalCostReduction); // Cost scales with rune bulk, reduced by shadow + upgrade
+  // Apply milestone rune bulk bonus
+  const effectiveRuneBulkCount = Math.floor(runeBulkCount * milestoneRuneBulkBonus);
+  const runeRollCost = Math.floor(1000 * effectiveRuneBulkCount * totalCostReduction); // Cost scales with rune bulk, reduced by shadow + upgrade
   const canAffordRuneRoll = totalPoints >= runeRollCost;
 
   // Calculate which runes are unlocked based on progression
@@ -1994,8 +2028,8 @@ export default function RankRoller() {
   }, [runeRollCost]);
 
   useEffect(() => {
-    runeBulkCountRef.current = runeBulkCount;
-  }, [runeBulkCount]);
+    runeBulkCountRef.current = effectiveRuneBulkCount;
+  }, [effectiveRuneBulkCount]);
 
   useEffect(() => {
     totalRuneLuckRef.current = totalRuneLuck;
@@ -2187,7 +2221,7 @@ export default function RankRoller() {
     // Rune auto-roll interval: slow = 5x rune roll time, fast = 2x rune roll time
     let autoRuneRollInterval = fastRuneAutoRollUnlocked ? runeRollTime * 2 : runeRollTime * 5;
     // Cap at 500 rolls per second: interval must be at least runeBulkCount * 2ms
-    const minRuneInterval = runeBulkCount * 2;
+    const minRuneInterval = effectiveRuneBulkCount * 2;
     autoRuneRollInterval = Math.max(autoRuneRollInterval, minRuneInterval);
 
     // Use instant roll if rolling faster than animation can handle
@@ -2337,21 +2371,21 @@ export default function RankRoller() {
                 <span className="stats-panel-value" style={styles.statsPanelValue}>{((runeRollTime * (fastRuneAutoRollUnlocked ? 2 : 5)) / 1000).toFixed(2)}s</span>
               </div>
             )}
-            {runeBulkCount > 1 && (
+            {effectiveRuneBulkCount > 1 && (
               <div style={styles.statsPanelItem}>
                 <span className="stats-panel-label" style={styles.statsPanelLabel}>Rune Bulk</span>
-                <span className="stats-panel-value" style={styles.statsPanelValue}>{formatNumber(runeBulkCount)}x</span>
+                <span className="stats-panel-value" style={styles.statsPanelValue}>{formatNumber(effectiveRuneBulkCount)}x</span>
               </div>
             )}
             {runeAutoRollUnlocked && (() => {
               // Match actual rune auto roll interval logic
               let actualRuneAutoInterval = fastRuneAutoRollUnlocked ? runeRollTime * 2 : runeRollTime * 5;
-              const minRuneInterval = runeBulkCount * 2;
+              const minRuneInterval = effectiveRuneBulkCount * 2;
               actualRuneAutoInterval = Math.max(actualRuneAutoInterval, minRuneInterval);
               return (
                 <div style={styles.statsPanelItem}>
                   <span className="stats-panel-label" style={styles.statsPanelLabel}>Runes/sec</span>
-                  <span className="stats-panel-value" style={styles.statsPanelValue}>{formatNumber((1000 / actualRuneAutoInterval) * runeBulkCount)}</span>
+                  <span className="stats-panel-value" style={styles.statsPanelValue}>{formatNumber((1000 / actualRuneAutoInterval) * effectiveRuneBulkCount)}</span>
                 </div>
               );
             })()}
@@ -2882,21 +2916,21 @@ export default function RankRoller() {
               <span className="stats-panel-value" style={styles.statsPanelValue}>{((runeRollTime * (fastRuneAutoRollUnlocked ? 2 : 5)) / 1000).toFixed(2)}s</span>
             </div>
           )}
-          {runeBulkCount > 1 && (
+          {effectiveRuneBulkCount > 1 && (
             <div style={styles.statsPanelItem}>
               <span className="stats-panel-label" style={styles.statsPanelLabel}>Rune Bulk</span>
-              <span className="stats-panel-value" style={styles.statsPanelValue}>{formatNumber(runeBulkCount)}x</span>
+              <span className="stats-panel-value" style={styles.statsPanelValue}>{formatNumber(effectiveRuneBulkCount)}x</span>
             </div>
           )}
           {runeAutoRollUnlocked && (() => {
             // Match actual rune auto roll interval logic
             let actualRuneAutoInterval = fastRuneAutoRollUnlocked ? runeRollTime * 2 : runeRollTime * 5;
-            const minRuneInterval = runeBulkCount * 2;
+            const minRuneInterval = effectiveRuneBulkCount * 2;
             actualRuneAutoInterval = Math.max(actualRuneAutoInterval, minRuneInterval);
             return (
               <div style={styles.statsPanelItem}>
                 <span className="stats-panel-label" style={styles.statsPanelLabel}>Runes/sec</span>
-                <span className="stats-panel-value" style={styles.statsPanelValue}>{formatNumber((1000 / actualRuneAutoInterval) * runeBulkCount)}</span>
+                <span className="stats-panel-value" style={styles.statsPanelValue}>{formatNumber((1000 / actualRuneAutoInterval) * effectiveRuneBulkCount)}</span>
               </div>
             );
           })()}
@@ -3246,13 +3280,19 @@ export default function RankRoller() {
               )}
 
               {/* Rune Bulk Breakdown */}
-              {runeBulkCount > 1 && (
+              {effectiveRuneBulkCount > 1 && (
                 <div style={styles.breakdownSection}>
-                  <h3 style={styles.breakdownHeader}>Rune Bulk ({formatNumber(runeBulkCount)}x total)</h3>
+                  <h3 style={styles.breakdownHeader}>Rune Bulk ({formatNumber(effectiveRuneBulkCount)}x total)</h3>
                   <div style={styles.breakdownItem}>
                     <span>Frost Runes</span>
                     <span>{formatNumber(runeOfFrostCount)}</span>
                   </div>
+                  {milestoneRuneBulkBonus > 1 && (
+                    <div style={styles.breakdownItem}>
+                      <span>Milestones</span>
+                      <span>{milestoneRuneBulkBonus.toFixed(2)}x</span>
+                    </div>
+                  )}
                   {runeBulkCount > 11 && (
                     <div style={styles.breakdownItem}>
                       <span style={{ fontSize: '0.8em', color: '#888' }}>Soft cap: 10k runes/bulk after 10</span>
