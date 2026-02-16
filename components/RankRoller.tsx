@@ -847,12 +847,31 @@ const MILESTONES: Milestone[] = [
 ];
 
 function setCookie(name: string, value: string, days: number = 365) {
-  const expires = new Date();
-  expires.setTime(expires.getTime() + days * 24 * 60 * 60 * 1000);
-  document.cookie = `${name}=${encodeURIComponent(value)};expires=${expires.toUTCString()};path=/;SameSite=Lax`;
+  // Try localStorage first (larger limit ~5MB vs ~4KB for cookies)
+  try {
+    localStorage.setItem(name, value);
+  } catch (e) {
+    console.error('localStorage save failed:', e);
+  }
+  // Also save to cookie as backup (may fail silently if too large)
+  try {
+    const expires = new Date();
+    expires.setTime(expires.getTime() + days * 24 * 60 * 60 * 1000);
+    document.cookie = `${name}=${encodeURIComponent(value)};expires=${expires.toUTCString()};path=/;SameSite=Lax`;
+  } catch (e) {
+    console.error('Cookie save failed:', e);
+  }
 }
 
 function getCookie(name: string): string | null {
+  // Try localStorage first
+  try {
+    const stored = localStorage.getItem(name);
+    if (stored) return stored;
+  } catch (e) {
+    console.error('localStorage read failed:', e);
+  }
+  // Fall back to cookie
   const nameEQ = name + '=';
   const ca = document.cookie.split(';');
   for (let i = 0; i < ca.length; i++) {
