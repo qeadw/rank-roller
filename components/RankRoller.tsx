@@ -1134,8 +1134,17 @@ export default function RankRoller() {
     setCookie(SAVE_KEY, obfuscateSave(JSON.stringify(saveData)));
   }, [isLoaded, rollCount, totalPoints, highestRank, highestRankRoll, collectedRanks, rankRollCounts, ascendedRanks, luckLevel, pointsMultiLevel, speedLevel, costReductionLevel, claimedMilestones, collectedRunes, runeRollCounts, legitimateRuneRollCounts, runeRollCount, bulkRollLevel, runeBulkRollLevel, gameSpeedMultiplier, rollerPrestigeLevel, runePrestigeLevel]);
 
+  // Save whenever saveGame changes (which happens when any saved state changes)
   useEffect(() => {
     saveGame();
+  }, [saveGame]);
+
+  // Also save periodically every 2 seconds as backup
+  useEffect(() => {
+    const saveTimer = setInterval(() => {
+      saveGame();
+    }, 2000);
+    return () => clearInterval(saveTimer);
   }, [saveGame]);
 
   // Cheat code and save modal listener
@@ -2144,10 +2153,23 @@ export default function RankRoller() {
   }, [ranks, luckMulti, pointsMulti, animationInterval, highestRank, ascendedRanks, bulkRollCount, lightAscensionBonus]);
 
   // Instant roll for auto-roll (no animation, just results)
-  const handleInstantRoll = useCallback(() => {
-    // Bulk roll - roll multiple times based on bulkRollCount
+  // Uses simulation optimization: if rolls exceed cap, simulate fewer rolls and multiply results
+  // New discoveries are not multiplied for their first occurrence
+  const handleInstantRoll = useCallback((batchCount: number = 1) => {
+    const totalRolls = bulkRollCount * batchCount;
+    const maxSimulatedRolls = 50000;
+
+    // Calculate simulation multiplier - keep halving until under cap
+    let simulatedRolls = totalRolls;
+    let resultMultiplier = 1;
+    while (simulatedRolls > maxSimulatedRolls) {
+      simulatedRolls = Math.ceil(simulatedRolls / 2);
+      resultMultiplier *= 2;
+    }
+
+    // Roll the simulated amount
     const results: Rank[] = [];
-    for (let i = 0; i < bulkRollCount; i++) {
+    for (let i = 0; i < simulatedRolls; i++) {
       results.push(rollRankWithLuck(ranks, luckMulti));
     }
 
@@ -2156,12 +2178,14 @@ export default function RankRoller() {
       current.index > best.index ? current : best
     );
     setCurrentRoll(bestResult);
-    setRollCount((c) => c + bulkRollCount);
+    setRollCount((c) => c + totalRolls); // Count full rolls for stats
 
-    // Calculate total points from all rolls
+    // Calculate total points and roll counts
+    // For new discoveries, only count once (don't multiply)
     let totalPointsGained = 0;
     const newCollected = new Set<number>();
     const rollCountUpdates: Record<number, number> = {};
+    const firstTimeRolls = new Set<number>(); // Track first-time discoveries this batch
 
     for (const result of results) {
       const basePoints = calculatePoints(result);
@@ -2169,9 +2193,23 @@ export default function RankRoller() {
       const ascensionMulti = baseAscensionMulti > 1
         ? baseAscensionMulti + (lightAscensionBonus - 2)
         : 1;
-      totalPointsGained += Math.floor(basePoints * ascensionMulti * pointsMulti);
+      const pointsPerRoll = Math.floor(basePoints * ascensionMulti * pointsMulti);
+
+      // Check if this is a new discovery (not in collectedRanks and not yet seen this batch)
+      const isNewDiscovery = !collectedRanks.has(result.index) && !firstTimeRolls.has(result.index);
+
+      if (isNewDiscovery) {
+        // First time seeing this rank - count once, don't multiply
+        totalPointsGained += pointsPerRoll;
+        rollCountUpdates[result.index] = (rollCountUpdates[result.index] || 0) + 1;
+        firstTimeRolls.add(result.index);
+      } else {
+        // Already collected or seen this batch - apply multiplier
+        totalPointsGained += pointsPerRoll * resultMultiplier;
+        rollCountUpdates[result.index] = (rollCountUpdates[result.index] || 0) + resultMultiplier;
+      }
+
       newCollected.add(result.index);
-      rollCountUpdates[result.index] = (rollCountUpdates[result.index] || 0) + 1;
     }
 
     setTotalPoints((p) => p + totalPointsGained);
@@ -2191,12 +2229,12 @@ export default function RankRoller() {
       return next;
     });
 
-    const newRollCount = rollCountRef.current + bulkRollCount;
+    const newRollCount = rollCountRef.current + totalRolls;
     if (!highestRank || bestResult.index > highestRank.index) {
       setHighestRank(bestResult);
       setHighestRankRoll(newRollCount);
     }
-  }, [ranks, luckMulti, pointsMulti, highestRank, ascendedRanks, bulkRollCount, lightAscensionBonus]);
+  }, [ranks, luckMulti, pointsMulti, highestRank, ascendedRanks, bulkRollCount, lightAscensionBonus, collectedRanks]);
 
   // Check if auto-roll is unlocked (slow at 100 rolls, fast at 5000 rolls)
   const slowAutoRollUnlocked = claimedMilestones.has('rolls_100');
@@ -2217,26 +2255,39 @@ export default function RankRoller() {
 
     // Animation takes 10 frames × animationInterval
     const animationDuration = animationInterval * 10;
-    // Auto-roll interval: at high speeds (animationInterval <= 5ms), just use animationInterval directly
-    // Otherwise use multiplier: Slow = 10x, Fast = 5x
-    let autoRollInterval: number;
+
+    // Calculate target rolls per interval using batching
+    // At very high speeds, batch multiple rolls per setInterval call to reduce browser overhead
+    let targetInterval = 16; // ~60fps, smooth UI updates and avoids browser throttling
+    let batchesPerInterval = 1;
+
+    // Calculate desired roll interval
+    let desiredRollInterval: number;
     if (animationInterval <= 5) {
-      // Very high speed - roll as fast as possible (every animationInterval ms)
-      autoRollInterval = animationInterval;
+      // Very high speed - we want to roll every animationInterval ms
+      desiredRollInterval = Math.max(animationInterval, 1);
     } else {
       const baseMultiplier = fastAutoRollUnlocked ? 5 : 10;
-      autoRollInterval = animationDuration * baseMultiplier;
+      desiredRollInterval = animationDuration * baseMultiplier;
     }
-    // Browser minimum is ~1ms for setInterval
-    autoRollInterval = Math.max(autoRollInterval, 1);
+
+    // If we want to roll faster than our target interval, batch multiple rolls
+    if (desiredRollInterval < targetInterval) {
+      batchesPerInterval = Math.ceil(targetInterval / desiredRollInterval);
+    } else {
+      targetInterval = desiredRollInterval;
+    }
+
+    // Note: handleInstantRoll now handles simulation optimization internally
+    // It will halve actual rolls and multiply results when exceeding 50k rolls
 
     // Use instant roll (no animation) at high speeds
     const useInstantRoll = animationInterval <= 10;
 
     const autoRollTimer = setInterval(() => {
       if (useInstantRoll) {
-        // Skip animation for fast rolling
-        handleInstantRoll();
+        // Batch multiple rolls to achieve target rolls/sec
+        handleInstantRoll(batchesPerInterval);
       } else {
         // Use animated roll, only trigger if not currently rolling
         setIsRolling((currentlyRolling) => {
@@ -2246,7 +2297,7 @@ export default function RankRoller() {
           return currentlyRolling;
         });
       }
-    }, autoRollInterval);
+    }, targetInterval);
 
     return () => clearInterval(autoRollTimer);
   }, [autoRollEnabled, autoRollUnlocked, fastAutoRollUnlocked, animationInterval, handleRoll, handleInstantRoll, bulkRollCount]);
@@ -2395,14 +2446,21 @@ export default function RankRoller() {
               </div>
             )}
             {autoRollUnlocked && (() => {
-              // Match actual auto roll interval logic
-              const actualAutoInterval = animationInterval <= 5
+              // Match actual auto roll interval logic with batching
+              const targetInterval = 16;
+              let desiredRollInterval = animationInterval <= 5
                 ? Math.max(animationInterval, 1)
                 : animationInterval * 10 * (fastAutoRollUnlocked ? 5 : 10);
+              let batchesPerInterval = desiredRollInterval < targetInterval
+                ? Math.ceil(targetInterval / desiredRollInterval)
+                : 1;
+              const actualInterval = desiredRollInterval < targetInterval ? targetInterval : desiredRollInterval;
+              // Full rolls/sec - simulation optimization happens internally
+              const rollsPerSec = (1000 / actualInterval) * bulkRollCount * batchesPerInterval;
               return (
                 <div style={styles.statsPanelItem}>
                   <span className="stats-panel-label" style={styles.statsPanelLabel}>Rolls/sec</span>
-                  <span className="stats-panel-value" style={styles.statsPanelValue}>{formatNumber((1000 / actualAutoInterval) * bulkRollCount)}</span>
+                  <span className="stats-panel-value" style={styles.statsPanelValue}>{formatNumber(rollsPerSec)}</span>
                 </div>
               );
             })()}
@@ -2951,14 +3009,21 @@ export default function RankRoller() {
             </div>
           )}
           {autoRollUnlocked && (() => {
-            // Match actual auto roll interval logic
-            const actualAutoInterval = animationInterval <= 5
+            // Match actual auto roll interval logic with batching
+            const targetInterval = 16;
+            let desiredRollInterval = animationInterval <= 5
               ? Math.max(animationInterval, 1)
               : animationInterval * 10 * (fastAutoRollUnlocked ? 5 : 10);
+            let batchesPerInterval = desiredRollInterval < targetInterval
+              ? Math.ceil(targetInterval / desiredRollInterval)
+              : 1;
+            const actualInterval = desiredRollInterval < targetInterval ? targetInterval : desiredRollInterval;
+            // Full rolls/sec - simulation optimization happens internally
+            const rollsPerSec = (1000 / actualInterval) * bulkRollCount * batchesPerInterval;
             return (
               <div style={styles.statsPanelItem}>
                 <span className="stats-panel-label" style={styles.statsPanelLabel}>Rolls/sec</span>
-                <span className="stats-panel-value" style={styles.statsPanelValue}>{formatNumber((1000 / actualAutoInterval) * bulkRollCount)}</span>
+                <span className="stats-panel-value" style={styles.statsPanelValue}>{formatNumber(rollsPerSec)}</span>
               </div>
             );
           })()}
