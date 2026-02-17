@@ -54,6 +54,8 @@ interface SaveData {
   runePrestigeLevel?: number;
   // Cost reduction upgrade
   costReductionLevel?: number;
+  // UI state
+  dismissed1MBanner?: boolean;
 }
 
 interface MilestoneState {
@@ -1109,6 +1111,8 @@ export default function RankRoller() {
         // Load prestige levels
         setRollerPrestigeLevel(data.rollerPrestigeLevel || 0);
         setRunePrestigeLevel(data.runePrestigeLevel || 0);
+        // Load UI state
+        setDismissed1MBanner(data.dismissed1MBanner || false);
       } catch (e) {
         console.error('Failed to load save data:', e);
       }
@@ -1151,9 +1155,11 @@ export default function RankRoller() {
       // Prestige levels
       rollerPrestigeLevel,
       runePrestigeLevel,
+      // UI state
+      dismissed1MBanner,
     };
     setCookie(SAVE_KEY, obfuscateSave(JSON.stringify(saveData)));
-  }, [isLoaded, rollCount, totalPoints, highestRank, highestRankRoll, collectedRanks, rankRollCounts, ascendedRanks, luckLevel, pointsMultiLevel, speedLevel, costReductionLevel, claimedMilestones, collectedRunes, runeRollCounts, legitimateRuneRollCounts, runeRollCount, bulkRollLevel, runeBulkRollLevel, gameSpeedMultiplier, rollerPrestigeLevel, runePrestigeLevel]);
+  }, [isLoaded, rollCount, totalPoints, highestRank, highestRankRoll, collectedRanks, rankRollCounts, ascendedRanks, luckLevel, pointsMultiLevel, speedLevel, costReductionLevel, claimedMilestones, collectedRunes, runeRollCounts, legitimateRuneRollCounts, runeRollCount, bulkRollLevel, runeBulkRollLevel, gameSpeedMultiplier, rollerPrestigeLevel, runePrestigeLevel, dismissed1MBanner]);
 
   // Save whenever saveGame changes (which happens when any saved state changes)
   useEffect(() => {
