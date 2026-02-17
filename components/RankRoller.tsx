@@ -2355,98 +2355,80 @@ export default function RankRoller() {
   // Check if runes area is unlocked (first Rare)
   const runesUnlocked = hasAnyFromTier(collectedRanks, 2);
 
-  // Auto-roll effect
+  // Combined auto-roll effect - handles both rank and rune auto-rolling in a single interval
+  // This prevents the two separate intervals from competing for CPU time
   useEffect(() => {
-    if (!autoRollEnabled || !autoRollUnlocked) return;
+    const rankAutoEnabled = autoRollEnabled && autoRollUnlocked;
+    const runeAutoEnabled = runeAutoRollEnabled && runeAutoRollUnlocked;
 
-    // Animation takes 10 frames × animationInterval
-    const animationDuration = animationInterval * 10;
+    if (!rankAutoEnabled && !runeAutoEnabled) return;
 
-    // Calculate target rolls per interval using batching
-    // At very high speeds, batch multiple rolls per setInterval call to reduce browser overhead
-    let targetInterval = 16; // ~60fps, smooth UI updates and avoids browser throttling
-    let batchesPerInterval = 1;
-
-    // Calculate desired roll interval
-    let desiredRollInterval: number;
-    if (animationInterval <= 5) {
-      // Very high speed - we want to roll every animationInterval ms
-      desiredRollInterval = Math.max(animationInterval, 1);
-    } else {
-      const baseMultiplier = fastAutoRollUnlocked ? 5 : 10;
-      desiredRollInterval = animationDuration * baseMultiplier;
-    }
-
-    // If we want to roll faster than our target interval, batch multiple rolls
-    if (desiredRollInterval < targetInterval) {
-      batchesPerInterval = Math.ceil(targetInterval / desiredRollInterval);
-    } else {
-      targetInterval = desiredRollInterval;
-    }
-
-    // Note: handleInstantRoll now handles simulation optimization internally
-    // It will halve actual rolls and multiply results when exceeding 50k rolls
-
-    // Use instant roll (no animation) at high speeds
-    const useInstantRoll = animationInterval <= 10;
-
-    const autoRollTimer = setInterval(() => {
-      if (useInstantRoll) {
-        // Batch multiple rolls to achieve target rolls/sec
-        handleInstantRoll(batchesPerInterval);
+    // Calculate rank roll batching
+    let rankBatchesPerInterval = 0;
+    let useInstantRankRoll = false;
+    if (rankAutoEnabled) {
+      const animationDuration = animationInterval * 10;
+      let desiredRollInterval: number;
+      if (animationInterval <= 5) {
+        desiredRollInterval = Math.max(animationInterval, 1);
       } else {
-        // Use animated roll, only trigger if not currently rolling
-        setIsRolling((currentlyRolling) => {
-          if (!currentlyRolling) {
-            handleRoll();
-          }
-          return currentlyRolling;
-        });
+        const baseMultiplier = fastAutoRollUnlocked ? 5 : 10;
+        desiredRollInterval = animationDuration * baseMultiplier;
       }
-    }, targetInterval);
-
-    return () => clearInterval(autoRollTimer);
-  }, [autoRollEnabled, autoRollUnlocked, fastAutoRollUnlocked, animationInterval, handleRoll, handleInstantRoll, bulkRollCount]);
-
-  // Rune auto-roll effect (works on all screens)
-  useEffect(() => {
-    if (!runeAutoRollEnabled || !runeAutoRollUnlocked) return;
-
-    // Calculate target rolls per interval
-    // At very high speeds, batch multiple rolls per setInterval call to reduce React overhead
-    let targetInterval = 16; // ~60fps, smooth UI updates
-    let batchesPerInterval = 1;
-
-    // Calculate how fast we want to roll
-    let desiredRollInterval: number;
-    if (runeRollTime <= 50) {
-      desiredRollInterval = Math.max(runeRollTime, 1);
-    } else {
-      desiredRollInterval = fastRuneAutoRollUnlocked ? runeRollTime * 2 : runeRollTime * 5;
-    }
-
-    // If we want to roll faster than our target interval, batch multiple rolls
-    if (desiredRollInterval < targetInterval) {
-      batchesPerInterval = Math.ceil(targetInterval / desiredRollInterval);
-    } else {
-      targetInterval = desiredRollInterval;
-    }
-
-    // Use instant roll at high speeds (no animation)
-    const useInstantRuneRoll = runeRollTime <= 100;
-
-    const autoRuneRollTimer = setInterval(() => {
-      if (useInstantRuneRoll) {
-        // Batch multiple rolls to reduce React overhead
-        handleInstantRuneRoll(batchesPerInterval);
+      if (desiredRollInterval < 16) {
+        rankBatchesPerInterval = Math.ceil(16 / desiredRollInterval);
       } else {
-        // Use animated roll - handleRuneRoll checks canAfford and isRolling internally
-        handleRuneRoll();
+        rankBatchesPerInterval = 1;
       }
-    }, targetInterval);
+      useInstantRankRoll = animationInterval <= 10;
+    }
 
-    return () => clearInterval(autoRuneRollTimer);
-  }, [runeAutoRollEnabled, runeAutoRollUnlocked, fastRuneAutoRollUnlocked, runeRollTime, handleRuneRoll, handleInstantRuneRoll]);
+    // Calculate rune roll batching
+    let runeBatchesPerInterval = 0;
+    let useInstantRuneRoll = false;
+    if (runeAutoEnabled) {
+      let desiredRollInterval: number;
+      if (runeRollTime <= 50) {
+        desiredRollInterval = Math.max(runeRollTime, 1);
+      } else {
+        desiredRollInterval = fastRuneAutoRollUnlocked ? runeRollTime * 2 : runeRollTime * 5;
+      }
+      if (desiredRollInterval < 16) {
+        runeBatchesPerInterval = Math.ceil(16 / desiredRollInterval);
+      } else {
+        runeBatchesPerInterval = 1;
+      }
+      useInstantRuneRoll = runeRollTime <= 100;
+    }
+
+    // Single combined interval at 16ms
+    const combinedAutoRollTimer = setInterval(() => {
+      // Handle rank rolls
+      if (rankAutoEnabled) {
+        if (useInstantRankRoll) {
+          handleInstantRoll(rankBatchesPerInterval);
+        } else {
+          setIsRolling((currentlyRolling) => {
+            if (!currentlyRolling) {
+              handleRoll();
+            }
+            return currentlyRolling;
+          });
+        }
+      }
+
+      // Handle rune rolls
+      if (runeAutoEnabled) {
+        if (useInstantRuneRoll) {
+          handleInstantRuneRoll(runeBatchesPerInterval);
+        } else {
+          handleRuneRoll();
+        }
+      }
+    }, 16);
+
+    return () => clearInterval(combinedAutoRollTimer);
+  }, [autoRollEnabled, autoRollUnlocked, fastAutoRollUnlocked, animationInterval, handleRoll, handleInstantRoll, bulkRollCount, runeAutoRollEnabled, runeAutoRollUnlocked, fastRuneAutoRollUnlocked, runeRollTime, handleRuneRoll, handleInstantRuneRoll]);
 
   // Spacebar to roll, A to toggle auto roll
   useEffect(() => {
