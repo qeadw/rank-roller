@@ -3053,25 +3053,18 @@ export default function RankRoller() {
 
   return (
     <div style={styles.container}>
-      {/* 1M Rolls/sec Achievement Banner */}
+      {/* High Speed Warning Banner */}
       {reached1MRollsPerSec && !dismissed1MBanner && (
-        <div style={styles.achievementBanner}>
-          <div style={styles.achievementBannerContent}>
-            <div style={styles.achievementBannerTextContainer}>
-              <span style={styles.achievementBannerText}>
-                🎉 Achievement Unlocked: 1 MILLION Rolls Per Second! 🎉
-              </span>
-              <span style={styles.achievementBannerWarning}>
-                ⚠️ At high roll speeds you may experience performance issues, especially while running both rollers at once
-              </span>
-            </div>
-            <button
-              onClick={() => setDismissed1MBanner(true)}
-              style={styles.achievementBannerClose}
-            >
-              ✕
-            </button>
-          </div>
+        <div style={styles.warningBanner}>
+          <span style={styles.warningBannerText}>
+            ⚠️ At high roll speeds you may experience performance issues, especially while running both rollers at once
+          </span>
+          <button
+            onClick={() => setDismissed1MBanner(true)}
+            style={styles.warningBannerClose}
+          >
+            ✕
+          </button>
         </div>
       )}
 
@@ -4308,56 +4301,40 @@ const styles: Record<string, React.CSSProperties> = {
     padding: '20px',
     fontFamily: 'system-ui, -apple-system, sans-serif',
   },
-  achievementBanner: {
+  warningBanner: {
     position: 'fixed',
     top: 0,
     left: 0,
     right: 0,
     zIndex: 9999,
     display: 'flex',
+    alignItems: 'center',
     justifyContent: 'center',
-    padding: '12px 20px',
+    gap: '15px',
+    padding: '10px 20px',
     backgroundColor: 'rgba(205, 100, 0, 0.5)',
     borderBottom: '3px solid rgba(160, 70, 0, 0.8)',
     backdropFilter: 'blur(8px)',
     animation: 'shimmer 2s ease-in-out infinite',
     boxShadow: '0 4px 20px rgba(205, 100, 0, 0.4), inset 0 0 30px rgba(255, 180, 80, 0.2)',
   },
-  achievementBannerContent: {
-    display: 'flex',
-    alignItems: 'center',
-    gap: '20px',
-  },
-  achievementBannerTextContainer: {
-    display: 'flex',
-    flexDirection: 'column',
-    alignItems: 'center',
-    gap: '4px',
-  },
-  achievementBannerText: {
-    fontSize: '1.3rem',
-    fontWeight: 'bold',
+  warningBannerText: {
+    fontSize: '0.95rem',
     color: '#fff',
-    textShadow: '0 0 10px rgba(255, 200, 100, 0.8), 0 0 20px rgba(255, 150, 50, 0.5)',
-    letterSpacing: '1px',
+    textShadow: '0 0 8px rgba(255, 200, 100, 0.6)',
   },
-  achievementBannerWarning: {
-    fontSize: '0.85rem',
-    color: 'rgba(255, 230, 200, 0.9)',
-    fontStyle: 'italic',
-  },
-  achievementBannerClose: {
+  warningBannerClose: {
     background: 'rgba(160, 70, 0, 0.6)',
     border: '2px solid rgba(200, 100, 20, 0.8)',
     borderRadius: '50%',
-    width: '28px',
-    height: '28px',
+    width: '24px',
+    height: '24px',
     display: 'flex',
     alignItems: 'center',
     justifyContent: 'center',
     cursor: 'pointer',
     color: '#fff',
-    fontSize: '14px',
+    fontSize: '12px',
     fontWeight: 'bold',
     transition: 'all 0.2s ease',
   },
