@@ -1370,20 +1370,34 @@ export default function RankRoller() {
     const rawRunes = galesRunes * eternityMult;
     const rawBonus = 1 + rawRunes * 0.2;
 
+    let baseBonus: number;
     if (rawBonus <= 100) {
-      return rawBonus;
+      baseBonus = rawBonus;
     } else if (rawBonus <= 100 + 900 * 1000 * 0.2) {
       const excessBonus = rawBonus - 100;
       const excessRunes = excessBonus / 0.2;
       const softcappedExtra = excessRunes * 0.001;
-      return 100 + softcappedExtra;
+      baseBonus = 100 + softcappedExtra;
     } else {
       const tier2Bonus = 900;
       const tier2Runes = 900 * 1000;
       const totalRunesAtTier2End = 495 + tier2Runes;
       const excessRunes = rawRunes - totalRunesAtTier2End;
       const tier3Extra = excessRunes * 0.000001;
-      return 100 + tier2Bonus + tier3Extra;
+      baseBonus = 100 + tier2Bonus + tier3Extra;
+    }
+
+    // Apply soft caps: 10,000x (10x harder), 100,000x (10x harder again)
+    if (baseBonus <= 10000) {
+      return baseBonus;
+    } else if (baseBonus <= 100000) {
+      const excess = baseBonus - 10000;
+      return 10000 + excess / 10;
+    } else {
+      const tier1 = 10000;
+      const tier2 = (100000 - 10000) / 10;
+      const excess = baseBonus - 100000;
+      return tier1 + tier2 + excess / 100;
     }
   };
   const runeRuneSpeedBonus = calculateRuneRuneSpeedBonus(runeOfGalesCount, eternityMultiplier);
@@ -1409,7 +1423,22 @@ export default function RankRoller() {
       baseBulk = Math.floor(1 + tier1Bulk + tier2Bulk + tier3Bulk);
     }
     // Add upgrade bonus directly to bulk count
-    return baseBulk + bulkLevel;
+    const rawBulk = baseBulk + bulkLevel;
+
+    // Apply soft caps: 500 (5x harder), 5000 (5x harder again)
+    if (rawBulk <= 500) {
+      return rawBulk;
+    } else if (rawBulk <= 5000) {
+      // 500 to 5000: 5x harder (every 5 raw = 1 actual)
+      const excess = rawBulk - 500;
+      return Math.floor(500 + excess / 5);
+    } else {
+      // Above 5000: 25x harder total (5x * 5x)
+      const tier1 = 500; // First 500 at full rate
+      const tier2 = (5000 - 500) / 5; // Next 4500 raw = 900 actual
+      const excess = rawBulk - 5000;
+      return Math.floor(tier1 + tier2 + excess / 25);
+    }
   };
   const bulkRollCount = calculateBulkRollCount(runeOfStoneCount, bulkRollLevel, eternityMultiplier);
   // Rune luck with soft caps (gradual):
@@ -1466,7 +1495,20 @@ export default function RankRoller() {
       baseBulk = Math.floor(1 + tier1Bulk + tier2Bulk + tier3Bulk);
     }
     // Add upgrade bonus directly to bulk count
-    return baseBulk + bulkLevel;
+    const rawBulk = baseBulk + bulkLevel;
+
+    // Apply soft caps: 500 (5x harder), 5000 (5x harder again)
+    if (rawBulk <= 500) {
+      return rawBulk;
+    } else if (rawBulk <= 5000) {
+      const excess = rawBulk - 500;
+      return Math.floor(500 + excess / 5);
+    } else {
+      const tier1 = 500;
+      const tier2 = (5000 - 500) / 5;
+      const excess = rawBulk - 5000;
+      return Math.floor(tier1 + tier2 + excess / 25);
+    }
   };
   const runeBulkCount = calculateRuneBulkCount(runeOfFrostCount, runeBulkRollLevel, eternityMultiplier);
   // Shadow cost reduction with gradual soft caps:
@@ -1594,9 +1636,26 @@ export default function RankRoller() {
     }
   };
 
-  // Speed calculations
+  // Speed calculations with soft caps
+  // Soft cap at 10,000x (10x harder), another at 100,000x (10x harder again)
+  const applySpeedSoftCap = (rawSpeed: number): number => {
+    if (rawSpeed <= 10000) {
+      return rawSpeed;
+    } else if (rawSpeed <= 100000) {
+      // 10,000 to 100,000: 10x harder (every 10x raw = 1x actual)
+      const excess = rawSpeed - 10000;
+      return 10000 + excess / 10;
+    } else {
+      // Above 100,000: 100x harder total (10x * 10x)
+      const tier1 = 10000; // First 10k at full rate
+      const tier2 = (100000 - 10000) / 10; // Next 90k raw = 9k actual
+      const excess = rawSpeed - 100000;
+      return tier1 + tier2 + excess / 100;
+    }
+  };
   const baseSpeedMulti = Math.pow(1.1, speedLevel);
-  const speedMulti = baseSpeedMulti * milestoneSpeedBonus * runeSpeedBonus;
+  const rawSpeedMulti = baseSpeedMulti * milestoneSpeedBonus * runeSpeedBonus;
+  const speedMulti = applySpeedSoftCap(rawSpeedMulti);
   const speedUpgradeCost = Math.floor(100 * Math.pow(2, speedLevel) * totalCostReduction);
   const canAffordSpeedUpgrade = totalPoints >= speedUpgradeCost;
   // Game speed cheat multiplier affects animation interval
