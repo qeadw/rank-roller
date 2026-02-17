@@ -1051,6 +1051,7 @@ export default function RankRoller() {
   const runeRollCostRef = useRef(0);
   const runeBulkCountRef = useRef(1);
   const totalRuneLuckRef = useRef(1);
+  const collectedRunesRef = useRef<Set<number>>(new Set());
 
   // Bulk roll upgrade base costs (actual costs calculated after shadowCostReduction)
   const BULK_UPGRADE_COSTS = [10000, 100000, 1000000, 10000000];
@@ -2065,6 +2066,7 @@ export default function RankRoller() {
     const currentRuneRollCost = runeRollCostRef.current;
     const currentRuneBulkCount = runeBulkCountRef.current;
     const currentTotalRuneLuck = totalRuneLuckRef.current;
+    const currentCollectedRunes = collectedRunesRef.current;
 
     if (currentAvailableRunes.length === 0) return;
 
@@ -2078,9 +2080,18 @@ export default function RankRoller() {
 
     setTotalPoints((p) => p - totalCost);
 
-    // Roll all at once
+    // Simulation optimization: cap simulated rolls at 50k, multiply results
+    const maxSimulatedRolls = 50000;
+    let simulatedRolls = totalRolls;
+    let resultMultiplier = 1;
+    while (simulatedRolls > maxSimulatedRolls) {
+      simulatedRolls = Math.ceil(simulatedRolls / 2);
+      resultMultiplier *= 2;
+    }
+
+    // Roll the simulated amount
     const results: Rune[] = [];
-    for (let i = 0; i < totalRolls; i++) {
+    for (let i = 0; i < simulatedRolls; i++) {
       results.push(rollRuneWithLuck(currentAvailableRunes, currentTotalRuneLuck));
     }
     const bestResult = results.reduce((best, current) =>
@@ -2088,14 +2099,27 @@ export default function RankRoller() {
     );
 
     setCurrentRuneRoll(bestResult);
-    setRuneRollCount((c) => c + totalRolls);
+    setRuneRollCount((c) => c + totalRolls); // Count full rolls for stats
 
     // Track all runes collected and their counts
+    // For new discoveries, only count once (don't multiply)
     const newCollected = new Set<number>();
     const runeCountUpdates: Record<number, number> = {};
+    const firstTimeRolls = new Set<number>(); // Track first-time discoveries this batch
+
     for (const result of results) {
+      const isNewDiscovery = !currentCollectedRunes.has(result.index) && !firstTimeRolls.has(result.index);
+
+      if (isNewDiscovery) {
+        // First time seeing this rune - count once, don't multiply
+        runeCountUpdates[result.index] = (runeCountUpdates[result.index] || 0) + 1;
+        firstTimeRolls.add(result.index);
+      } else {
+        // Already collected or seen this batch - apply multiplier
+        runeCountUpdates[result.index] = (runeCountUpdates[result.index] || 0) + resultMultiplier;
+      }
+
       newCollected.add(result.index);
-      runeCountUpdates[result.index] = (runeCountUpdates[result.index] || 0) + 1;
     }
 
     setCollectedRunes((prev) => {
@@ -2158,6 +2182,10 @@ export default function RankRoller() {
   useEffect(() => {
     totalRuneLuckRef.current = totalRuneLuck;
   }, [totalRuneLuck]);
+
+  useEffect(() => {
+    collectedRunesRef.current = collectedRunes;
+  }, [collectedRunes]);
 
   const handleRoll = useCallback(() => {
     setIsRolling(true);
