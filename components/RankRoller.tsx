@@ -2731,7 +2731,7 @@ export default function RankRoller() {
             onClick={() => setShowMultiplierBreakdown(true)}
             style={{...styles.formatToggleBtn, marginTop: '0.5rem'}}
           >
-            View Breakdown
+            View Full Breakdown
           </button>
         </div>
 
@@ -3077,7 +3077,7 @@ export default function RankRoller() {
         {showMultiplierBreakdown && (
           <div style={styles.modalOverlay} onClick={() => setShowMultiplierBreakdown(false)}>
             <div className="modal" style={{...styles.modal, maxWidth: '500px'}} onClick={(e) => e.stopPropagation()}>
-              <h2 className="modal-title" style={styles.modalTitle}>Multiplier Breakdown</h2>
+              <h2 className="modal-title" style={styles.modalTitle}>Full Stats Breakdown</h2>
               <div style={{...styles.milestonesList, maxHeight: '60vh'}}>
                 {/* Luck Breakdown */}
                 <div style={styles.breakdownSection}>
@@ -3309,7 +3309,7 @@ export default function RankRoller() {
           onClick={() => setShowMultiplierBreakdown(true)}
           style={{...styles.formatToggleBtn, marginTop: '0.5rem'}}
         >
-          View Breakdown
+          View Full Breakdown
         </button>
       </div>
 
@@ -3534,11 +3534,11 @@ export default function RankRoller() {
       {showMultiplierBreakdown && (
         <div style={styles.modalOverlay} onClick={() => setShowMultiplierBreakdown(false)}>
           <div className="modal" style={{...styles.modal, maxWidth: '500px'}} onClick={(e) => e.stopPropagation()}>
-            <h2 className="modal-title" style={styles.modalTitle}>Multiplier Breakdown</h2>
+            <h2 className="modal-title" style={styles.modalTitle}>Full Stats Breakdown</h2>
             <div style={{...styles.milestonesList, maxHeight: '60vh'}}>
               {/* Luck Breakdown */}
               <div style={styles.breakdownSection}>
-                <h3 style={styles.breakdownHeader}>Luck ({luckMulti.toFixed(2)}x total)</h3>
+                <h3 style={styles.breakdownHeader}>Luck ({luckMulti >= 1e9 ? formatNumber(luckMulti) : luckMulti.toFixed(2)}x total)</h3>
                 <div style={styles.breakdownItem}>
                   <span>Base (Upgrades Lv.{luckLevel})</span>
                   <span>{baseLuckMulti.toFixed(2)}x</span>
@@ -3555,11 +3555,17 @@ export default function RankRoller() {
                     <span>{runeLuckBonus.toFixed(2)}x</span>
                   </div>
                 )}
+                {rollerPrestigeLuckBonus > 1 && (
+                  <div style={styles.breakdownItem}>
+                    <span>Roller Prestige (Lv.{rollerPrestigeLevel})</span>
+                    <span>{formatNumber(rollerPrestigeLuckBonus)}x</span>
+                  </div>
+                )}
               </div>
 
               {/* Points Breakdown */}
               <div style={styles.breakdownSection}>
-                <h3 style={styles.breakdownHeader}>Points ({pointsMulti.toFixed(2)}x total)</h3>
+                <h3 style={styles.breakdownHeader}>Points ({pointsMulti >= 1e9 ? formatNumber(pointsMulti) : pointsMulti.toFixed(2)}x total)</h3>
                 <div style={styles.breakdownItem}>
                   <span>Base (Upgrades Lv.{pointsMultiLevel})</span>
                   <span>{basePointsMulti.toFixed(2)}x</span>
@@ -3576,11 +3582,17 @@ export default function RankRoller() {
                     <span>{runePointsBonus.toFixed(2)}x</span>
                   </div>
                 )}
+                {rollerPrestigePointsBonus > 1 && (
+                  <div style={styles.breakdownItem}>
+                    <span>Roller Prestige (Lv.{rollerPrestigeLevel})</span>
+                    <span>{formatNumber(rollerPrestigePointsBonus)}x</span>
+                  </div>
+                )}
               </div>
 
               {/* Speed Breakdown */}
               <div style={styles.breakdownSection}>
-                <h3 style={styles.breakdownHeader}>Speed ({speedMulti.toFixed(2)}x total)</h3>
+                <h3 style={styles.breakdownHeader}>Speed ({speedMulti >= 1e9 ? formatNumber(speedMulti) : speedMulti.toFixed(2)}x total)</h3>
                 <div style={styles.breakdownItem}>
                   <span>Base (Upgrades Lv.{speedLevel})</span>
                   <span>{baseSpeedMulti.toFixed(2)}x</span>
@@ -3597,6 +3609,17 @@ export default function RankRoller() {
                     <span>{runeSpeedBonus.toFixed(2)}x</span>
                   </div>
                 )}
+                {rollerPrestigeSpeedBonus > 1 && (
+                  <div style={styles.breakdownItem}>
+                    <span>Roller Prestige (Lv.{rollerPrestigeLevel})</span>
+                    <span>{formatNumber(rollerPrestigeSpeedBonus)}x</span>
+                  </div>
+                )}
+                {speedMulti < rawSpeedMulti && (
+                  <div style={styles.breakdownItem}>
+                    <span style={{ fontSize: '0.8em', color: '#888' }}>Soft cap applied (raw: {formatNumber(rawSpeedMulti)}x)</span>
+                  </div>
+                )}
               </div>
 
               {/* Bulk Breakdown */}
@@ -3604,15 +3627,21 @@ export default function RankRoller() {
                 <div style={styles.breakdownSection}>
                   <h3 style={styles.breakdownHeader}>Bulk Roll ({formatNumber(effectiveBulkRollCount)}x total)</h3>
                   <div style={styles.breakdownItem}>
-                    <span>Stone Runes</span>
-                    <span>{formatNumber(runeOfStoneCount)}</span>
+                    <span>Stone Runes (base bulk: {formatNumber(bulkRollCount)})</span>
+                    <span>{formatNumber(runeOfStoneCount)} runes</span>
                   </div>
-                  {effectiveBulkRollCount > 1001 && (
+                  {rollerPrestigeBulkBonus > 0 && (
+                    <div style={styles.breakdownItem}>
+                      <span>Roller Prestige (Lv.{rollerPrestigeLevel})</span>
+                      <span>+{rollerPrestigeBulkBonus}</span>
+                    </div>
+                  )}
+                  {bulkRollCount > 1001 && (
                     <div style={styles.breakdownItem}>
                       <span style={{ fontSize: '0.8em', color: '#888' }}>Soft cap: 1k runes/bulk after 1000</span>
                     </div>
                   )}
-                  {effectiveBulkRollCount > 10001 && (
+                  {bulkRollCount > 10001 && (
                     <div style={styles.breakdownItem}>
                       <span style={{ fontSize: '0.8em', color: '#888' }}>Soft cap: 1M runes/bulk after 10k</span>
                     </div>
@@ -3644,9 +3673,15 @@ export default function RankRoller() {
                 <div style={styles.breakdownSection}>
                   <h3 style={styles.breakdownHeader}>Rune Bulk ({formatNumber(effectiveRuneBulkCount)}x total)</h3>
                   <div style={styles.breakdownItem}>
-                    <span>Frost Runes</span>
-                    <span>{formatNumber(runeOfFrostCount)}</span>
+                    <span>Frost Runes (base bulk: {formatNumber(runeBulkCount)})</span>
+                    <span>{formatNumber(runeOfFrostCount)} runes</span>
                   </div>
+                  {rollerPrestigeRuneBulkBonus > 0 && (
+                    <div style={styles.breakdownItem}>
+                      <span>Roller Prestige (Lv.{rollerPrestigeLevel})</span>
+                      <span>+{rollerPrestigeRuneBulkBonus}</span>
+                    </div>
+                  )}
                   {milestoneRuneBulkBonus > 1 && (
                     <div style={styles.breakdownItem}>
                       <span>Milestones</span>
@@ -3714,6 +3749,152 @@ export default function RankRoller() {
                   </div>
                 </div>
               )}
+
+              {/* Roll Time Breakdown */}
+              <div style={styles.breakdownSection}>
+                <h3 style={styles.breakdownHeader}>Roll Time ({((animationInterval * 10) / 1000).toFixed(3)}s)</h3>
+                <div style={styles.breakdownItem}>
+                  <span>Base Time</span>
+                  <span>0.5s (50ms × 10 frames)</span>
+                </div>
+                <div style={styles.breakdownItem}>
+                  <span>Speed Multiplier</span>
+                  <span>÷{speedMulti >= 1e9 ? formatNumber(speedMulti) : speedMulti.toFixed(2)}</span>
+                </div>
+                {gameSpeedMultiplier > 1 && (
+                  <div style={styles.breakdownItem}>
+                    <span>Game Speed</span>
+                    <span>÷{gameSpeedMultiplier}x</span>
+                  </div>
+                )}
+                <div style={styles.breakdownItem}>
+                  <span style={{fontWeight: 'bold'}}>Per-frame Interval</span>
+                  <span style={{fontWeight: 'bold'}}>{animationInterval.toFixed(2)}ms</span>
+                </div>
+              </div>
+
+              {/* Auto Roll Time Breakdown */}
+              {autoRollUnlocked && (
+                <div style={styles.breakdownSection}>
+                  <h3 style={styles.breakdownHeader}>Auto Roll Time ({((animationInterval * 10 * (fastAutoRollUnlocked ? 5 : 10)) / 1000).toFixed(3)}s)</h3>
+                  <div style={styles.breakdownItem}>
+                    <span>Roll Time</span>
+                    <span>{((animationInterval * 10) / 1000).toFixed(3)}s</span>
+                  </div>
+                  <div style={styles.breakdownItem}>
+                    <span>Auto Multiplier ({fastAutoRollUnlocked ? 'Fast' : 'Slow'})</span>
+                    <span>×{fastAutoRollUnlocked ? 5 : 10}</span>
+                  </div>
+                </div>
+              )}
+
+              {/* Rolls/sec Breakdown */}
+              {autoRollUnlocked && (() => {
+                const baseAutoRollTime = animationInterval * 10 * (fastAutoRollUnlocked ? 5 : 10);
+                const actualInterval = Math.max(baseAutoRollTime, 16);
+                const batchesPerInterval = baseAutoRollTime < 16 ? Math.floor(16 / baseAutoRollTime) : 1;
+                const rollsPerSec = (1000 / actualInterval) * effectiveBulkRollCount * batchesPerInterval;
+                return (
+                  <div style={styles.breakdownSection}>
+                    <h3 style={styles.breakdownHeader}>Rolls/sec ({formatNumber(rollsPerSec)})</h3>
+                    <div style={styles.breakdownItem}>
+                      <span>Timer Interval</span>
+                      <span>{actualInterval.toFixed(2)}ms</span>
+                    </div>
+                    <div style={styles.breakdownItem}>
+                      <span>Ticks/sec</span>
+                      <span>{(1000 / actualInterval).toFixed(2)}</span>
+                    </div>
+                    {batchesPerInterval > 1 && (
+                      <div style={styles.breakdownItem}>
+                        <span>Batches/tick (speed &gt; 60/s)</span>
+                        <span>×{batchesPerInterval}</span>
+                      </div>
+                    )}
+                    {effectiveBulkRollCount > 1 && (
+                      <div style={styles.breakdownItem}>
+                        <span>Bulk Multiplier</span>
+                        <span>×{formatNumber(effectiveBulkRollCount)}</span>
+                      </div>
+                    )}
+                  </div>
+                );
+              })()}
+
+              {/* Rune Roll Time Breakdown */}
+              <div style={styles.breakdownSection}>
+                <h3 style={styles.breakdownHeader}>Rune Roll Time ({(runeRollTime / 1000).toFixed(3)}s)</h3>
+                <div style={styles.breakdownItem}>
+                  <span>Base Time</span>
+                  <span>0.5s (500ms)</span>
+                </div>
+                {milestoneRuneSpeedBonus > 1 && (
+                  <div style={styles.breakdownItem}>
+                    <span>Milestones</span>
+                    <span>÷{milestoneRuneSpeedBonus.toFixed(2)}</span>
+                  </div>
+                )}
+                {runeRuneSpeedBonus > 1 && (
+                  <div style={styles.breakdownItem}>
+                    <span>Runes (Gales + Eternity)</span>
+                    <span>÷{runeRuneSpeedBonus.toFixed(2)}</span>
+                  </div>
+                )}
+                {gameSpeedMultiplier > 1 && (
+                  <div style={styles.breakdownItem}>
+                    <span>Game Speed</span>
+                    <span>÷{gameSpeedMultiplier}x</span>
+                  </div>
+                )}
+              </div>
+
+              {/* Rune Auto Time Breakdown */}
+              {runeAutoRollUnlocked && (
+                <div style={styles.breakdownSection}>
+                  <h3 style={styles.breakdownHeader}>Rune Auto Time ({((runeRollTime <= 50 ? runeRollTime : runeRollTime * (fastRuneAutoRollUnlocked ? 2 : 5)) / 1000).toFixed(3)}s)</h3>
+                  <div style={styles.breakdownItem}>
+                    <span>Rune Roll Time</span>
+                    <span>{(runeRollTime / 1000).toFixed(3)}s</span>
+                  </div>
+                  {runeRollTime > 50 && (
+                    <div style={styles.breakdownItem}>
+                      <span>Auto Multiplier ({fastRuneAutoRollUnlocked ? 'Fast' : 'Slow'})</span>
+                      <span>×{fastRuneAutoRollUnlocked ? 2 : 5}</span>
+                    </div>
+                  )}
+                  {runeRollTime <= 50 && (
+                    <div style={styles.breakdownItem}>
+                      <span style={{ fontSize: '0.8em', color: '#888' }}>No multiplier at high speed</span>
+                    </div>
+                  )}
+                </div>
+              )}
+
+              {/* Runes/sec Breakdown */}
+              {runeAutoRollUnlocked && (() => {
+                let actualRuneAutoInterval = runeRollTime <= 50 ? runeRollTime : runeRollTime * (fastRuneAutoRollUnlocked ? 2 : 5);
+                actualRuneAutoInterval = Math.max(actualRuneAutoInterval, 1);
+                const runesPerSec = (1000 / actualRuneAutoInterval) * effectiveRuneBulkCount;
+                return (
+                  <div style={styles.breakdownSection}>
+                    <h3 style={styles.breakdownHeader}>Runes/sec ({formatNumber(runesPerSec)})</h3>
+                    <div style={styles.breakdownItem}>
+                      <span>Timer Interval</span>
+                      <span>{actualRuneAutoInterval.toFixed(2)}ms</span>
+                    </div>
+                    <div style={styles.breakdownItem}>
+                      <span>Ticks/sec</span>
+                      <span>{(1000 / actualRuneAutoInterval).toFixed(2)}</span>
+                    </div>
+                    {effectiveRuneBulkCount > 1 && (
+                      <div style={styles.breakdownItem}>
+                        <span>Rune Bulk Multiplier</span>
+                        <span>×{formatNumber(effectiveRuneBulkCount)}</span>
+                      </div>
+                    )}
+                  </div>
+                );
+              })()}
             </div>
             <button
               onClick={() => setShowMultiplierBreakdown(false)}
