@@ -899,6 +899,20 @@ const TIER_NAMES = [
   'Ultimate',
 ];
 
+// Prestige tier names (unlocked after roller prestige, 5 ranks each, 15x rarer each)
+const PRESTIGE_TIER_NAMES = [
+  'Ascended',
+  'Exalted',
+  'Ethereal',
+  'Primordial',
+  'Infinite',
+  'Eternal',
+  'Omniscient',
+  'Cosmic',
+  'Void',
+  'Apex',
+];
+
 const TIER_COLORS: Record<string, { bg: string; text: string; glow: string }> = {
   Common: { bg: '#808080', text: '#ffffff', glow: 'rgba(128, 128, 128, 0.5)' },
   Uncommon: { bg: '#1eff00', text: '#000000', glow: 'rgba(30, 255, 0, 0.5)' },
@@ -910,6 +924,17 @@ const TIER_COLORS: Record<string, { bg: string; text: string; glow: string }> = 
   Celestial: { bg: '#ff69b4', text: '#000000', glow: 'rgba(255, 105, 180, 0.5)' },
   Transcendent: { bg: '#ff0000', text: '#ffffff', glow: 'rgba(255, 0, 0, 0.5)' },
   Ultimate: { bg: '#000000', text: '#ffffff', glow: 'rgba(255, 215, 0, 0.8)' },
+  // Prestige tiers
+  Ascended: { bg: '#4a0080', text: '#ffffff', glow: 'rgba(138, 43, 226, 0.8)' },
+  Exalted: { bg: '#1a1a4a', text: '#00ffff', glow: 'rgba(0, 255, 255, 0.8)' },
+  Ethereal: { bg: '#2d1b4e', text: '#e0b0ff', glow: 'rgba(224, 176, 255, 0.8)' },
+  Primordial: { bg: '#3d0000', text: '#ff6600', glow: 'rgba(255, 102, 0, 0.8)' },
+  Infinite: { bg: '#000033', text: '#00ffcc', glow: 'rgba(0, 255, 204, 0.8)' },
+  Eternal: { bg: '#1a0a2e', text: '#ffcc00', glow: 'rgba(255, 204, 0, 0.8)' },
+  Omniscient: { bg: '#0a0a0a', text: '#ffffff', glow: 'rgba(255, 255, 255, 0.9)' },
+  Cosmic: { bg: '#0d001a', text: '#ff00ff', glow: 'rgba(255, 0, 255, 0.8)' },
+  Void: { bg: '#000000', text: '#330033', glow: 'rgba(75, 0, 130, 0.9)' },
+  Apex: { bg: '#0f0f0f', text: '#ffd700', glow: 'rgba(255, 215, 0, 1.0)' },
 };
 
 interface Rank {
@@ -921,11 +946,11 @@ interface Rank {
   probability: number;
 }
 
-function generateRanks(): Rank[] {
+function generateRanks(prestigeLevel: number = 0): Rank[] {
   const ranks: Rank[] = [];
   let totalWeight = 0;
 
-  // Calculate weights: each rank is 1.5x rarer than the previous
+  // Calculate weights for base ranks: each rank is 1.5x rarer than the previous
   // Weight for rank n (0-indexed) = 1 / 1.5^n
   for (let i = 0; i < 100; i++) {
     const weight = 1 / Math.pow(1.5, i);
@@ -943,6 +968,32 @@ function generateRanks(): Rank[] {
       weight,
       probability: 0, // Will calculate after
     });
+  }
+
+  // Add prestige ranks if prestiged (10 tiers × 5 ranks = 50 ranks)
+  // Each prestige tier is 15x rarer than the last, starting from Ultimate 10's weight × 15
+  if (prestigeLevel > 0) {
+    const ultimate10Weight = 1 / Math.pow(1.5, 99);
+    let prestigeBaseWeight = ultimate10Weight / 15; // First prestige rank is 15x rarer than Ultimate 10
+
+    for (let tierIdx = 0; tierIdx < 10; tierIdx++) {
+      const tier = PRESTIGE_TIER_NAMES[tierIdx];
+      for (let rankNum = 1; rankNum <= 5; rankNum++) {
+        const weight = prestigeBaseWeight / Math.pow(15, rankNum - 1);
+        totalWeight += weight;
+
+        ranks.push({
+          index: 100 + tierIdx * 5 + (rankNum - 1),
+          tier,
+          tierNumber: rankNum,
+          displayName: `${tier} ${rankNum}`,
+          weight,
+          probability: 0, // Will calculate after
+        });
+      }
+      // Next tier starts 15x rarer than the last rank of this tier
+      prestigeBaseWeight = prestigeBaseWeight / Math.pow(15, 5);
+    }
   }
 
   // Calculate actual probabilities
@@ -984,6 +1035,14 @@ function getEffectiveProbability(rank: Rank, ranks: Rank[], luckMulti: number): 
 }
 
 function calculatePoints(rank: Rank): number {
+  // Prestige ranks (index >= 100) give 85x points based on their position
+  if (rank.index >= 100) {
+    const prestigeRankNumber = rank.index - 99; // 1-50 for prestige ranks
+    const basePoints = Math.floor(Math.pow(2, 100 / 4)); // Ultimate 10's base points
+    const prestigeMultiplier = 85;
+    return Math.floor(basePoints * prestigeMultiplier * prestigeRankNumber);
+  }
+
   const rankNumber = rank.index + 1; // 1-100
   const exponentialPoints = Math.floor(Math.pow(2, rankNumber / 4));
   return Math.max(rankNumber, exponentialPoints);
@@ -1002,7 +1061,9 @@ function formatNumber(num: number): string {
 }
 
 export default function RankRoller() {
-  const ranks = useMemo(() => generateRanks(), []);
+  // Prestige level must be declared before ranks since ranks depend on it
+  const [rollerPrestigeLevel, setRollerPrestigeLevel] = useState(0);
+  const ranks = useMemo(() => generateRanks(rollerPrestigeLevel), [rollerPrestigeLevel]);
   const runes = useMemo(() => generateRunes(), []);
   const [currentRoll, setCurrentRoll] = useState<Rank | null>(null);
   const [highestRank, setHighestRank] = useState<Rank | null>(null);
@@ -1043,7 +1104,7 @@ export default function RankRoller() {
   const [bulkRollLevel, setBulkRollLevel] = useState(0); // 0-4, each level adds +1 bulk
   const [runeBulkRollLevel, setRuneBulkRollLevel] = useState(0); // 0-2, each level adds +1 rune bulk
   const [gameSpeedMultiplier, setGameSpeedMultiplier] = useState(1); // Cheat: game speed multiplier
-  const [rollerPrestigeLevel, setRollerPrestigeLevel] = useState(0); // Prestige level for roller
+  // rollerPrestigeLevel is declared at the top since ranks depend on it
   const [runePrestigeLevel, setRunePrestigeLevel] = useState(0); // Prestige level for runes
   const [showPrestigeModal, setShowPrestigeModal] = useState(false);
   const [dismissed1MBanner, setDismissed1MBanner] = useState(false); // 1M rolls/sec achievement banner
@@ -1449,12 +1510,11 @@ export default function RankRoller() {
     }
   };
   const bulkRollCount = calculateBulkRollCount(runeOfStoneCount, bulkRollLevel, eternityMultiplier);
-  // Rune luck with soft caps (gradual):
+  // Rune luck with soft caps (gradual, no hard cap):
   // 0-2x: 1 Thunder = +0.5x rune luck (normal, reaches 2x at 2 Thunder)
-  // 2-3x: 15 Thunder = +0.5x rune luck (15x harder)
-  // 3-4x: 225 Thunder = +0.5x rune luck (225x harder)
-  // 4-5x: 3375 Thunder = +0.5x rune luck (3375x harder)
-  // etc. Each +1x costs 15x more Thunder - progress is gradual within each tier
+  // 2-3x: 75 Thunder = +0.5x rune luck (75x harder)
+  // 3-4x: 5625 Thunder = +0.5x rune luck (75x harder again)
+  // etc. Each +1x costs 75x more Thunder - progress is gradual within each tier
   const calculateRuneRuneLuckBonus = (thunderRunes: number, eternityMult: number): number => {
     const rawThunder = thunderRunes * eternityMult;
     let bonus = 1.0;
@@ -1465,9 +1525,9 @@ export default function RankRoller() {
     bonus += tier1Thunder * 0.5; // Gradual: 0.5 Thunder = +0.25x
     remainingThunder -= tier1Thunder;
 
-    // Subsequent tiers: each +1x costs 15x more (gradual progress)
-    let tierMultiplier = 15;
-    while (remainingThunder > 0 && bonus < 10) { // Cap at 10x
+    // Subsequent tiers: each +1x costs 75x more (5x stronger soft caps, no hard cap)
+    let tierMultiplier = 75;
+    while (remainingThunder > 0) {
       // Each +1x in this tier needs tierMultiplier * 2 Thunder total
       const thunderForFullTier = tierMultiplier * 2;
       const thunderUsed = Math.min(remainingThunder, thunderForFullTier);
@@ -1475,7 +1535,7 @@ export default function RankRoller() {
       bonus += bonusGained;
       remainingThunder -= thunderUsed;
       if (thunderUsed < thunderForFullTier) break; // Didn't complete tier
-      tierMultiplier *= 15;
+      tierMultiplier *= 75;
     }
 
     return bonus;
@@ -1614,19 +1674,31 @@ export default function RankRoller() {
   const rawShadowCostReduction = calculateShadowCostReduction(runeOfShadowCount, 1);
   const rawLightAscensionBonus = calculateLightAscensionBonus(runeOfLightCount, 1);
 
-  // Prestige bonuses (10% per prestige level for roller, 5% for runes)
-  const rollerPrestigeBonus = 1 + (rollerPrestigeLevel * 0.1);
+  // Prestige bonuses per level:
+  // - 5x luck
+  // - 15x points
+  // - 10x speed
+  // - +10 roller bulk
+  // - +15 rune bulk
+  const rollerPrestigeLuckBonus = Math.pow(5, rollerPrestigeLevel);
+  const rollerPrestigePointsBonus = Math.pow(15, rollerPrestigeLevel);
+  const rollerPrestigeSpeedBonus = Math.pow(10, rollerPrestigeLevel);
+  const rollerPrestigeBulkBonus = rollerPrestigeLevel * 10;
+  const rollerPrestigeRuneBulkBonus = rollerPrestigeLevel * 15;
   const runePrestigeBonus = 1 + (runePrestigeLevel * 0.05);
+
+  // Apply prestige bulk bonuses
+  const effectiveBulkRollCount = bulkRollCount + rollerPrestigeBulkBonus;
 
   // Luck calculations
   const baseLuckMulti = Math.pow(1.1, luckLevel);
-  const luckMulti = baseLuckMulti * milestoneLuckBonus * runeLuckBonus * rollerPrestigeBonus;
+  const luckMulti = baseLuckMulti * milestoneLuckBonus * runeLuckBonus * rollerPrestigeLuckBonus;
   const luckUpgradeCost = Math.floor(100 * Math.pow(2, luckLevel) * totalCostReduction);
   const canAffordLuckUpgrade = totalPoints >= luckUpgradeCost;
 
   // Points multiplier calculations
   const basePointsMulti = Math.pow(1.1, pointsMultiLevel);
-  const pointsMulti = basePointsMulti * milestonePointsBonus * runePointsBonus;
+  const pointsMulti = basePointsMulti * milestonePointsBonus * runePointsBonus * rollerPrestigePointsBonus;
   const pointsUpgradeCost = Math.floor(100 * Math.pow(2, pointsMultiLevel) * totalCostReduction);
   const canAffordPointsUpgrade = totalPoints >= pointsUpgradeCost;
 
@@ -1662,12 +1734,13 @@ export default function RankRoller() {
     }
   };
   const baseSpeedMulti = Math.pow(1.1, speedLevel);
-  const rawSpeedMulti = baseSpeedMulti * milestoneSpeedBonus * runeSpeedBonus;
+  const rawSpeedMulti = baseSpeedMulti * milestoneSpeedBonus * runeSpeedBonus * rollerPrestigeSpeedBonus;
   const speedMulti = applySpeedSoftCap(rawSpeedMulti);
   const speedUpgradeCost = Math.floor(100 * Math.pow(2, speedLevel) * totalCostReduction);
   const canAffordSpeedUpgrade = totalPoints >= speedUpgradeCost;
   // Game speed cheat multiplier affects animation interval
-  const animationInterval = Math.max(1, Math.floor(50 / (speedMulti * gameSpeedMultiplier)));
+  // Use fractional values for smooth progression instead of discrete jumps
+  const animationInterval = Math.max(0.1, 50 / (speedMulti * gameSpeedMultiplier));
 
   const handleUpgradeSpeed = () => {
     if (canAffordSpeedUpgrade) {
@@ -1871,23 +1944,25 @@ export default function RankRoller() {
   const nextRunePrestigeReq = runePrestigeLevel < MAX_RUNE_PRESTIGE ? RUNE_PRESTIGE_TIERS[runePrestigeLevel] : null;
   const canRunePrestige = runePrestigeLevel < MAX_RUNE_PRESTIGE && runeRollCount >= RUNE_PRESTIGE_TIERS[runePrestigeLevel];
 
-  // Handle roller prestige - resets ranks but keeps runes and increases prestige bonus
+  // Handle roller prestige - full wipe except prestige level, unlocks prestige ranks
   const handleRollerPrestige = () => {
     if (!canRollerPrestige) return;
 
     // Increase prestige level
     setRollerPrestigeLevel(prev => prev + 1);
 
-    // Reset rank-related progress
+    // Full reset - everything except roller prestige level
     setCurrentRoll(null);
     setHighestRank(null);
     setHighestRankRoll(null);
     setRollCount(0);
     setTotalPoints(0);
     setLastPointsGained(null);
+    setIsRolling(false);
     setCollectedRanks(new Set());
     setRankRollCounts({});
     setAscendedRanks(new Map());
+    setAscendPrompt(null);
     setExpandedTiers(new Set());
     setLuckLevel(0);
     setPointsMultiLevel(0);
@@ -1895,7 +1970,29 @@ export default function RankRoller() {
     setCostReductionLevel(0);
     setClaimedMilestones(new Set());
     setAutoRollEnabled(false);
+    setRuneAutoRollEnabled(false);
+    // Reset rune data
+    setCurrentRuneRoll(null);
+    setCollectedRunes(new Set());
+    setRuneRollCounts({});
+    setLegitimateRuneRollCounts({});
+    setRuneRollCount(0);
+    setIsRollingRune(false);
+    // Reset UI state
+    setShowRunes(false);
+    setShowResetModal(false);
+    setResetInput('');
+    setShowCheatMenu(false);
+    setCheatBuffer('');
+    setShowMilestones(false);
+    setShowMultiplierBreakdown(false);
+    setShowSaveModal(false);
+    // Reset bulk and game speed
     setBulkRollLevel(0);
+    setRuneBulkRollLevel(0);
+    setGameSpeedMultiplier(1);
+    // Reset rune prestige (but NOT roller prestige)
+    setRunePrestigeLevel(0);
 
     // Close modal
     setShowPrestigeModal(false);
@@ -1975,10 +2072,11 @@ export default function RankRoller() {
 
   // Rune roll time (5 seconds base, affected by rune speed milestones and game speed)
   const baseRuneRollTime = 5000;
-  const runeRollTime = Math.floor(baseRuneRollTime / (milestoneRuneSpeedBonus * runeRuneSpeedBonus * gameSpeedMultiplier));
+  // Use fractional values for smooth progression instead of discrete jumps
+  const runeRollTime = Math.max(1, baseRuneRollTime / (milestoneRuneSpeedBonus * runeRuneSpeedBonus * gameSpeedMultiplier));
   const runeAnimationInterval = Math.max(10, Math.floor(100 / gameSpeedMultiplier)); // Animation frame rate for runes
-  // Apply milestone rune bulk bonus
-  const effectiveRuneBulkCount = Math.floor(runeBulkCount * milestoneRuneBulkBonus);
+  // Apply milestone and prestige rune bulk bonuses
+  const effectiveRuneBulkCount = Math.floor((runeBulkCount + rollerPrestigeRuneBulkBonus) * milestoneRuneBulkBonus);
   const runeRollCost = Math.floor(1000 * effectiveRuneBulkCount * totalCostReduction); // Cost scales with rune bulk, reduced by shadow + upgrade
   const canAffordRuneRoll = totalPoints >= runeRollCost;
 
@@ -2207,9 +2305,9 @@ export default function RankRoller() {
       if (animationCount >= 10) {
         clearInterval(rollTimer);
 
-        // Bulk roll - roll multiple times based on bulkRollCount
+        // Bulk roll - roll multiple times based on effectiveBulkRollCount
         const results: Rank[] = [];
-        for (let i = 0; i < bulkRollCount; i++) {
+        for (let i = 0; i < effectiveBulkRollCount; i++) {
           results.push(rollRankWithLuck(ranks, luckMulti));
         }
 
@@ -2218,7 +2316,7 @@ export default function RankRoller() {
           current.index > best.index ? current : best
         );
         setCurrentRoll(bestResult);
-        setRollCount((c) => c + bulkRollCount);
+        setRollCount((c) => c + effectiveBulkRollCount);
 
         // Calculate total points from all rolls
         let totalPointsGained = 0;
@@ -2254,7 +2352,7 @@ export default function RankRoller() {
           return next;
         });
 
-        const newRollCount = rollCountRef.current + bulkRollCount;
+        const newRollCount = rollCountRef.current + effectiveBulkRollCount;
         if (!highestRank || bestResult.index > highestRank.index) {
           setHighestRank(bestResult);
           setHighestRankRoll(newRollCount);
@@ -2263,13 +2361,13 @@ export default function RankRoller() {
         setIsRolling(false);
       }
     }, animationInterval);
-  }, [ranks, luckMulti, pointsMulti, animationInterval, highestRank, ascendedRanks, bulkRollCount, lightAscensionBonus]);
+  }, [ranks, luckMulti, pointsMulti, animationInterval, highestRank, ascendedRanks, effectiveBulkRollCount, lightAscensionBonus]);
 
   // Instant roll for auto-roll (no animation, just results)
   // Uses simulation optimization: if rolls exceed cap, simulate fewer rolls and multiply results
   // New discoveries are not multiplied for their first occurrence
   const handleInstantRoll = useCallback((batchCount: number = 1) => {
-    const totalRolls = bulkRollCount * batchCount;
+    const totalRolls = effectiveBulkRollCount * batchCount;
     const maxSimulatedRolls = 50000;
 
     // Calculate simulation multiplier - keep halving until under cap
@@ -2347,7 +2445,7 @@ export default function RankRoller() {
       setHighestRank(bestResult);
       setHighestRankRoll(newRollCount);
     }
-  }, [ranks, luckMulti, pointsMulti, highestRank, ascendedRanks, bulkRollCount, lightAscensionBonus, collectedRanks]);
+  }, [ranks, luckMulti, pointsMulti, highestRank, ascendedRanks, effectiveBulkRollCount, lightAscensionBonus, collectedRanks]);
 
   // Check if auto-roll is unlocked (slow at 100 rolls, fast at 5000 rolls)
   const slowAutoRollUnlocked = claimedMilestones.has('rolls_100');
@@ -2371,7 +2469,7 @@ export default function RankRoller() {
     ? Math.ceil(rollsPerSecTargetInterval / rollsPerSecDesiredInterval)
     : 1;
   const rollsPerSecActualInterval = rollsPerSecDesiredInterval < rollsPerSecTargetInterval ? rollsPerSecTargetInterval : rollsPerSecDesiredInterval;
-  const rollsPerSec = (1000 / rollsPerSecActualInterval) * bulkRollCount * rollsPerSecBatches;
+  const rollsPerSec = (1000 / rollsPerSecActualInterval) * effectiveBulkRollCount * rollsPerSecBatches;
   const reached1MRollsPerSec = rollsPerSec >= 1000000;
 
   // Combined auto-roll effect - handles both rank and rune auto-rolling in a single interval
@@ -2447,7 +2545,7 @@ export default function RankRoller() {
     }, 16);
 
     return () => clearInterval(combinedAutoRollTimer);
-  }, [autoRollEnabled, autoRollUnlocked, fastAutoRollUnlocked, animationInterval, handleRoll, handleInstantRoll, bulkRollCount, runeAutoRollEnabled, runeAutoRollUnlocked, fastRuneAutoRollUnlocked, runeRollTime, handleRuneRoll, handleInstantRuneRoll]);
+  }, [autoRollEnabled, autoRollUnlocked, fastAutoRollUnlocked, animationInterval, handleRoll, handleInstantRoll, effectiveBulkRollCount, runeAutoRollEnabled, runeAutoRollUnlocked, fastRuneAutoRollUnlocked, runeRollTime, handleRuneRoll, handleInstantRuneRoll]);
 
   // Spacebar to roll, A to toggle auto roll
   useEffect(() => {
@@ -2546,10 +2644,10 @@ export default function RankRoller() {
                 <span className="stats-panel-value" style={styles.statsPanelValue}>{((animationInterval * 10 * (fastAutoRollUnlocked ? 5 : 10)) / 1000).toFixed(2)}s</span>
               </div>
             )}
-            {bulkRollCount > 1 && (
+            {effectiveBulkRollCount > 1 && (
               <div style={styles.statsPanelItem}>
                 <span className="stats-panel-label" style={styles.statsPanelLabel}>Bulk Roll</span>
-                <span className="stats-panel-value" style={styles.statsPanelValue}>{formatNumber(bulkRollCount)}x</span>
+                <span className="stats-panel-value" style={styles.statsPanelValue}>{formatNumber(effectiveBulkRollCount)}x</span>
               </div>
             )}
             {autoRollUnlocked && (() => {
@@ -2563,7 +2661,7 @@ export default function RankRoller() {
                 : 1;
               const actualInterval = desiredRollInterval < targetInterval ? targetInterval : desiredRollInterval;
               // Full rolls/sec - simulation optimization happens internally
-              const rollsPerSec = (1000 / actualInterval) * bulkRollCount * batchesPerInterval;
+              const rollsPerSec = (1000 / actualInterval) * effectiveBulkRollCount * batchesPerInterval;
               return (
                 <div style={styles.statsPanelItem}>
                   <span className="stats-panel-label" style={styles.statsPanelLabel}>Rolls/sec</span>
@@ -3124,10 +3222,10 @@ export default function RankRoller() {
               <span className="stats-panel-value" style={styles.statsPanelValue}>{((animationInterval * 10 * (fastAutoRollUnlocked ? 5 : 10)) / 1000).toFixed(2)}s</span>
             </div>
           )}
-          {bulkRollCount > 1 && (
+          {effectiveBulkRollCount > 1 && (
             <div style={styles.statsPanelItem}>
               <span className="stats-panel-label" style={styles.statsPanelLabel}>Bulk Roll</span>
-              <span className="stats-panel-value" style={styles.statsPanelValue}>{formatNumber(bulkRollCount)}x</span>
+              <span className="stats-panel-value" style={styles.statsPanelValue}>{formatNumber(effectiveBulkRollCount)}x</span>
             </div>
           )}
           {autoRollUnlocked && (() => {
@@ -3141,7 +3239,7 @@ export default function RankRoller() {
               : 1;
             const actualInterval = desiredRollInterval < targetInterval ? targetInterval : desiredRollInterval;
             // Full rolls/sec - simulation optimization happens internally
-            const rollsPerSec = (1000 / actualInterval) * bulkRollCount * batchesPerInterval;
+            const rollsPerSec = (1000 / actualInterval) * effectiveBulkRollCount * batchesPerInterval;
             return (
               <div style={styles.statsPanelItem}>
                 <span className="stats-panel-label" style={styles.statsPanelLabel}>Rolls/sec</span>
@@ -3502,19 +3600,19 @@ export default function RankRoller() {
               </div>
 
               {/* Bulk Breakdown */}
-              {bulkRollCount > 1 && (
+              {effectiveBulkRollCount > 1 && (
                 <div style={styles.breakdownSection}>
-                  <h3 style={styles.breakdownHeader}>Bulk Roll ({formatNumber(bulkRollCount)}x total)</h3>
+                  <h3 style={styles.breakdownHeader}>Bulk Roll ({formatNumber(effectiveBulkRollCount)}x total)</h3>
                   <div style={styles.breakdownItem}>
                     <span>Stone Runes</span>
                     <span>{formatNumber(runeOfStoneCount)}</span>
                   </div>
-                  {bulkRollCount > 1001 && (
+                  {effectiveBulkRollCount > 1001 && (
                     <div style={styles.breakdownItem}>
                       <span style={{ fontSize: '0.8em', color: '#888' }}>Soft cap: 1k runes/bulk after 1000</span>
                     </div>
                   )}
-                  {bulkRollCount > 10001 && (
+                  {effectiveBulkRollCount > 10001 && (
                     <div style={styles.breakdownItem}>
                       <span style={{ fontSize: '0.8em', color: '#888' }}>Soft cap: 1M runes/bulk after 10k</span>
                     </div>
