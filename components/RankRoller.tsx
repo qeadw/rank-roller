@@ -4559,7 +4559,7 @@ export default function RankRoller() {
                   width: '100%',
                 }}
               >
-                {canRollerPrestige ? 'Prestige Roller' : (nextRollerPrestigeReq ? (hasAnyFromTier(collectedRanks, 9) ? `Need ${(nextRollerPrestigeReq - ultimate10Rolls).toLocaleString()} more Ultimate 10s` : 'Roll an Ultimate first!') : 'MAX PRESTIGE')}
+                {canRollerPrestige ? 'Prestige Roller' : (nextRollerPrestigeReq ? `Need ${hasAnyFromTier(collectedRanks, 9) ? (nextRollerPrestigeReq - ultimate10Rolls).toLocaleString() : '???'} more Ultimate 10s` : 'MAX PRESTIGE')}
               </button>
             </div>
 
