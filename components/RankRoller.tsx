@@ -4577,11 +4577,10 @@ export default function RankRoller() {
                 Rune Prestige (Level {runePrestigeLevel})
               </h3>
               <div style={{ color: '#aaa', fontSize: '0.9rem', marginBottom: '0.5rem' }}>
-                Requirements: 100 / 400 / 1000 rune rolls per tier
+                Requirement: {nextRunePrestigeReq?.toLocaleString() || 'MAX'} rune rolls
               </div>
               <div style={{ color: '#fff', marginBottom: '0.5rem' }}>
-                Total rune rolls: {runeRollCount}
-                {nextRunePrestigeReq && ` (next tier at ${nextRunePrestigeReq})`}
+                Progress: {runeRollCount.toLocaleString()} / {nextRunePrestigeReq?.toLocaleString() || 'MAX'}
               </div>
               <div style={{ color: '#4CAF50', fontSize: '0.9rem', marginBottom: '0.5rem' }}>
                 Current bonus: +{runePrestigeLevel * 5}% Rune Luck
@@ -4605,7 +4604,7 @@ export default function RankRoller() {
                   width: '100%',
                 }}
               >
-                {canRunePrestige ? 'Prestige Runes' : `Need ${(nextRunePrestigeReq || 100) - runeRollCount} more rune rolls`}
+                {canRunePrestige ? 'Prestige Runes' : (nextRunePrestigeReq ? `Need ${(nextRunePrestigeReq - runeRollCount).toLocaleString()} more rune rolls` : 'MAX PRESTIGE')}
               </button>
             </div>
 
