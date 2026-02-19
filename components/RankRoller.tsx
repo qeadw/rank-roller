@@ -4457,19 +4457,17 @@ export default function RankRoller() {
         >
           Reset Progress
         </button>
-        {(canRollerPrestige || canRunePrestige) && (
-          <button
-            onClick={() => setShowPrestigeModal(true)}
-            style={{
-              ...styles.resetBtn,
-              backgroundColor: '#9932cc',
-              marginTop: '0.5rem',
-              boxShadow: '0 0 15px rgba(153, 50, 204, 0.5)',
-            }}
-          >
-            Prestige Available!
-          </button>
-        )}
+        <button
+          onClick={() => setShowPrestigeModal(true)}
+          style={{
+            ...styles.resetBtn,
+            backgroundColor: (canRollerPrestige || canRunePrestige) ? '#9932cc' : '#555',
+            marginTop: '0.5rem',
+            boxShadow: (canRollerPrestige || canRunePrestige) ? '0 0 15px rgba(153, 50, 204, 0.5)' : 'none',
+          }}
+        >
+          {(canRollerPrestige || canRunePrestige) ? 'Prestige Available!' : 'Prestige'}
+        </button>
       </div>
 
       {/* Reset Modal */}
