@@ -4532,10 +4532,10 @@ export default function RankRoller() {
                 Roller Prestige (Level {rollerPrestigeLevel})
               </h3>
               <div style={{ color: '#aaa', fontSize: '0.9rem', marginBottom: '0.5rem' }}>
-                Requirement: {nextRollerPrestigeReq?.toLocaleString() || 'MAX'} Ultimate 10 rolls
+                Requirement: {hasAnyFromTier(collectedRanks, 9) ? (nextRollerPrestigeReq?.toLocaleString() || 'MAX') : '???'} Ultimate 10 rolls
               </div>
               <div style={{ color: '#fff', marginBottom: '0.5rem' }}>
-                Progress: {ultimate10Rolls.toLocaleString()} / {nextRollerPrestigeReq?.toLocaleString() || 'MAX'}
+                Progress: {hasAnyFromTier(collectedRanks, 9) ? ultimate10Rolls.toLocaleString() : '???'} / {hasAnyFromTier(collectedRanks, 9) ? (nextRollerPrestigeReq?.toLocaleString() || 'MAX') : '???'}
               </div>
               <div style={{ color: '#4CAF50', fontSize: '0.9rem', marginBottom: '0.5rem' }}>
                 Current: {formatNumber(rollerPrestigeLuckBonus)}x Luck, {formatNumber(rollerPrestigePointsBonus)}x Points, {formatNumber(rollerPrestigeSpeedBonus)}x Speed
@@ -4559,7 +4559,7 @@ export default function RankRoller() {
                   width: '100%',
                 }}
               >
-                {canRollerPrestige ? 'Prestige Roller' : (nextRollerPrestigeReq ? `Need ${(nextRollerPrestigeReq - ultimate10Rolls).toLocaleString()} more Ultimate 10s` : 'MAX PRESTIGE')}
+                {canRollerPrestige ? 'Prestige Roller' : (nextRollerPrestigeReq ? (hasAnyFromTier(collectedRanks, 9) ? `Need ${(nextRollerPrestigeReq - ultimate10Rolls).toLocaleString()} more Ultimate 10s` : 'Roll an Ultimate first!') : 'MAX PRESTIGE')}
               </button>
             </div>
 
