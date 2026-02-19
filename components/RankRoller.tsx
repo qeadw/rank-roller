@@ -1988,8 +1988,8 @@ export default function RankRoller() {
   // Roller prestige: 9 levels total, last at 10k Ultimate 10 rolls
   const ROLLER_PRESTIGE_TIERS = [100, 250, 500, 1000, 2000, 3500, 5500, 7500, 10000];
   const MAX_ROLLER_PRESTIGE = uncapModeEnabled ? Infinity : 9; // Max prestige level (uncapped in cheat mode)
-  const RUNE_PRESTIGE_TIERS = [100, 400, 1000]; // Rune rolls needed per tier
-  const MAX_RUNE_PRESTIGE = uncapModeEnabled ? Infinity : 3; // Max prestige level (uncapped in cheat mode)
+  const RUNE_PRESTIGE_TIERS = [100, 400, 1000, 2500, 5000, 8000, 12000, 18000, 25000, 35000]; // Rune rolls needed per tier (10 tiers after roller prestige)
+  const MAX_RUNE_PRESTIGE = uncapModeEnabled ? Infinity : (rollerPrestigeLevel > 0 ? 10 : 3); // 3 base tiers, 10 after roller prestige
   const ultimate10Index = 99; // Ultimate 10 is rank index 99
   const ultimate10Rolls = rankRollCounts[ultimate10Index] || 0;
 
