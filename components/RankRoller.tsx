@@ -5528,7 +5528,7 @@ const styles: Record<string, React.CSSProperties> = {
   },
   runeBuffsPanel: {
     position: 'fixed',
-    top: '200px',
+    top: '380px',
     right: '235px',
     backgroundColor: 'rgba(30, 30, 50, 0.95)',
     borderRadius: '12px',
