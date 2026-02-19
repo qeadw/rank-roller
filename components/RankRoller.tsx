@@ -1122,6 +1122,7 @@ export default function RankRoller() {
   const [uncapModeEnabled, setUncapModeEnabled] = useState(false); // Cheat: uncap all maximums
   const [hideKeybinds, setHideKeybinds] = useState(false); // Toggle keybind hints visibility (for mobile)
   const [showOriginalChances, setShowOriginalChances] = useState(false); // Toggle original chances (without luck) display
+  const [isPrestigeResetting, setIsPrestigeResetting] = useState(false); // Brief loading state during prestige reset
   const rollCountRef = useRef(rollCount);
   const totalPointsRef = useRef(totalPoints);
   const isRollingRuneRef = useRef(isRollingRune);
@@ -2021,54 +2022,57 @@ export default function RankRoller() {
   const handleRollerPrestige = () => {
     if (!canRollerPrestige) return;
 
-    // Close modal first to prevent flash between pre/post reset states
+    // Show loading state to prevent flash between pre/post reset
+    setIsPrestigeResetting(true);
     setShowPrestigeModal(false);
 
-    // Increase prestige level
-    setRollerPrestigeLevel(prev => prev + 1);
+    // Use setTimeout to ensure the loading screen renders before state resets
+    setTimeout(() => {
+      // Increase prestige level
+      setRollerPrestigeLevel(prev => prev + 1);
 
-    // Full reset - everything except roller prestige level
-    setCurrentRoll(null);
-    setHighestRank(null);
-    setHighestRankRoll(null);
-    setRollCount(0);
-    setTotalPoints(0);
-    setLastPointsGained(null);
-    setIsRolling(false);
-    setCollectedRanks(new Set());
-    setRankRollCounts({});
-    setAscendedRanks(new Map());
-    setAscendPrompt(null);
-    setExpandedTiers(new Set());
-    setLuckLevel(0);
-    setPointsMultiLevel(0);
-    setSpeedLevel(0);
-    setCostReductionLevel(0);
-    setClaimedMilestones(new Set());
-    setAutoRollEnabled(false);
-    setRuneAutoRollEnabled(false);
-    // DON'T reset rune data - keep runes, rune rolls, rune prestige
-    // Only reset current rune roll display and rolling state
-    setCurrentRuneRoll(null);
-    setIsRollingRune(false);
-    // Reset UI state
-    setShowRunes(false);
-    setShowResetModal(false);
-    setResetInput('');
-    setShowCheatMenu(false);
-    setCheatBuffer('');
-    setShowMilestones(false);
-    setShowMultiplierBreakdown(false);
-    setShowSaveModal(false);
-    setShowPrestigeModal(false);
-    // Reset bulk, rune speed, but keep game speed (it's a cheat)
-    setBulkRollLevel(0);
-    setRuneBulkRollLevel(0);
-    setRuneSpeedLevel(0);
-    // DON'T reset rune prestige - keep it
+      // Full reset - everything except roller prestige level
+      setCurrentRoll(null);
+      setHighestRank(null);
+      setHighestRankRoll(null);
+      setRollCount(0);
+      setTotalPoints(0);
+      setLastPointsGained(null);
+      setIsRolling(false);
+      setCollectedRanks(new Set());
+      setRankRollCounts({});
+      setAscendedRanks(new Map());
+      setAscendPrompt(null);
+      setExpandedTiers(new Set());
+      setLuckLevel(0);
+      setPointsMultiLevel(0);
+      setSpeedLevel(0);
+      setCostReductionLevel(0);
+      setClaimedMilestones(new Set());
+      setAutoRollEnabled(false);
+      setRuneAutoRollEnabled(false);
+      // DON'T reset rune data - keep runes, rune rolls, rune prestige
+      // Only reset current rune roll display and rolling state
+      setCurrentRuneRoll(null);
+      setIsRollingRune(false);
+      // Reset UI state
+      setShowRunes(false);
+      setShowResetModal(false);
+      setResetInput('');
+      setShowCheatMenu(false);
+      setCheatBuffer('');
+      setShowMilestones(false);
+      setShowMultiplierBreakdown(false);
+      setShowSaveModal(false);
+      // Reset bulk, rune speed, but keep game speed (it's a cheat)
+      setBulkRollLevel(0);
+      setRuneBulkRollLevel(0);
+      setRuneSpeedLevel(0);
+      // DON'T reset rune prestige - keep it
 
-    // Close modal
-    setShowPrestigeModal(false);
+      // Clear loading state after resets complete
+      setTimeout(() => setIsPrestigeResetting(false), 50);
+    }, 0);
   };
 
   // Handle rune prestige - resets runes but increases rune prestige bonus
@@ -3256,6 +3260,25 @@ export default function RankRoller() {
 
   return (
     <div style={styles.container} onDoubleClick={() => setHideKeybinds(prev => !prev)}>
+      {/* Prestige Reset Loading Overlay */}
+      {isPrestigeResetting && (
+        <div style={{
+          position: 'fixed',
+          top: 0,
+          left: 0,
+          right: 0,
+          bottom: 0,
+          backgroundColor: '#0a0a1a',
+          zIndex: 9999,
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'center',
+        }}>
+          <div style={{ color: '#9932cc', fontSize: '2rem', fontWeight: 'bold' }}>
+            ⭐ Prestiging...
+          </div>
+        </div>
+      )}
       {/* High Speed Warning Banner */}
       {reached1MRollsPerSec && !dismissed1MBanner && (
         <div style={styles.warningBanner}>
