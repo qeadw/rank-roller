@@ -58,6 +58,14 @@ interface SaveData {
   costReductionLevel?: number;
   // UI state
   dismissed1MBanner?: boolean;
+  // Mana system
+  mana?: number;
+  totalManaEarned?: number;
+  manaClickUpgradeLevel?: number;
+  manaUpgradeLevels?: Record<string, number>;
+  activeBuffsSave?: Array<{ type: ManaBuffType; power: number; remainingMs: number; totalDurationMs: number; stackCount: number }>;
+  claimedManaMilestones?: number[];
+  manaOrbUnlocked?: boolean;
 }
 
 interface MilestoneState {
@@ -96,6 +104,135 @@ interface Milestone {
   runeLuckBonus?: number;
   runeBulkBonus?: number;
 }
+
+// ============ MANA ORB SYSTEM ============
+
+type ManaBuffType = 'luck' | 'points' | 'speed' | 'guaranteed_rare' | 'bulk' | 'auto_orb';
+
+interface ManaBuffDefinition {
+  id: ManaBuffType;
+  name: string;
+  description: string;
+  baseCost: number;
+  costExponent: number;
+  basePower: number;
+  baseDuration: number; // ms
+  color: string;
+}
+
+interface ActiveManaBuff {
+  type: ManaBuffType;
+  power: number;
+  remainingMs: number;
+  totalDurationMs: number;
+  stackCount: number;
+}
+
+interface ManaFloatingText {
+  id: number;
+  amount: number;
+  x: number;
+  y: number;
+  createdAt: number;
+}
+
+const MANA_BUFF_DEFINITIONS: Record<ManaBuffType, ManaBuffDefinition> = {
+  luck: {
+    id: 'luck',
+    name: 'Arcane Luck',
+    description: 'Multiply luck by buff power',
+    baseCost: 50,
+    costExponent: 2.5,
+    basePower: 1.5,
+    baseDuration: 60000,
+    color: '#00ff88',
+  },
+  points: {
+    id: 'points',
+    name: 'Golden Touch',
+    description: 'Multiply points by buff power',
+    baseCost: 50,
+    costExponent: 2.5,
+    basePower: 1.5,
+    baseDuration: 60000,
+    color: '#ffd700',
+  },
+  speed: {
+    id: 'speed',
+    name: 'Time Warp',
+    description: 'Multiply speed by buff power',
+    baseCost: 75,
+    costExponent: 3,
+    basePower: 1.5,
+    baseDuration: 45000,
+    color: '#00ccff',
+  },
+  guaranteed_rare: {
+    id: 'guaranteed_rare',
+    name: 'Fate Weaver',
+    description: 'Guarantee minimum rarity tier on rolls',
+    baseCost: 200,
+    costExponent: 5,
+    basePower: 3, // minimum tier index (Epic)
+    baseDuration: 30000,
+    color: '#a335ee',
+  },
+  bulk: {
+    id: 'bulk',
+    name: 'Mass Roll',
+    description: 'Multiply bulk roll count',
+    baseCost: 100,
+    costExponent: 3,
+    basePower: 1.5,
+    baseDuration: 45000,
+    color: '#ff6b35',
+  },
+  auto_orb: {
+    id: 'auto_orb',
+    name: 'Mana Siphon',
+    description: 'Automatically click the orb once per second',
+    baseCost: 500,
+    costExponent: 4,
+    basePower: 1, // clicks per second
+    baseDuration: 120000,
+    color: '#9966ff',
+  },
+};
+
+// Mana click upgrades - each doubles mana/click, gated by tier unlocks
+const MANA_CLICK_UPGRADE_TIERS = [
+  { name: 'Mythic Tap', tierRequired: 5, cost: 1000 },
+  { name: 'Divine Tap', tierRequired: 6, cost: 10000 },
+  { name: 'Celestial Tap', tierRequired: 7, cost: 100000 },
+  { name: 'Transcendent Tap', tierRequired: 8, cost: 1000000 },
+  { name: 'Ultimate Tap', tierRequired: 9, cost: 10000000 },
+];
+
+// General mana upgrades
+const MANA_UPGRADE_DEFINITIONS = [
+  { id: 'passive_regen', name: 'Mana Spring', description: '+1 mana/sec per level', baseCost: 200, costScale: 3, maxLevel: 20 },
+  { id: 'buff_duration', name: 'Prolongation', description: '+15% buff duration per level', baseCost: 300, costScale: 2.5, maxLevel: 15 },
+  { id: 'buff_power', name: 'Amplification', description: '+10% buff power per level', baseCost: 500, costScale: 3, maxLevel: 15 },
+  { id: 'click_cooldown', name: 'Quick Fingers', description: '-50ms click cooldown per level', baseCost: 150, costScale: 2, maxLevel: 20 },
+  { id: 'buff_cost_reduction', name: 'Efficiency', description: '-5% buff cost per level', baseCost: 400, costScale: 2.5, maxLevel: 15 },
+];
+
+// Mana milestones - permanent bonuses at total mana thresholds
+const MANA_MILESTONES = [
+  { threshold: 100, name: 'Mana Initiate', bonus: 'manaPerClick', value: 2, description: '+2 mana per click' },
+  { threshold: 1000, name: 'Mana Adept', bonus: 'buffDuration', value: 1.2, description: '1.2x buff duration' },
+  { threshold: 10000, name: 'Mana Expert', bonus: 'manaPerClick', value: 5, description: '+5 mana per click' },
+  { threshold: 100000, name: 'Mana Master', bonus: 'buffPower', value: 1.25, description: '1.25x buff power' },
+  { threshold: 1000000, name: 'Mana Overlord', bonus: 'allBuffs', value: 1.5, description: '1.5x to all mana bonuses' },
+];
+
+// Mega buffs - expensive endgame mana sinks
+const MEGA_BUFFS = [
+  { id: 'godly_fortune', name: 'Godly Fortune', cost: 10000000, description: '10x luck + 10x points for 5 minutes', duration: 300000, luckMulti: 10, pointsMulti: 10 },
+  { id: 'omnipotence', name: 'Omnipotence', cost: 100000000, description: '100x ALL multipliers for 3 minutes', duration: 180000, allMulti: 100 },
+];
+
+// ============ END MANA ORB SYSTEM ============
 
 interface Rune {
   index: number;
@@ -1123,6 +1260,24 @@ export default function RankRoller() {
   const [hideKeybinds, setHideKeybinds] = useState(false); // Toggle keybind hints visibility (for mobile)
   const [showOriginalChances, setShowOriginalChances] = useState(false); // Toggle original chances (without luck) display
   const [isPrestigeResetting, setIsPrestigeResetting] = useState(false); // Brief loading state during prestige reset
+  // Mana Orb state
+  const [mana, setMana] = useState(0);
+  const [totalManaEarned, setTotalManaEarned] = useState(0);
+  const [manaClickUpgradeLevel, setManaClickUpgradeLevel] = useState(0);
+  const [manaUpgradeLevels, setManaUpgradeLevels] = useState<Record<string, number>>({});
+  const [activeManaBuffs, setActiveManaBuffs] = useState<ActiveManaBuff[]>([]);
+  const [claimedManaMilestones, setClaimedManaMilestones] = useState<Set<number>>(new Set());
+  const [showManaOrb, setShowManaOrb] = useState(false);
+  const [manaOrbUnlocked, setManaOrbUnlocked] = useState(false);
+  const [manaOrbUnlockAnimating, setManaOrbUnlockAnimating] = useState(false);
+  const [lastManaClickTime, setLastManaClickTime] = useState(0);
+  const [manaFloatingTexts, setManaFloatingTexts] = useState<ManaFloatingText[]>([]);
+  const [manaFloatIdCounter, setManaFloatIdCounter] = useState(0);
+  const [orbPulse, setOrbPulse] = useState(false);
+  const [activeMegaBuffs, setActiveMegaBuffs] = useState<Array<{ id: string; remainingMs: number; totalDurationMs: number }>>([]);
+  const manaRef = useRef(mana);
+  const activeManaBuffsRef = useRef(activeManaBuffs);
+  const activeMegaBuffsRef = useRef(activeMegaBuffs);
   const rollCountRef = useRef(rollCount);
   const totalPointsRef = useRef(totalPoints);
   const isRollingRuneRef = useRef(isRollingRune);
@@ -1192,6 +1347,16 @@ export default function RankRoller() {
         setRunePrestigeLevel(data.runePrestigeLevel || 0);
         // Load UI state
         setDismissed1MBanner(data.dismissed1MBanner || false);
+        // Load mana data
+        setMana(data.mana || 0);
+        setTotalManaEarned(data.totalManaEarned || 0);
+        setManaClickUpgradeLevel(data.manaClickUpgradeLevel || 0);
+        setManaUpgradeLevels(data.manaUpgradeLevels || {});
+        if (data.activeBuffsSave) {
+          setActiveManaBuffs(data.activeBuffsSave);
+        }
+        setClaimedManaMilestones(new Set(data.claimedManaMilestones || []));
+        setManaOrbUnlocked(data.manaOrbUnlocked || false);
       } catch (e) {
         console.error('Failed to load save data:', e);
       }
@@ -1237,9 +1402,17 @@ export default function RankRoller() {
       runePrestigeLevel,
       // UI state
       dismissed1MBanner,
+      // Mana data
+      mana,
+      totalManaEarned,
+      manaClickUpgradeLevel,
+      manaUpgradeLevels,
+      activeBuffsSave: activeManaBuffs,
+      claimedManaMilestones: Array.from(claimedManaMilestones),
+      manaOrbUnlocked,
     };
     setCookie(SAVE_KEY, obfuscateSave(JSON.stringify(saveData)));
-  }, [isLoaded, rollCount, totalPoints, highestRank, highestRankRoll, collectedRanks, rankRollCounts, ascendedRanks, luckLevel, pointsMultiLevel, speedLevel, costReductionLevel, claimedMilestones, collectedRunes, runeRollCounts, legitimateRuneRollCounts, runeRollCount, bulkRollLevel, runeBulkRollLevel, runeSpeedLevel, gameSpeedMultiplier, rollerPrestigeLevel, runePrestigeLevel, dismissed1MBanner]);
+  }, [isLoaded, rollCount, totalPoints, highestRank, highestRankRoll, collectedRanks, rankRollCounts, ascendedRanks, luckLevel, pointsMultiLevel, speedLevel, costReductionLevel, claimedMilestones, collectedRunes, runeRollCounts, legitimateRuneRollCounts, runeRollCount, bulkRollLevel, runeBulkRollLevel, runeSpeedLevel, gameSpeedMultiplier, rollerPrestigeLevel, runePrestigeLevel, dismissed1MBanner, mana, totalManaEarned, manaClickUpgradeLevel, manaUpgradeLevels, activeManaBuffs, claimedManaMilestones, manaOrbUnlocked]);
 
   // Save whenever saveGame changes (which happens when any saved state changes)
   useEffect(() => {
@@ -1739,18 +1912,112 @@ export default function RankRoller() {
   const rollerPrestigeRuneBulkBonus = rollerPrestigeLevel * 15;
   const runePrestigeBonus = 1 + (runePrestigeLevel * 0.05);
 
+  // ============ MANA ORB DERIVED CALCULATIONS ============
+
+  // Mana milestone bonuses
+  const manaMilestoneClickBonus = MANA_MILESTONES.reduce((acc, m) => {
+    if (claimedManaMilestones.has(m.threshold) && m.bonus === 'manaPerClick') return acc + m.value;
+    return acc;
+  }, 0);
+
+  const manaMilestoneDurationBonus = MANA_MILESTONES.reduce((acc, m) => {
+    if (claimedManaMilestones.has(m.threshold) && m.bonus === 'buffDuration') return acc * m.value;
+    return acc;
+  }, 1);
+
+  const manaMilestonePowerBonus = MANA_MILESTONES.reduce((acc, m) => {
+    if (claimedManaMilestones.has(m.threshold) && m.bonus === 'buffPower') return acc * m.value;
+    return acc;
+  }, 1);
+
+  const manaMilestoneAllBonus = MANA_MILESTONES.reduce((acc, m) => {
+    if (claimedManaMilestones.has(m.threshold) && m.bonus === 'allBuffs') return acc * m.value;
+    return acc;
+  }, 1);
+
+  // Mana per click: base 1, doubled per upgrade level, plus milestone bonuses
+  const manaPerClick = Math.floor((Math.pow(2, manaClickUpgradeLevel) + manaMilestoneClickBonus) * manaMilestoneAllBonus);
+
+  // Mana click cooldown: base 1500ms, reduced by upgrade
+  const clickCooldownLevel = manaUpgradeLevels['click_cooldown'] || 0;
+  const manaClickCooldown = Math.max(500, 1500 - clickCooldownLevel * 50);
+
+  // Buff duration multiplier from upgrades + milestones
+  const buffDurationUpgradeLevel = manaUpgradeLevels['buff_duration'] || 0;
+  const buffDurationMultiplier = (1 + buffDurationUpgradeLevel * 0.15) * manaMilestoneDurationBonus * manaMilestoneAllBonus;
+
+  // Buff power multiplier from upgrades + milestones
+  const buffPowerUpgradeLevel = manaUpgradeLevels['buff_power'] || 0;
+  const buffPowerMultiplier = (1 + buffPowerUpgradeLevel * 0.10) * manaMilestonePowerBonus * manaMilestoneAllBonus;
+
+  // Buff cost reduction from upgrades
+  const buffCostReductionLevel = manaUpgradeLevels['buff_cost_reduction'] || 0;
+  const buffCostReduction = Math.pow(0.95, buffCostReductionLevel);
+
+  // Passive regen from upgrades
+  const passiveRegenLevel = manaUpgradeLevels['passive_regen'] || 0;
+  const passiveManaPerSec = passiveRegenLevel * manaMilestoneAllBonus;
+
+  // Get multiplier from active mana buffs (additive stacking: 2x + 2x = 4x)
+  const getManaBuffMultiplier = (type: ManaBuffType): number => {
+    let total = 0;
+    for (const buff of activeManaBuffs) {
+      if (buff.type === type) {
+        total += buff.power * buffPowerMultiplier;
+      }
+    }
+    return total > 0 ? total : 1;
+  };
+
+  // Get cost of next buff (exponential with stacking)
+  const getBuffCost = (type: ManaBuffType): number => {
+    const def = MANA_BUFF_DEFINITIONS[type];
+    const currentStacks = activeManaBuffs.filter(b => b.type === type).reduce((sum, b) => sum + b.stackCount, 0);
+    return Math.floor(def.baseCost * Math.pow(def.costExponent, currentStacks) * buffCostReduction);
+  };
+
+  // Mana buff multipliers for game mechanics
+  const manaBuffLuck = getManaBuffMultiplier('luck');
+  const manaBuffPoints = getManaBuffMultiplier('points');
+  const manaBuffSpeed = getManaBuffMultiplier('speed');
+  const manaBuffBulk = getManaBuffMultiplier('bulk');
+  const manaBuffGuaranteedTier = activeManaBuffs.find(b => b.type === 'guaranteed_rare')
+    ? Math.floor(activeManaBuffs.find(b => b.type === 'guaranteed_rare')!.power * buffPowerMultiplier)
+    : -1;
+
+  // Mega buff multipliers
+  const megaBuffLuckMulti = activeMegaBuffs.reduce((acc, mb) => {
+    const def = MEGA_BUFFS.find(d => d.id === mb.id);
+    if (def && 'luckMulti' in def) return acc * (def.luckMulti || 1);
+    if (def && 'allMulti' in def) return acc * (def.allMulti || 1);
+    return acc;
+  }, 1);
+  const megaBuffPointsMulti = activeMegaBuffs.reduce((acc, mb) => {
+    const def = MEGA_BUFFS.find(d => d.id === mb.id);
+    if (def && 'pointsMulti' in def) return acc * (def.pointsMulti || 1);
+    if (def && 'allMulti' in def) return acc * (def.allMulti || 1);
+    return acc;
+  }, 1);
+  const megaBuffSpeedMulti = activeMegaBuffs.reduce((acc, mb) => {
+    const def = MEGA_BUFFS.find(d => d.id === mb.id);
+    if (def && 'allMulti' in def) return acc * (def.allMulti || 1);
+    return acc;
+  }, 1);
+
+  // ============ END MANA DERIVED CALCULATIONS ============
+
   // Apply prestige bulk bonuses
-  const effectiveBulkRollCount = bulkRollCount + rollerPrestigeBulkBonus;
+  const effectiveBulkRollCount = Math.floor((bulkRollCount + rollerPrestigeBulkBonus) * manaBuffBulk);
 
   // Luck calculations
   const baseLuckMulti = Math.pow(1.1, luckLevel);
-  const luckMulti = baseLuckMulti * milestoneLuckBonus * runeLuckBonus * rollerPrestigeLuckBonus;
+  const luckMulti = baseLuckMulti * milestoneLuckBonus * runeLuckBonus * rollerPrestigeLuckBonus * manaBuffLuck * megaBuffLuckMulti;
   const luckUpgradeCost = Math.floor(100 * Math.pow(2, luckLevel) * totalCostReduction);
   const canAffordLuckUpgrade = totalPoints >= luckUpgradeCost;
 
   // Points multiplier calculations
   const basePointsMulti = Math.pow(1.1, pointsMultiLevel);
-  const pointsMulti = basePointsMulti * milestonePointsBonus * runePointsBonus * rollerPrestigePointsBonus;
+  const pointsMulti = basePointsMulti * milestonePointsBonus * runePointsBonus * rollerPrestigePointsBonus * manaBuffPoints * megaBuffPointsMulti;
   const pointsUpgradeCost = Math.floor(100 * Math.pow(2, pointsMultiLevel) * totalCostReduction);
   const canAffordPointsUpgrade = totalPoints >= pointsUpgradeCost;
 
@@ -1786,7 +2053,7 @@ export default function RankRoller() {
     }
   };
   const baseSpeedMulti = Math.pow(1.1, speedLevel);
-  const rawSpeedMulti = baseSpeedMulti * milestoneSpeedBonus * runeSpeedBonus * rollerPrestigeSpeedBonus;
+  const rawSpeedMulti = baseSpeedMulti * milestoneSpeedBonus * runeSpeedBonus * rollerPrestigeSpeedBonus * manaBuffSpeed * megaBuffSpeedMulti;
   const speedMulti = applySpeedSoftCap(rawSpeedMulti);
   const speedUpgradeCost = Math.floor(100 * Math.pow(2, speedLevel) * totalCostReduction);
   const canAffordSpeedUpgrade = totalPoints >= speedUpgradeCost;
@@ -1878,6 +2145,184 @@ export default function RankRoller() {
     }
   };
 
+  // ============ MANA ORB HANDLERS ============
+
+  const handleManaOrbClick = useCallback(() => {
+    const now = Date.now();
+    if (now - lastManaClickTime < manaClickCooldown) return;
+
+    setLastManaClickTime(now);
+    setMana(m => m + manaPerClick);
+    setTotalManaEarned(t => t + manaPerClick);
+
+    // Pulse animation
+    setOrbPulse(true);
+    setTimeout(() => setOrbPulse(false), 300);
+
+    // Floating text
+    setManaFloatIdCounter(prev => {
+      const id = prev + 1;
+      const newText: ManaFloatingText = {
+        id,
+        amount: manaPerClick,
+        x: 50 + (Math.random() - 0.5) * 30,
+        y: 40,
+        createdAt: now,
+      };
+      setManaFloatingTexts(prev => [...prev, newText]);
+      return id;
+    });
+  }, [lastManaClickTime, manaClickCooldown, manaPerClick]);
+
+  const activateManaBuff = useCallback((type: ManaBuffType) => {
+    const cost = getBuffCost(type);
+    if (mana < cost) return;
+    const def = MANA_BUFF_DEFINITIONS[type];
+    const currentStacks = activeManaBuffs.filter(b => b.type === type).reduce((sum, b) => sum + b.stackCount, 0);
+    setMana(m => m - cost);
+    setActiveManaBuffs(prev => [
+      ...prev,
+      {
+        type,
+        power: def.basePower,
+        remainingMs: Math.floor(def.baseDuration * buffDurationMultiplier),
+        totalDurationMs: Math.floor(def.baseDuration * buffDurationMultiplier),
+        stackCount: currentStacks + 1,
+      },
+    ]);
+  }, [mana, activeManaBuffs, buffDurationMultiplier]);
+
+  const handleManaClickUpgrade = useCallback(() => {
+    if (manaClickUpgradeLevel >= MANA_CLICK_UPGRADE_TIERS.length) return;
+    const tier = MANA_CLICK_UPGRADE_TIERS[manaClickUpgradeLevel];
+    if (!hasAnyFromTier(collectedRanks, tier.tierRequired)) return;
+    if (mana < tier.cost) return;
+    setMana(m => m - tier.cost);
+    setManaClickUpgradeLevel(l => l + 1);
+  }, [manaClickUpgradeLevel, mana, collectedRanks]);
+
+  const handleManaUpgrade = useCallback((upgradeId: string) => {
+    const upgradeDef = MANA_UPGRADE_DEFINITIONS.find(u => u.id === upgradeId);
+    if (!upgradeDef) return;
+    const currentLevel = manaUpgradeLevels[upgradeId] || 0;
+    if (currentLevel >= upgradeDef.maxLevel) return;
+    const cost = Math.floor(upgradeDef.baseCost * Math.pow(upgradeDef.costScale, currentLevel));
+    if (mana < cost) return;
+    setMana(m => m - cost);
+    setManaUpgradeLevels(prev => ({ ...prev, [upgradeId]: currentLevel + 1 }));
+  }, [mana, manaUpgradeLevels]);
+
+  const handleClaimManaMilestone = useCallback((threshold: number) => {
+    if (totalManaEarned < threshold) return;
+    if (claimedManaMilestones.has(threshold)) return;
+    setClaimedManaMilestones(prev => {
+      const next = new Set(prev);
+      next.add(threshold);
+      return next;
+    });
+  }, [totalManaEarned, claimedManaMilestones]);
+
+  const handleClaimAllManaMilestones = useCallback(() => {
+    const unclaimed = MANA_MILESTONES.filter(m => totalManaEarned >= m.threshold && !claimedManaMilestones.has(m.threshold));
+    if (unclaimed.length === 0) return;
+    setClaimedManaMilestones(prev => {
+      const next = new Set(prev);
+      unclaimed.forEach(m => next.add(m.threshold));
+      return next;
+    });
+  }, [totalManaEarned, claimedManaMilestones]);
+
+  const handleActivateMegaBuff = useCallback((megaBuffId: string) => {
+    const def = MEGA_BUFFS.find(d => d.id === megaBuffId);
+    if (!def) return;
+    if (mana < def.cost) return;
+    setMana(m => m - def.cost);
+    setActiveMegaBuffs(prev => [
+      ...prev,
+      { id: megaBuffId, remainingMs: def.duration, totalDurationMs: def.duration },
+    ]);
+  }, [mana]);
+
+  // Buff countdown timer
+  useEffect(() => {
+    if (activeManaBuffs.length === 0 && activeMegaBuffs.length === 0) return;
+    const timer = setInterval(() => {
+      setActiveManaBuffs(prev => {
+        const updated = prev.map(b => ({ ...b, remainingMs: b.remainingMs - 100 }));
+        return updated.filter(b => b.remainingMs > 0);
+      });
+      setActiveMegaBuffs(prev => {
+        const updated = prev.map(b => ({ ...b, remainingMs: b.remainingMs - 100 }));
+        return updated.filter(b => b.remainingMs > 0);
+      });
+    }, 100);
+    return () => clearInterval(timer);
+  }, [activeManaBuffs.length, activeMegaBuffs.length]);
+
+  // Floating text cleanup
+  useEffect(() => {
+    if (manaFloatingTexts.length === 0) return;
+    const timer = setInterval(() => {
+      const now = Date.now();
+      setManaFloatingTexts(prev => prev.filter(t => now - t.createdAt < 1500));
+    }, 500);
+    return () => clearInterval(timer);
+  }, [manaFloatingTexts.length]);
+
+  // Passive mana regen
+  useEffect(() => {
+    if (passiveManaPerSec <= 0) return;
+    const timer = setInterval(() => {
+      const regenAmount = Math.floor(passiveManaPerSec);
+      if (regenAmount > 0) {
+        setMana(m => m + regenAmount);
+        setTotalManaEarned(t => t + regenAmount);
+      }
+    }, 1000);
+    return () => clearInterval(timer);
+  }, [passiveManaPerSec]);
+
+  // Auto-orb buff
+  useEffect(() => {
+    const autoOrbBuff = activeManaBuffs.find(b => b.type === 'auto_orb');
+    if (!autoOrbBuff) return;
+    const timer = setInterval(() => {
+      setMana(m => m + manaPerClick);
+      setTotalManaEarned(t => t + manaPerClick);
+    }, 1000);
+    return () => clearInterval(timer);
+  }, [activeManaBuffs, manaPerClick]);
+
+  // Mana orb unlock detection
+  const manaOrbShouldUnlock = hasAnyFromTier(collectedRanks, 5);
+  useEffect(() => {
+    if (manaOrbShouldUnlock && !manaOrbUnlocked) {
+      setManaOrbUnlocked(true);
+      setManaOrbUnlockAnimating(true);
+      setTimeout(() => setManaOrbUnlockAnimating(false), 3000);
+    }
+  }, [manaOrbShouldUnlock, manaOrbUnlocked]);
+
+  // Guaranteed roll function
+  const rollRankWithLuckAndGuarantee = useCallback((ranksArr: Rank[], luck: number, minTierIndex: number): Rank => {
+    if (minTierIndex <= 0) return rollRankWithLuck(ranksArr, luck);
+    // Filter to only ranks at or above the minimum tier
+    const minIndex = minTierIndex * 10;
+    const eligibleRanks = ranksArr.filter(r => r.index >= minIndex);
+    if (eligibleRanks.length === 0) return rollRankWithLuck(ranksArr, luck);
+    // Roll with luck among eligible ranks
+    const effectiveWeights = eligibleRanks.map(r => r.weight * Math.pow(luck, r.index / 99));
+    const totalWeight = effectiveWeights.reduce((sum, w) => sum + w, 0);
+    let random = Math.random() * totalWeight;
+    for (let i = 0; i < eligibleRanks.length; i++) {
+      random -= effectiveWeights[i];
+      if (random <= 0) return eligibleRanks[i];
+    }
+    return eligibleRanks[0];
+  }, []);
+
+  // ============ END MANA ORB HANDLERS ============
+
   // Calculate which tiers are complete
   const completeTiers = useMemo(() => {
     const complete = new Set<string>();
@@ -1889,8 +2334,19 @@ export default function RankRoller() {
       }
       if (count === 10) complete.add(tier);
     });
+    // Prestige tiers complete at 5 ranks
+    if (rollerPrestigeLevel > 0) {
+      PRESTIGE_TIER_NAMES.forEach((tier, prestigeTierIndex) => {
+        const startIdx = 100 + prestigeTierIndex * 5;
+        let count = 0;
+        for (let i = 0; i < 5; i++) {
+          if (collectedRanks.has(startIdx + i)) count++;
+        }
+        if (count === 5) complete.add(tier);
+      });
+    }
     return complete;
-  }, [collectedRanks]);
+  }, [collectedRanks, rollerPrestigeLevel]);
 
   const toggleTierExpansion = (tier: string) => {
     setExpandedTiers((prev) => {
@@ -2069,6 +2525,10 @@ export default function RankRoller() {
       setRuneBulkRollLevel(0);
       setRuneSpeedLevel(0);
       // DON'T reset rune prestige - keep it
+      // Reset active mana buffs but keep mana, upgrades, and milestones
+      setActiveManaBuffs([]);
+      setActiveMegaBuffs([]);
+      setShowManaOrb(false);
 
       // Clear loading state after resets complete
       setTimeout(() => setIsPrestigeResetting(false), 50);
@@ -2144,6 +2604,19 @@ export default function RankRoller() {
       // Reset prestige levels
       setRollerPrestigeLevel(0);
       setRunePrestigeLevel(0);
+      // Reset mana data
+      setMana(0);
+      setTotalManaEarned(0);
+      setManaClickUpgradeLevel(0);
+      setManaUpgradeLevels({});
+      setActiveManaBuffs([]);
+      setClaimedManaMilestones(new Set());
+      setShowManaOrb(false);
+      setManaOrbUnlocked(false);
+      setManaOrbUnlockAnimating(false);
+      setLastManaClickTime(0);
+      setManaFloatingTexts([]);
+      setActiveMegaBuffs([]);
     }
   };
 
@@ -2371,13 +2844,27 @@ export default function RankRoller() {
     collectedRunesRef.current = collectedRunes;
   }, [collectedRunes]);
 
+  useEffect(() => {
+    manaRef.current = mana;
+  }, [mana]);
+
+  useEffect(() => {
+    activeManaBuffsRef.current = activeManaBuffs;
+  }, [activeManaBuffs]);
+
+  useEffect(() => {
+    activeMegaBuffsRef.current = activeMegaBuffs;
+  }, [activeMegaBuffs]);
+
   const handleRoll = useCallback(() => {
     setIsRolling(true);
 
     // Simulate actual rolls for animation
     let animationCount = 0;
     const rollTimer = setInterval(() => {
-      const simulatedRoll = rollRankWithLuck(ranks, luckMulti);
+      const simulatedRoll = manaBuffGuaranteedTier > 0
+        ? rollRankWithLuckAndGuarantee(ranks, luckMulti, manaBuffGuaranteedTier)
+        : rollRankWithLuck(ranks, luckMulti);
       setCurrentRoll(simulatedRoll);
       animationCount++;
 
@@ -2387,7 +2874,9 @@ export default function RankRoller() {
         // Bulk roll - roll multiple times based on effectiveBulkRollCount
         const results: Rank[] = [];
         for (let i = 0; i < effectiveBulkRollCount; i++) {
-          results.push(rollRankWithLuck(ranks, luckMulti));
+          results.push(manaBuffGuaranteedTier > 0
+            ? rollRankWithLuckAndGuarantee(ranks, luckMulti, manaBuffGuaranteedTier)
+            : rollRankWithLuck(ranks, luckMulti));
         }
 
         // Find the best result to display
@@ -2440,7 +2929,7 @@ export default function RankRoller() {
         setIsRolling(false);
       }
     }, animationInterval);
-  }, [ranks, luckMulti, pointsMulti, animationInterval, highestRank, ascendedRanks, effectiveBulkRollCount, lightAscensionBonus]);
+  }, [ranks, luckMulti, pointsMulti, animationInterval, highestRank, ascendedRanks, effectiveBulkRollCount, lightAscensionBonus, manaBuffGuaranteedTier, rollRankWithLuckAndGuarantee]);
 
   // Instant roll for auto-roll (no animation, just results)
   // Uses simulation optimization: if rolls exceed cap, simulate fewer rolls and multiply results
@@ -2460,7 +2949,9 @@ export default function RankRoller() {
     // Roll the simulated amount
     const results: Rank[] = [];
     for (let i = 0; i < simulatedRolls; i++) {
-      results.push(rollRankWithLuck(ranks, luckMulti));
+      results.push(manaBuffGuaranteedTier > 0
+        ? rollRankWithLuckAndGuarantee(ranks, luckMulti, manaBuffGuaranteedTier)
+        : rollRankWithLuck(ranks, luckMulti));
     }
 
     // Find the best result to display
@@ -2524,7 +3015,7 @@ export default function RankRoller() {
       setHighestRank(bestResult);
       setHighestRankRoll(newRollCount);
     }
-  }, [ranks, luckMulti, pointsMulti, highestRank, ascendedRanks, effectiveBulkRollCount, lightAscensionBonus, collectedRanks]);
+  }, [ranks, luckMulti, pointsMulti, highestRank, ascendedRanks, effectiveBulkRollCount, lightAscensionBonus, collectedRanks, manaBuffGuaranteedTier, rollRankWithLuckAndGuarantee]);
 
   // Check if auto-roll is unlocked (slow at 100 rolls, fast at 5000 rolls)
   const slowAutoRollUnlocked = claimedMilestones.has('rolls_100');
@@ -2697,6 +3188,292 @@ export default function RankRoller() {
     // Use word format for very rare (1 in 100M+)
     return `1 in ${oneIn >= 1e8 ? formatNumber(oneIn) : oneIn.toLocaleString()}`;
   };
+
+  // Mana Orb Screen
+  if (showManaOrb && manaOrbUnlocked) {
+    const unclaimedManaMilestonesList = MANA_MILESTONES.filter(m => totalManaEarned >= m.threshold && !claimedManaMilestones.has(m.threshold));
+    const cooldownPercent = Math.min(1, (Date.now() - lastManaClickTime) / manaClickCooldown);
+
+    return (
+      <div style={styles.container}>
+        <button
+          onClick={() => setShowManaOrb(false)}
+          style={styles.backBtn}
+        >
+          &larr; Back
+        </button>
+
+        <h1 style={styles.manaTitle}>Mana Orb</h1>
+
+        {/* Mana display */}
+        <div style={styles.manaDisplay}>
+          <span style={styles.manaLabel}>Mana</span>
+          <span style={styles.manaValue}>{formatNumber(mana)}</span>
+          <span style={styles.manaRate}>{formatNumber(manaPerClick)} per click{passiveManaPerSec > 0 ? ` + ${formatNumber(passiveManaPerSec)}/sec` : ''}</span>
+        </div>
+
+        {/* The Orb */}
+        <div style={styles.manaOrbContainer}>
+          <div
+            onClick={handleManaOrbClick}
+            style={{
+              ...styles.manaOrb,
+              transform: orbPulse ? 'scale(1.15)' : 'scale(1)',
+              boxShadow: orbPulse
+                ? '0 0 60px rgba(100, 150, 255, 0.8), 0 0 120px rgba(100, 150, 255, 0.4)'
+                : '0 0 30px rgba(100, 150, 255, 0.5), 0 0 60px rgba(100, 150, 255, 0.2)',
+            }}
+          />
+          {/* Floating texts */}
+          {manaFloatingTexts.map(ft => (
+            <div
+              key={ft.id}
+              style={{
+                position: 'absolute',
+                left: `${ft.x}%`,
+                top: `${ft.y}%`,
+                color: '#88bbff',
+                fontSize: '1.2rem',
+                fontWeight: 'bold',
+                pointerEvents: 'none',
+                animation: 'manaFloatUp 1.5s ease-out forwards',
+                textShadow: '0 0 10px rgba(100, 150, 255, 0.8)',
+              }}
+            >
+              +{formatNumber(ft.amount)}
+            </div>
+          ))}
+          {/* Cooldown bar */}
+          <div style={styles.manaCooldownBar}>
+            <div style={{
+              ...styles.manaCooldownFill,
+              width: `${cooldownPercent * 100}%`,
+              backgroundColor: cooldownPercent >= 1 ? '#88bbff' : '#445566',
+            }} />
+          </div>
+        </div>
+
+        {/* Buffs Section */}
+        <h2 style={styles.manaSectionTitle}>Buffs</h2>
+        <div style={styles.manaBuffGrid}>
+          {(Object.values(MANA_BUFF_DEFINITIONS) as ManaBuffDefinition[]).map(def => {
+            const cost = getBuffCost(def.id);
+            const canAfford = mana >= cost;
+            const activeCount = activeManaBuffs.filter(b => b.type === def.id).length;
+            return (
+              <div key={def.id} style={{
+                ...styles.manaBuffCard,
+                borderColor: def.color,
+                boxShadow: activeCount > 0 ? `0 0 15px ${def.color}40` : 'none',
+              }}>
+                <div style={{ color: def.color, fontWeight: 'bold', fontSize: '0.95rem' }}>{def.name}</div>
+                <div style={{ color: '#aaa', fontSize: '0.75rem', margin: '4px 0' }}>{def.description}</div>
+                <div style={{ color: '#888', fontSize: '0.75rem' }}>
+                  Power: {def.basePower}x | Duration: {(def.baseDuration * buffDurationMultiplier / 1000).toFixed(0)}s
+                </div>
+                {activeCount > 0 && (
+                  <div style={{ color: def.color, fontSize: '0.75rem' }}>Active: {activeCount} stack{activeCount > 1 ? 's' : ''}</div>
+                )}
+                <button
+                  onClick={() => activateManaBuff(def.id)}
+                  disabled={!canAfford}
+                  style={{
+                    ...styles.manaBuffBuyBtn,
+                    backgroundColor: canAfford ? def.color : '#333',
+                    color: canAfford ? '#000' : '#666',
+                    cursor: canAfford ? 'pointer' : 'not-allowed',
+                  }}
+                >
+                  Buy ({formatNumber(cost)} mana)
+                </button>
+              </div>
+            );
+          })}
+        </div>
+
+        {/* Mega Buffs */}
+        {totalManaEarned >= 1000000 && (
+          <>
+            <h2 style={styles.manaSectionTitle}>Mega Buffs</h2>
+            <div style={styles.manaBuffGrid}>
+              {MEGA_BUFFS.map(mb => {
+                const canAfford = mana >= mb.cost;
+                const isActive = activeMegaBuffs.some(b => b.id === mb.id);
+                return (
+                  <div key={mb.id} style={{
+                    ...styles.manaBuffCard,
+                    borderColor: '#ffd700',
+                    boxShadow: isActive ? '0 0 20px rgba(255, 215, 0, 0.4)' : 'none',
+                  }}>
+                    <div style={{ color: '#ffd700', fontWeight: 'bold', fontSize: '0.95rem' }}>{mb.name}</div>
+                    <div style={{ color: '#aaa', fontSize: '0.75rem', margin: '4px 0' }}>{mb.description}</div>
+                    {isActive && (
+                      <div style={{ color: '#ffd700', fontSize: '0.75rem' }}>ACTIVE</div>
+                    )}
+                    <button
+                      onClick={() => handleActivateMegaBuff(mb.id)}
+                      disabled={!canAfford}
+                      style={{
+                        ...styles.manaBuffBuyBtn,
+                        backgroundColor: canAfford ? '#ffd700' : '#333',
+                        color: canAfford ? '#000' : '#666',
+                        cursor: canAfford ? 'pointer' : 'not-allowed',
+                      }}
+                    >
+                      Buy ({formatNumber(mb.cost)} mana)
+                    </button>
+                  </div>
+                );
+              })}
+            </div>
+          </>
+        )}
+
+        {/* Upgrades Section */}
+        <h2 style={styles.manaSectionTitle}>Upgrades</h2>
+        <div style={styles.manaUpgradeGrid}>
+          {/* Mana Potency (tier-gated click upgrade) */}
+          {manaClickUpgradeLevel < MANA_CLICK_UPGRADE_TIERS.length && (() => {
+            const tier = MANA_CLICK_UPGRADE_TIERS[manaClickUpgradeLevel];
+            const tierUnlocked = hasAnyFromTier(collectedRanks, tier.tierRequired);
+            const canAfford = mana >= tier.cost && tierUnlocked;
+            return (
+              <div style={styles.manaUpgradeCard}>
+                <div style={{ color: '#88bbff', fontWeight: 'bold' }}>{tier.name}</div>
+                <div style={{ color: '#aaa', fontSize: '0.75rem' }}>Doubles mana per click (Lv {manaClickUpgradeLevel}/{MANA_CLICK_UPGRADE_TIERS.length})</div>
+                {!tierUnlocked && <div style={{ color: '#ff6666', fontSize: '0.7rem' }}>Requires {TIER_NAMES[tier.tierRequired]} tier</div>}
+                <button
+                  onClick={handleManaClickUpgrade}
+                  disabled={!canAfford}
+                  style={{
+                    ...styles.manaUpgradeBuyBtn,
+                    opacity: canAfford ? 1 : 0.5,
+                    cursor: canAfford ? 'pointer' : 'not-allowed',
+                  }}
+                >
+                  {formatNumber(tier.cost)} mana
+                </button>
+              </div>
+            );
+          })()}
+          {manaClickUpgradeLevel >= MANA_CLICK_UPGRADE_TIERS.length && (
+            <div style={styles.manaUpgradeCard}>
+              <div style={{ color: '#88bbff', fontWeight: 'bold' }}>Mana Potency MAX</div>
+              <div style={{ color: '#aaa', fontSize: '0.75rem' }}>Lv {manaClickUpgradeLevel}/{MANA_CLICK_UPGRADE_TIERS.length}</div>
+            </div>
+          )}
+          {/* General upgrades */}
+          {MANA_UPGRADE_DEFINITIONS.map(upgDef => {
+            const currentLevel = manaUpgradeLevels[upgDef.id] || 0;
+            const cost = Math.floor(upgDef.baseCost * Math.pow(upgDef.costScale, currentLevel));
+            const canAfford = mana >= cost && currentLevel < upgDef.maxLevel;
+            const isMaxed = currentLevel >= upgDef.maxLevel;
+            return (
+              <div key={upgDef.id} style={styles.manaUpgradeCard}>
+                <div style={{ color: '#88bbff', fontWeight: 'bold' }}>{upgDef.name}</div>
+                <div style={{ color: '#aaa', fontSize: '0.75rem' }}>{upgDef.description}</div>
+                <div style={{ color: '#888', fontSize: '0.7rem' }}>Lv {currentLevel}/{upgDef.maxLevel}</div>
+                {!isMaxed ? (
+                  <button
+                    onClick={() => handleManaUpgrade(upgDef.id)}
+                    disabled={!canAfford}
+                    style={{
+                      ...styles.manaUpgradeBuyBtn,
+                      opacity: canAfford ? 1 : 0.5,
+                      cursor: canAfford ? 'pointer' : 'not-allowed',
+                    }}
+                  >
+                    {formatNumber(cost)} mana
+                  </button>
+                ) : (
+                  <div style={{ color: '#88bbff', fontSize: '0.75rem', fontWeight: 'bold' }}>MAX</div>
+                )}
+              </div>
+            );
+          })}
+        </div>
+
+        {/* Milestones Section */}
+        <h2 style={styles.manaSectionTitle}>Mana Milestones</h2>
+        {unclaimedManaMilestonesList.length > 0 && (
+          <button
+            onClick={handleClaimAllManaMilestones}
+            style={styles.manaClaimAllBtn}
+          >
+            Claim All ({unclaimedManaMilestonesList.length})
+          </button>
+        )}
+        <div style={styles.manaMilestoneList}>
+          {MANA_MILESTONES.map(ms => {
+            const reached = totalManaEarned >= ms.threshold;
+            const claimed = claimedManaMilestones.has(ms.threshold);
+            return (
+              <div key={ms.threshold} style={{
+                ...styles.manaMilestoneItem,
+                opacity: reached ? 1 : 0.4,
+                borderColor: claimed ? '#88bbff' : reached ? '#ffd700' : '#333',
+              }}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                  <div>
+                    <span style={{ color: claimed ? '#88bbff' : '#fff', fontWeight: 'bold' }}>{ms.name}</span>
+                    <span style={{ color: '#888', fontSize: '0.8rem', marginLeft: '10px' }}>{formatNumber(ms.threshold)} total mana</span>
+                  </div>
+                  {reached && !claimed && (
+                    <button
+                      onClick={() => handleClaimManaMilestone(ms.threshold)}
+                      style={styles.manaMilestoneClaimBtn}
+                    >
+                      Claim
+                    </button>
+                  )}
+                  {claimed && <span style={{ color: '#88bbff', fontSize: '0.8rem' }}>Claimed</span>}
+                </div>
+                <div style={{ color: '#aaa', fontSize: '0.75rem', marginTop: '4px' }}>{ms.description}</div>
+              </div>
+            );
+          })}
+        </div>
+
+        {/* Active Buffs Panel (middle-left) */}
+        {(activeManaBuffs.length > 0 || activeMegaBuffs.length > 0) && (
+          <div style={styles.activeBuffsOverlay}>
+            <h3 style={{ margin: '0 0 8px 0', fontSize: '0.85rem', color: '#88bbff', borderBottom: '1px solid rgba(100, 150, 255, 0.3)', paddingBottom: '6px' }}>Active Buffs</h3>
+            {activeManaBuffs.map((buff, i) => {
+              const def = MANA_BUFF_DEFINITIONS[buff.type];
+              const pct = (buff.remainingMs / buff.totalDurationMs) * 100;
+              return (
+                <div key={`${buff.type}-${i}`} style={{ marginBottom: '6px' }}>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.8rem' }}>
+                    <span style={{ color: def.color }}>{def.name}</span>
+                    <span style={{ color: '#aaa' }}>{(buff.remainingMs / 1000).toFixed(1)}s</span>
+                  </div>
+                  <div style={{ height: '3px', backgroundColor: '#222', borderRadius: '2px', marginTop: '2px' }}>
+                    <div style={{ height: '100%', width: `${pct}%`, backgroundColor: def.color, borderRadius: '2px', transition: 'width 0.1s' }} />
+                  </div>
+                </div>
+              );
+            })}
+            {activeMegaBuffs.map((buff, i) => {
+              const def = MEGA_BUFFS.find(d => d.id === buff.id);
+              if (!def) return null;
+              const pct = (buff.remainingMs / buff.totalDurationMs) * 100;
+              return (
+                <div key={`mega-${buff.id}-${i}`} style={{ marginBottom: '6px' }}>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.8rem' }}>
+                    <span style={{ color: '#ffd700' }}>{def.name}</span>
+                    <span style={{ color: '#aaa' }}>{(buff.remainingMs / 1000).toFixed(1)}s</span>
+                  </div>
+                  <div style={{ height: '3px', backgroundColor: '#222', borderRadius: '2px', marginTop: '2px' }}>
+                    <div style={{ height: '100%', width: `${pct}%`, backgroundColor: '#ffd700', borderRadius: '2px', transition: 'width 0.1s' }} />
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        )}
+      </div>
+    );
+  }
 
   // Runes Screen
   if (showRunes) {
@@ -2949,7 +3726,7 @@ export default function RankRoller() {
             cursor: !canAffordRuneRoll || isRollingRune || runeAutoRollEnabled ? 'not-allowed' : 'pointer',
           }}
         >
-          {isRollingRune ? 'Rolling...' : `ROLL RUNE (${runeRollCost.toLocaleString()} pts)`}
+          {isRollingRune ? 'Rolling...' : `ROLL RUNE (${runeRollCost >= 1e15 ? formatNumber(runeRollCost) : runeRollCost.toLocaleString()} pts)`}
         </button>
 
         {/* Rune Auto Roll Button */}
@@ -3310,7 +4087,65 @@ export default function RankRoller() {
             Runes
           </button>
         )}
+        {manaOrbUnlocked && (
+          <button
+            onClick={() => setShowManaOrb(true)}
+            style={styles.manaOrbBtn}
+          >
+            Mana Orb
+          </button>
+        )}
       </div>
+
+      {/* Mana Buff Overlay on Main Screen */}
+      {(activeManaBuffs.length > 0 || activeMegaBuffs.length > 0) && !showManaOrb && (
+        <div style={styles.activeBuffsOverlayMain}>
+          <h3 style={{ margin: '0 0 6px 0', fontSize: '0.8rem', color: '#88bbff', borderBottom: '1px solid rgba(100, 150, 255, 0.3)', paddingBottom: '4px' }}>Mana Buffs</h3>
+          {activeManaBuffs.map((buff, i) => {
+            const def = MANA_BUFF_DEFINITIONS[buff.type];
+            return (
+              <div key={`main-${buff.type}-${i}`} style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.75rem', marginBottom: '3px' }}>
+                <span style={{ color: def.color }}>{def.name}</span>
+                <span style={{ color: '#aaa' }}>{(buff.remainingMs / 1000).toFixed(0)}s</span>
+              </div>
+            );
+          })}
+          {activeMegaBuffs.map((buff, i) => {
+            const def = MEGA_BUFFS.find(d => d.id === buff.id);
+            if (!def) return null;
+            return (
+              <div key={`main-mega-${buff.id}-${i}`} style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.75rem', marginBottom: '3px' }}>
+                <span style={{ color: '#ffd700' }}>{def.name}</span>
+                <span style={{ color: '#aaa' }}>{(buff.remainingMs / 1000).toFixed(0)}s</span>
+              </div>
+            );
+          })}
+        </div>
+      )}
+
+      {/* Mana Orb Unlock Animation */}
+      {manaOrbUnlockAnimating && (
+        <div style={styles.manaUnlockOverlay}>
+          <div style={styles.manaUnlockContent}>
+            <div style={{ fontSize: '3rem', marginBottom: '20px', animation: 'orbReveal 2s ease-out' }}>
+              <div style={{
+                width: '100px',
+                height: '100px',
+                borderRadius: '50%',
+                background: 'radial-gradient(circle at 35% 35%, #aaccff, #4488ff, #2244aa)',
+                margin: '0 auto 20px auto',
+                boxShadow: '0 0 60px rgba(100, 150, 255, 0.8), 0 0 120px rgba(100, 150, 255, 0.4)',
+              }} />
+            </div>
+            <h2 style={{ color: '#88bbff', fontSize: '2rem', margin: '0 0 10px 0', textShadow: '0 0 20px rgba(100, 150, 255, 0.8)' }}>
+              Mana Orb Unlocked!
+            </h2>
+            <p style={{ color: '#aaa', fontSize: '1rem' }}>
+              Click the orb to generate mana and purchase powerful buffs
+            </p>
+          </div>
+        </div>
+      )}
 
       {/* Stats Display - Next to Upgrades */}
       <div className="stats-panel" style={styles.statsPanel}>
@@ -4260,7 +5095,7 @@ export default function RankRoller() {
                       >
                         <div style={styles.tierHeaderName}>{tier} (Complete)</div>
                         <div style={styles.tierHeaderPoints}>
-                          {getTierTotalPoints(tierIndex).toLocaleString()} pts
+                          {(() => { const tp = getTierTotalPoints(tierIndex); return tp >= 1e15 ? formatNumber(tp) : tp.toLocaleString(); })()} pts
                         </div>
                         <div style={styles.collapseHint}>Click to collapse</div>
                       </div>
@@ -4289,7 +5124,7 @@ export default function RankRoller() {
                                 {formatProbability(getEffectiveProbability(rank, ranks, showOriginalChances ? 1 : luckMulti))}
                               </div>
                               <div style={styles.tierRankPoints}>
-                                {points.toLocaleString()} pts
+                                {points >= 1e15 ? formatNumber(points) : points.toLocaleString()} pts
                               </div>
                               <div style={styles.tierRankRolls}>
                                 {(rankRollCounts[rank.index] || 0).toLocaleString()}x
@@ -4383,7 +5218,7 @@ export default function RankRoller() {
                         {formatProbability(getEffectiveProbability(rank, ranks, showOriginalChances ? 1 : luckMulti))}
                       </div>
                       <div style={styles.catalogueItemPoints}>
-                        {points >= 1e12 ? formatNumber(points) : points.toLocaleString()} pts
+                        {points >= 1e15 ? formatNumber(points) : points.toLocaleString()} pts
                       </div>
                       <div style={styles.catalogueItemRolls}>
                         Rolled: {(rankRollCounts[rank.index] || 0).toLocaleString()}x
@@ -4407,30 +5242,122 @@ export default function RankRoller() {
 
               if (collectedInTier.length === 0) return null;
 
-              // Just show the ranks without complete/expansion logic for prestige tiers
-              return tierRanks
-                .filter((rank) => collectedRanks.has(rank.index))
+              const isComplete = completeTiers.has(tier);
+              const isExpanded = expandedTiers.has(tier);
+
+              // Complete prestige tier - show condensed or expanded
+              if (isComplete) {
+                if (isExpanded) {
+                  return (
+                    <div key={tier} style={styles.tierGroup}>
+                      <div
+                        onClick={() => toggleTierExpansion(tier)}
+                        style={{
+                          ...styles.tierHeader,
+                          backgroundColor: tierColors.bg,
+                          color: tierColors.text,
+                          boxShadow: `0 0 10px ${tierColors.glow}`,
+                        }}
+                      >
+                        <div style={styles.tierHeaderName}>{tier} (Complete)</div>
+                        <div style={styles.collapseHint}>Click to collapse</div>
+                      </div>
+                      <div style={styles.tierRanksGrid}>
+                        {tierRanks.map((rank) => {
+                          const points = getDisplayPoints(rank);
+                          const isAscended = (ascendedRanks.get(rank.index) || 0) > 0;
+                          const isAscendable = canAscend(rank.index);
+                          return (
+                            <div
+                              key={rank.index}
+                              onClick={() => isAscendable && setAscendPrompt(rank.index)}
+                              style={{
+                                ...styles.tierRankItem,
+                                backgroundColor: tierColors.bg,
+                                color: tierColors.text,
+                                ...(isAscended ? styles.ascendedRank : {}),
+                                ...(isAscendable ? styles.ascendableRank : {}),
+                                cursor: isAscendable ? 'pointer' : 'default',
+                              }}
+                            >
+                              <div style={styles.tierRankNumber}>
+                                {rank.tierNumber}{getAscensionStars(rank.index, ascendedRanks)}<AscensionStar5 rankIndex={rank.index} ascendedRanks={ascendedRanks} rollerPrestigeLevel={rollerPrestigeLevel} />
+                              </div>
+                              <div style={styles.tierRankChance}>
+                                {formatProbability(getEffectiveProbability(rank, ranks, showOriginalChances ? 1 : luckMulti))}
+                              </div>
+                              <div style={styles.tierRankPoints}>
+                                {points >= 1e15 ? formatNumber(points) : points.toLocaleString()} pts
+                              </div>
+                              <div style={styles.tierRankRolls}>
+                                {(rankRollCounts[rank.index] || 0).toLocaleString()}x
+                              </div>
+                              {rollCount > 0 && (
+                                <div style={styles.tierRankPercent}>
+                                  {(((rankRollCounts[rank.index] || 0) / rollCount) * 100).toFixed(5)}%
+                                </div>
+                              )}
+                            </div>
+                          );
+                        })}
+                      </div>
+                    </div>
+                  );
+                } else {
+                  // Condensed view
+                  const prestigeTierRollCount = tierRanks.reduce((sum, r) => sum + (rankRollCounts[r.index] || 0), 0);
+                  return (
+                    <div
+                      key={tier}
+                      onClick={() => toggleTierExpansion(tier)}
+                      style={{
+                        ...styles.catalogueItem,
+                        ...styles.completeTier,
+                        backgroundColor: tierColors.bg,
+                        color: tierColors.text,
+                        boxShadow: `0 0 15px ${tierColors.glow}`,
+                      }}
+                    >
+                      <div style={styles.catalogueItemName}>{tier}</div>
+                      <div style={styles.completeLabel}>COMPLETE</div>
+                      <div style={styles.catalogueItemRolls}>
+                        Rolled: {prestigeTierRollCount.toLocaleString()}x
+                      </div>
+                    </div>
+                  );
+                }
+              }
+
+              // Incomplete prestige tier - show individual ranks
+              return collectedInTier
+                .sort((a, b) => b.index - a.index)
                 .map((rank) => {
                   const points = getDisplayPoints(rank);
+                  const isAscended = (ascendedRanks.get(rank.index) || 0) > 0;
+                  const isAscendable = canAscend(rank.index);
                   return (
                     <div
                       key={rank.index}
                       className="catalogue-item"
+                      onClick={() => isAscendable && setAscendPrompt(rank.index)}
                       style={{
                         ...styles.catalogueItem,
                         backgroundColor: tierColors.bg,
                         color: tierColors.text,
                         boxShadow: `0 0 10px ${tierColors.glow}`,
+                        ...(isAscended ? styles.ascendedRank : {}),
+                        ...(isAscendable ? styles.ascendableRank : {}),
+                        cursor: isAscendable ? 'pointer' : 'default',
                       }}
                     >
                       <div className="catalogue-item-name" style={styles.catalogueItemName}>
-                        {rank.displayName}
+                        {rank.displayName}{getAscensionStars(rank.index, ascendedRanks)}<AscensionStar5 rankIndex={rank.index} ascendedRanks={ascendedRanks} rollerPrestigeLevel={rollerPrestigeLevel} />
                       </div>
                       <div style={styles.catalogueItemChance}>
                         {formatProbability(getEffectiveProbability(rank, ranks, showOriginalChances ? 1 : luckMulti))}
                       </div>
                       <div style={styles.catalogueItemPoints}>
-                        {points >= 1e12 ? formatNumber(points) : points.toLocaleString()} pts
+                        {points >= 1e15 ? formatNumber(points) : points.toLocaleString()} pts
                       </div>
                       <div style={styles.catalogueItemRolls}>
                         Rolled: {(rankRollCounts[rank.index] || 0).toLocaleString()}x
@@ -5654,4 +6581,220 @@ const styles: Record<string, React.CSSProperties> = {
     borderRadius: '4px',
     fontFamily: 'monospace',
   },
+  // ============ MANA ORB STYLES ============
+  manaTitle: {
+    fontSize: '3rem',
+    marginTop: '60px',
+    marginBottom: '20px',
+    textShadow: '0 0 20px rgba(100, 150, 255, 0.5)',
+    color: '#88bbff',
+  } as React.CSSProperties,
+  manaDisplay: {
+    display: 'flex',
+    flexDirection: 'column',
+    alignItems: 'center',
+    gap: '5px',
+    marginBottom: '20px',
+  } as React.CSSProperties,
+  manaLabel: {
+    fontSize: '1rem',
+    color: '#888',
+  } as React.CSSProperties,
+  manaValue: {
+    fontSize: '2.5rem',
+    fontWeight: 'bold',
+    color: '#88bbff',
+    textShadow: '0 0 15px rgba(100, 150, 255, 0.5)',
+  } as React.CSSProperties,
+  manaRate: {
+    fontSize: '0.9rem',
+    color: '#6699cc',
+  } as React.CSSProperties,
+  manaOrbContainer: {
+    position: 'relative',
+    width: '200px',
+    height: '220px',
+    display: 'flex',
+    flexDirection: 'column',
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginBottom: '30px',
+  } as React.CSSProperties,
+  manaOrb: {
+    width: '150px',
+    height: '150px',
+    borderRadius: '50%',
+    background: 'radial-gradient(circle at 35% 35%, #aaccff, #4488ff, #2244aa, #112266)',
+    cursor: 'pointer',
+    transition: 'transform 0.15s ease, box-shadow 0.15s ease',
+    boxShadow: '0 0 30px rgba(100, 150, 255, 0.5), 0 0 60px rgba(100, 150, 255, 0.2)',
+    userSelect: 'none',
+  } as React.CSSProperties,
+  manaCooldownBar: {
+    width: '120px',
+    height: '6px',
+    backgroundColor: '#222',
+    borderRadius: '3px',
+    marginTop: '15px',
+    overflow: 'hidden',
+  } as React.CSSProperties,
+  manaCooldownFill: {
+    height: '100%',
+    borderRadius: '3px',
+    transition: 'width 0.1s linear',
+  } as React.CSSProperties,
+  manaSectionTitle: {
+    fontSize: '1.5rem',
+    color: '#88bbff',
+    margin: '20px 0 15px 0',
+    textAlign: 'center',
+  } as React.CSSProperties,
+  manaBuffGrid: {
+    display: 'grid',
+    gridTemplateColumns: 'repeat(auto-fill, minmax(200px, 1fr))',
+    gap: '12px',
+    width: '100%',
+    maxWidth: '900px',
+    marginBottom: '20px',
+  } as React.CSSProperties,
+  manaBuffCard: {
+    backgroundColor: 'rgba(20, 30, 50, 0.9)',
+    borderRadius: '10px',
+    padding: '12px',
+    border: '1px solid #334',
+    display: 'flex',
+    flexDirection: 'column',
+    gap: '4px',
+    textAlign: 'center',
+  } as React.CSSProperties,
+  manaBuffBuyBtn: {
+    padding: '6px 12px',
+    fontSize: '0.8rem',
+    fontWeight: 'bold',
+    border: 'none',
+    borderRadius: '6px',
+    marginTop: '6px',
+    transition: 'all 0.2s ease',
+  } as React.CSSProperties,
+  manaUpgradeGrid: {
+    display: 'grid',
+    gridTemplateColumns: 'repeat(auto-fill, minmax(180px, 1fr))',
+    gap: '10px',
+    width: '100%',
+    maxWidth: '900px',
+    marginBottom: '20px',
+  } as React.CSSProperties,
+  manaUpgradeCard: {
+    backgroundColor: 'rgba(20, 30, 50, 0.9)',
+    borderRadius: '8px',
+    padding: '10px',
+    border: '1px solid rgba(100, 150, 255, 0.2)',
+    display: 'flex',
+    flexDirection: 'column',
+    gap: '4px',
+    textAlign: 'center',
+  } as React.CSSProperties,
+  manaUpgradeBuyBtn: {
+    padding: '5px 10px',
+    fontSize: '0.75rem',
+    fontWeight: 'bold',
+    backgroundColor: '#334477',
+    color: '#88bbff',
+    border: '1px solid rgba(100, 150, 255, 0.3)',
+    borderRadius: '6px',
+    marginTop: '4px',
+    transition: 'all 0.2s ease',
+  } as React.CSSProperties,
+  manaClaimAllBtn: {
+    padding: '8px 20px',
+    fontSize: '0.9rem',
+    fontWeight: 'bold',
+    backgroundColor: '#88bbff',
+    color: '#000',
+    border: 'none',
+    borderRadius: '8px',
+    cursor: 'pointer',
+    marginBottom: '15px',
+    transition: 'all 0.2s ease',
+  } as React.CSSProperties,
+  manaMilestoneList: {
+    width: '100%',
+    maxWidth: '600px',
+    display: 'flex',
+    flexDirection: 'column',
+    gap: '8px',
+    marginBottom: '30px',
+  } as React.CSSProperties,
+  manaMilestoneItem: {
+    backgroundColor: 'rgba(20, 30, 50, 0.9)',
+    borderRadius: '8px',
+    padding: '10px 15px',
+    border: '1px solid #333',
+  } as React.CSSProperties,
+  manaMilestoneClaimBtn: {
+    padding: '4px 12px',
+    fontSize: '0.75rem',
+    fontWeight: 'bold',
+    backgroundColor: '#ffd700',
+    color: '#000',
+    border: 'none',
+    borderRadius: '4px',
+    cursor: 'pointer',
+  } as React.CSSProperties,
+  activeBuffsOverlay: {
+    position: 'fixed',
+    left: '20px',
+    top: '50%',
+    transform: 'translateY(-50%)',
+    backgroundColor: 'rgba(15, 20, 40, 0.95)',
+    borderRadius: '10px',
+    padding: '12px',
+    minWidth: '180px',
+    border: '1px solid rgba(100, 150, 255, 0.3)',
+    boxShadow: '0 4px 20px rgba(0, 0, 0, 0.4)',
+    zIndex: 100,
+  } as React.CSSProperties,
+  activeBuffsOverlayMain: {
+    position: 'fixed',
+    left: '20px',
+    top: '50%',
+    transform: 'translateY(-50%)',
+    backgroundColor: 'rgba(15, 20, 40, 0.92)',
+    borderRadius: '8px',
+    padding: '10px',
+    minWidth: '150px',
+    border: '1px solid rgba(100, 150, 255, 0.2)',
+    boxShadow: '0 4px 15px rgba(0, 0, 0, 0.3)',
+    zIndex: 90,
+  } as React.CSSProperties,
+  manaOrbBtn: {
+    padding: '12px 16px',
+    fontSize: '0.9rem',
+    fontWeight: 'bold',
+    backgroundColor: '#334477',
+    color: '#88bbff',
+    border: '2px solid rgba(100, 150, 255, 0.4)',
+    borderRadius: '8px',
+    cursor: 'pointer',
+    transition: 'all 0.2s ease',
+    boxShadow: '0 4px 20px rgba(100, 150, 255, 0.2)',
+    marginTop: '10px',
+  } as React.CSSProperties,
+  manaUnlockOverlay: {
+    position: 'fixed',
+    top: 0,
+    left: 0,
+    right: 0,
+    bottom: 0,
+    backgroundColor: 'rgba(0, 0, 20, 0.9)',
+    display: 'flex',
+    alignItems: 'center',
+    justifyContent: 'center',
+    zIndex: 9999,
+    animation: 'fadeIn 0.5s ease-out',
+  } as React.CSSProperties,
+  manaUnlockContent: {
+    textAlign: 'center',
+    animation: 'orbReveal 2s ease-out',
+  } as React.CSSProperties,
 };
