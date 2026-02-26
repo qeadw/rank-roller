@@ -174,7 +174,7 @@ const MANA_BUFF_DEFINITIONS: Record<ManaBuffType, ManaBuffDefinition> = {
     baseCost: 200,
     costExponent: 5,
     basePower: 3, // minimum tier index (Epic)
-    baseDuration: 30000,
+    baseDuration: 4000,
     color: '#a335ee',
   },
   bulk: {
@@ -1268,6 +1268,7 @@ export default function RankRoller() {
   const [activeManaBuffs, setActiveManaBuffs] = useState<ActiveManaBuff[]>([]);
   const [claimedManaMilestones, setClaimedManaMilestones] = useState<Set<number>>(new Set());
   const [showManaOrb, setShowManaOrb] = useState(false);
+  const [showSuperRunes, setShowSuperRunes] = useState(false);
   const [manaOrbUnlocked, setManaOrbUnlocked] = useState(false);
   const [manaOrbUnlockAnimating, setManaOrbUnlockAnimating] = useState(false);
   const [lastManaClickTime, setLastManaClickTime] = useState(0);
@@ -1935,8 +1936,8 @@ export default function RankRoller() {
     return acc;
   }, 1);
 
-  // Mana per click: base 1, doubled per upgrade level, plus milestone bonuses
-  const manaPerClick = Math.floor((Math.pow(2, manaClickUpgradeLevel) + manaMilestoneClickBonus) * manaMilestoneAllBonus);
+  // Mana per click: base 1 + milestone bonuses, then doubled per tap upgrade level
+  const manaPerClick = Math.floor((1 + manaMilestoneClickBonus) * Math.pow(2, manaClickUpgradeLevel) * manaMilestoneAllBonus);
 
   // Mana click cooldown: base 1500ms, reduced by upgrade
   const clickCooldownLevel = manaUpgradeLevels['click_cooldown'] || 0;
@@ -3192,6 +3193,44 @@ export default function RankRoller() {
     return `1 in ${oneIn >= 1e8 ? formatNumber(oneIn) : oneIn.toLocaleString()}`;
   };
 
+  // Super Runes Screen
+  if (showSuperRunes && rollerPrestigeLevel > 0) {
+    return (
+      <div style={styles.container}>
+        <button
+          onClick={() => setShowSuperRunes(false)}
+          style={styles.backBtn}
+        >
+          &larr; Back
+        </button>
+        <h1 style={{ color: '#ff44ff', fontSize: '2.5rem', marginBottom: '10px', textShadow: '0 0 20px rgba(255, 68, 255, 0.5)' }}>
+          Super Runes
+        </h1>
+        <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '8px', marginTop: '40px' }}>
+          <button
+            style={{
+              padding: '16px 32px',
+              fontSize: '1.1rem',
+              fontWeight: 'bold',
+              backgroundColor: '#442266',
+              color: '#ff44ff',
+              border: '2px solid rgba(255, 68, 255, 0.4)',
+              borderRadius: '10px',
+              cursor: 'pointer',
+              boxShadow: '0 4px 20px rgba(255, 68, 255, 0.2)',
+              transition: 'all 0.2s ease',
+            }}
+          >
+            {formatNumber(1e23)} points
+          </button>
+          <div style={{ color: '#aaa', fontSize: '0.9rem' }}>
+            {formatNumber(1e7)} mana
+          </div>
+        </div>
+      </div>
+    );
+  }
+
   // Mana Orb Screen
   if (showManaOrb && manaOrbUnlocked) {
     const unclaimedManaMilestonesList = MANA_MILESTONES.filter(m => totalManaEarned >= m.threshold && !claimedManaMilestones.has(m.threshold));
@@ -4096,6 +4135,14 @@ export default function RankRoller() {
             style={styles.manaOrbBtn}
           >
             Mana Orb
+          </button>
+        )}
+        {rollerPrestigeLevel > 0 && (
+          <button
+            onClick={() => setShowSuperRunes(true)}
+            style={styles.superRunesBtn}
+          >
+            Super Runes
           </button>
         )}
       </div>
@@ -6781,6 +6828,19 @@ const styles: Record<string, React.CSSProperties> = {
     cursor: 'pointer',
     transition: 'all 0.2s ease',
     boxShadow: '0 4px 20px rgba(100, 150, 255, 0.2)',
+    marginTop: '10px',
+  } as React.CSSProperties,
+  superRunesBtn: {
+    padding: '12px 16px',
+    fontSize: '0.9rem',
+    fontWeight: 'bold',
+    backgroundColor: '#442266',
+    color: '#ff44ff',
+    border: '2px solid rgba(255, 68, 255, 0.4)',
+    borderRadius: '8px',
+    cursor: 'pointer',
+    transition: 'all 0.2s ease',
+    boxShadow: '0 4px 20px rgba(255, 68, 255, 0.2)',
     marginTop: '10px',
   } as React.CSSProperties,
   manaUnlockOverlay: {
