@@ -67,6 +67,9 @@ interface SaveData {
   claimedManaMilestones?: number[];
   manaOrbUnlocked?: boolean;
   superRunesUnlocked?: boolean;
+  // Super Rune data
+  superRuneRollCounts?: Record<number, number>;
+  superRuneRollCount?: number;
 }
 
 interface MilestoneState {
@@ -234,6 +237,41 @@ const MEGA_BUFFS = [
 ];
 
 // ============ END MANA ORB SYSTEM ============
+
+// ============ SUPER RUNES ============
+
+interface SuperRune {
+  index: number;
+  name: string;
+  color: string;
+  weight: number;
+  description: string;
+  buffType: 'mana_gain' | 'bulk_multi' | 'rune_bulk_multi' | 'buff_duration_power';
+  buffValue: number;
+}
+
+const SUPER_RUNES: SuperRune[] = [
+  { index: 0, name: 'Rune of Abundance', color: '#ff44ff', weight: 1, description: '+0.00001x mana gain per roll', buffType: 'mana_gain', buffValue: 0.00001 },
+  { index: 1, name: 'Rune of Overflow', color: '#44ffaa', weight: 1e-6, description: '+1x mana gain', buffType: 'mana_gain', buffValue: 1 },
+  { index: 2, name: 'Rune of Momentum', color: '#ff6644', weight: 1e-6, description: '+1x bulk multiplier', buffType: 'bulk_multi', buffValue: 1 },
+  { index: 3, name: 'Rune of Resonance', color: '#44aaff', weight: 1e-6, description: '+1x rune bulk multiplier', buffType: 'rune_bulk_multi', buffValue: 1 },
+  { index: 4, name: 'Rune of Infinity', color: '#ffaa44', weight: 1e-6, description: '1.8x buff duration & power', buffType: 'buff_duration_power', buffValue: 1.8 },
+];
+
+const SUPER_RUNE_ROLL_COST_POINTS = 1e21; // 1Sx
+const SUPER_RUNE_ROLL_COST_MANA = 1000;
+
+function rollSuperRune(): SuperRune {
+  const totalWeight = SUPER_RUNES.reduce((sum, r) => sum + r.weight, 0);
+  let random = Math.random() * totalWeight;
+  for (const rune of SUPER_RUNES) {
+    random -= rune.weight;
+    if (random <= 0) return rune;
+  }
+  return SUPER_RUNES[0];
+}
+
+// ============ END SUPER RUNES ============
 
 interface Rune {
   index: number;
@@ -1271,6 +1309,11 @@ export default function RankRoller() {
   const [showManaOrb, setShowManaOrb] = useState(false);
   const [showSuperRunes, setShowSuperRunes] = useState(false);
   const [superRunesUnlocked, setSuperRunesUnlocked] = useState(false);
+  const [superRuneRollCounts, setSuperRuneRollCounts] = useState<Record<number, number>>({});
+  const [superRuneRollCount, setSuperRuneRollCount] = useState(0);
+  const [currentSuperRuneRoll, setCurrentSuperRuneRoll] = useState<SuperRune | null>(null);
+  const [isRollingSuperRune, setIsRollingSuperRune] = useState(false);
+  const [showSuperRuneBuffs, setShowSuperRuneBuffs] = useState(false);
   const [manaOrbUnlocked, setManaOrbUnlocked] = useState(false);
   const [manaOrbUnlockAnimating, setManaOrbUnlockAnimating] = useState(false);
   const [lastManaClickTime, setLastManaClickTime] = useState(0);
@@ -1361,6 +1404,8 @@ export default function RankRoller() {
         setClaimedManaMilestones(new Set(data.claimedManaMilestones || []));
         setManaOrbUnlocked(data.manaOrbUnlocked || false);
         setSuperRunesUnlocked(data.superRunesUnlocked || false);
+        setSuperRuneRollCounts(data.superRuneRollCounts || {});
+        setSuperRuneRollCount(data.superRuneRollCount || 0);
       } catch (e) {
         console.error('Failed to load save data:', e);
       }
@@ -1415,9 +1460,11 @@ export default function RankRoller() {
       claimedManaMilestones: Array.from(claimedManaMilestones),
       manaOrbUnlocked,
       superRunesUnlocked,
+      superRuneRollCounts,
+      superRuneRollCount,
     };
     setCookie(SAVE_KEY, obfuscateSave(JSON.stringify(saveData)));
-  }, [isLoaded, rollCount, totalPoints, highestRank, highestRankRoll, collectedRanks, rankRollCounts, ascendedRanks, luckLevel, pointsMultiLevel, speedLevel, costReductionLevel, claimedMilestones, collectedRunes, runeRollCounts, legitimateRuneRollCounts, runeRollCount, bulkRollLevel, runeBulkRollLevel, runeSpeedLevel, gameSpeedMultiplier, rollerPrestigeLevel, runePrestigeLevel, dismissed1MBanner, mana, totalManaEarned, manaClickUpgradeLevel, manaUpgradeLevels, activeManaBuffs, claimedManaMilestones, manaOrbUnlocked, superRunesUnlocked]);
+  }, [isLoaded, rollCount, totalPoints, highestRank, highestRankRoll, collectedRanks, rankRollCounts, ascendedRanks, luckLevel, pointsMultiLevel, speedLevel, costReductionLevel, claimedMilestones, collectedRunes, runeRollCounts, legitimateRuneRollCounts, runeRollCount, bulkRollLevel, runeBulkRollLevel, runeSpeedLevel, gameSpeedMultiplier, rollerPrestigeLevel, runePrestigeLevel, dismissed1MBanner, mana, totalManaEarned, manaClickUpgradeLevel, manaUpgradeLevels, activeManaBuffs, claimedManaMilestones, manaOrbUnlocked, superRunesUnlocked, superRuneRollCounts, superRuneRollCount]);
 
   // Save whenever saveGame changes (which happens when any saved state changes)
   useEffect(() => {
@@ -1940,8 +1987,24 @@ export default function RankRoller() {
     return acc;
   }, 1);
 
-  // Mana per click: base 1 + milestone bonuses, then doubled per tap upgrade level
-  const manaPerClick = Math.floor((1 + manaMilestoneClickBonus) * Math.pow(2, manaClickUpgradeLevel) * manaMilestoneAllBonus);
+  // ============ SUPER RUNE BUFFS ============
+  const superRuneManaGainMulti = 1 + SUPER_RUNES.filter(sr => sr.buffType === 'mana_gain').reduce((acc, sr) => {
+    return acc + (superRuneRollCounts[sr.index] || 0) * sr.buffValue;
+  }, 0);
+  const superRuneBulkBonus = SUPER_RUNES.filter(sr => sr.buffType === 'bulk_multi').reduce((acc, sr) => {
+    return acc + (superRuneRollCounts[sr.index] || 0) * sr.buffValue;
+  }, 0);
+  const superRuneRuneBulkBonus = SUPER_RUNES.filter(sr => sr.buffType === 'rune_bulk_multi').reduce((acc, sr) => {
+    return acc + (superRuneRollCounts[sr.index] || 0) * sr.buffValue;
+  }, 0);
+  const superRuneBuffMulti = SUPER_RUNES.filter(sr => sr.buffType === 'buff_duration_power').reduce((acc, sr) => {
+    const count = superRuneRollCounts[sr.index] || 0;
+    return count > 0 ? acc * Math.pow(sr.buffValue, count) : acc;
+  }, 1);
+  // ============ END SUPER RUNE BUFFS ============
+
+  // Mana per click: base 1 + milestone bonuses, then doubled per tap upgrade level, then super rune mana multi
+  const manaPerClick = Math.floor((1 + manaMilestoneClickBonus) * Math.pow(2, manaClickUpgradeLevel) * manaMilestoneAllBonus * superRuneManaGainMulti);
 
   // Mana click cooldown: base 1500ms, reduced by upgrade
   const clickCooldownLevel = manaUpgradeLevels['click_cooldown'] || 0;
@@ -1949,11 +2012,11 @@ export default function RankRoller() {
 
   // Buff duration multiplier from upgrades + milestones
   const buffDurationUpgradeLevel = manaUpgradeLevels['buff_duration'] || 0;
-  const buffDurationMultiplier = (1 + buffDurationUpgradeLevel * 0.15) * manaMilestoneDurationBonus * manaMilestoneAllBonus;
+  const buffDurationMultiplier = (1 + buffDurationUpgradeLevel * 0.15) * manaMilestoneDurationBonus * manaMilestoneAllBonus * superRuneBuffMulti;
 
   // Buff power multiplier from upgrades + milestones
   const buffPowerUpgradeLevel = manaUpgradeLevels['buff_power'] || 0;
-  const buffPowerMultiplier = (1 + buffPowerUpgradeLevel * 0.10) * manaMilestonePowerBonus * manaMilestoneAllBonus;
+  const buffPowerMultiplier = (1 + buffPowerUpgradeLevel * 0.10) * manaMilestonePowerBonus * manaMilestoneAllBonus * superRuneBuffMulti;
 
   // Buff cost reduction from upgrades
   const buffCostReductionLevel = manaUpgradeLevels['buff_cost_reduction'] || 0;
@@ -2018,7 +2081,7 @@ export default function RankRoller() {
   // ============ END MANA DERIVED CALCULATIONS ============
 
   // Apply prestige bulk bonuses
-  const effectiveBulkRollCount = Math.floor((bulkRollCount + rollerPrestigeBulkBonus) * manaBuffBulk);
+  const effectiveBulkRollCount = Math.floor((bulkRollCount + rollerPrestigeBulkBonus + superRuneBulkBonus) * manaBuffBulk);
 
   // Luck calculations
   const baseLuckMulti = Math.pow(1.1, luckLevel);
@@ -2639,7 +2702,7 @@ export default function RankRoller() {
   const runeRollTime = Math.max(1, baseRuneRollTime * runeSpeedUpgradeMultiplier / (milestoneRuneSpeedBonus * runeRuneSpeedBonus * gameSpeedMultiplier));
   const runeAnimationInterval = Math.max(10, Math.floor(100 / gameSpeedMultiplier)); // Animation frame rate for runes
   // Apply milestone and prestige rune bulk bonuses
-  const effectiveRuneBulkCount = Math.floor((runeBulkCount + rollerPrestigeRuneBulkBonus) * milestoneRuneBulkBonus);
+  const effectiveRuneBulkCount = Math.floor((runeBulkCount + rollerPrestigeRuneBulkBonus + superRuneRuneBulkBonus) * milestoneRuneBulkBonus);
   const runeRollCost = Math.floor(1000 * effectiveRuneBulkCount * totalCostReduction); // Cost scales with rune bulk, reduced by shadow + upgrade
   const canAffordRuneRoll = totalPoints >= runeRollCost;
 
@@ -3033,6 +3096,32 @@ export default function RankRoller() {
   const fastAutoRollUnlocked = claimedMilestones.has('rolls_5000');
   const autoRollUnlocked = slowAutoRollUnlocked;
 
+  // Super Rune roll handler
+  const canAffordSuperRuneRoll = superRunesUnlocked && totalPoints >= SUPER_RUNE_ROLL_COST_POINTS && mana >= SUPER_RUNE_ROLL_COST_MANA;
+  const handleSuperRuneRoll = useCallback(() => {
+    if (isRollingSuperRune || !canAffordSuperRuneRoll) return;
+    setIsRollingSuperRune(true);
+    setTotalPoints(p => p - SUPER_RUNE_ROLL_COST_POINTS);
+    setMana(m => m - SUPER_RUNE_ROLL_COST_MANA);
+
+    let animCount = 0;
+    const timer = setInterval(() => {
+      setCurrentSuperRuneRoll(rollSuperRune());
+      animCount++;
+      if (animCount >= 15) {
+        clearInterval(timer);
+        const result = rollSuperRune();
+        setCurrentSuperRuneRoll(result);
+        setSuperRuneRollCounts(prev => ({
+          ...prev,
+          [result.index]: (prev[result.index] || 0) + 1,
+        }));
+        setSuperRuneRollCount(c => c + 1);
+        setIsRollingSuperRune(false);
+      }
+    }, 80);
+  }, [isRollingSuperRune, canAffordSuperRuneRoll]);
+
   // Check if rune auto-roll is unlocked (slow at 500 rune rolls, fast at 5000 rune rolls)
   const slowRuneAutoRollUnlocked = claimedMilestones.has('rune_rolls_500');
   const fastRuneAutoRollUnlocked = claimedMilestones.has('rune_rolls_5000');
@@ -3201,31 +3290,66 @@ export default function RankRoller() {
   };
 
   // Super Runes Screen
-  const SUPER_RUNE_COST_POINTS = 1e23;
-  const SUPER_RUNE_COST_MANA = 250000;
-  const canAffordSuperRunes = totalPoints >= SUPER_RUNE_COST_POINTS && mana >= SUPER_RUNE_COST_MANA;
-  const SUPER_RUNE_PLACEHOLDERS = [
-    { name: 'Super Rune I', color: '#ff44ff' },
-    { name: 'Super Rune II', color: '#ff6644' },
-    { name: 'Super Rune III', color: '#44ffaa' },
-    { name: 'Super Rune IV', color: '#44aaff' },
-    { name: 'Super Rune V', color: '#ffaa44' },
-    { name: 'Super Rune VI', color: '#aa44ff' },
-    { name: 'Super Rune VII', color: '#ff4444' },
-    { name: 'Super Rune VIII', color: '#44ff44' },
-    { name: 'Super Rune IX', color: '#4444ff' },
-    { name: 'Super Rune X', color: '#ffffff' },
-  ];
+  const SUPER_RUNE_UNLOCK_COST_POINTS = 1e23;
+  const SUPER_RUNE_UNLOCK_COST_MANA = 250000;
+  const canAffordSuperRuneUnlock = totalPoints >= SUPER_RUNE_UNLOCK_COST_POINTS && mana >= SUPER_RUNE_UNLOCK_COST_MANA;
 
   if (showSuperRunes && rollerPrestigeLevel > 0) {
+    // Super Rune Buffs sub-screen
+    if (showSuperRuneBuffs) {
+      return (
+        <div style={styles.container}>
+          <button onClick={() => setShowSuperRuneBuffs(false)} style={styles.backBtn}>&larr; Back</button>
+          <h1 style={{ color: '#ff44ff', fontSize: '2.5rem', marginBottom: '10px', textShadow: '0 0 20px rgba(255, 68, 255, 0.5)' }}>
+            Super Rune Buffs
+          </h1>
+          <div style={{ marginTop: '20px', display: 'flex', flexDirection: 'column', gap: '12px', maxWidth: '500px', width: '100%' }}>
+            {SUPER_RUNES.map(sr => {
+              const count = superRuneRollCounts[sr.index] || 0;
+              let effectValue = '';
+              if (sr.buffType === 'mana_gain') {
+                effectValue = count > 0 ? `+${(count * sr.buffValue).toFixed(5)}x mana gain (total: ${superRuneManaGainMulti.toFixed(5)}x)` : 'No bonus yet';
+              } else if (sr.buffType === 'bulk_multi') {
+                effectValue = count > 0 ? `+${count * sr.buffValue}x bulk` : 'No bonus yet';
+              } else if (sr.buffType === 'rune_bulk_multi') {
+                effectValue = count > 0 ? `+${count * sr.buffValue}x rune bulk` : 'No bonus yet';
+              } else if (sr.buffType === 'buff_duration_power') {
+                effectValue = count > 0 ? `${Math.pow(sr.buffValue, count).toFixed(3)}x buff duration & power` : 'No bonus yet';
+              }
+              return (
+                <div key={sr.index} style={{
+                  backgroundColor: 'rgba(30, 30, 50, 0.9)',
+                  border: `2px solid ${sr.color}40`,
+                  borderRadius: '10px',
+                  padding: '12px 16px',
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: '12px',
+                }}>
+                  <div style={{
+                    width: '36px', height: '36px', borderRadius: '50%',
+                    backgroundColor: `${sr.color}30`, border: `2px solid ${sr.color}`,
+                    display: 'flex', alignItems: 'center', justifyContent: 'center',
+                    fontSize: '1rem', color: sr.color, flexShrink: 0,
+                  }}>
+                    {count > 0 ? count : '?'}
+                  </div>
+                  <div style={{ flex: 1 }}>
+                    <div style={{ color: sr.color, fontWeight: 'bold', fontSize: '0.9rem' }}>{sr.name}</div>
+                    <div style={{ color: '#aaa', fontSize: '0.75rem' }}>{sr.description}</div>
+                    <div style={{ color: count > 0 ? '#88ff88' : '#666', fontSize: '0.75rem', marginTop: '2px' }}>{effectValue}</div>
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        </div>
+      );
+    }
+
     return (
       <div style={styles.container}>
-        <button
-          onClick={() => setShowSuperRunes(false)}
-          style={styles.backBtn}
-        >
-          &larr; Back
-        </button>
+        <button onClick={() => setShowSuperRunes(false)} style={styles.backBtn}>&larr; Back</button>
         <h1 style={{ color: '#ff44ff', fontSize: '2.5rem', marginBottom: '10px', textShadow: '0 0 20px rgba(255, 68, 255, 0.5)' }}>
           Super Runes
         </h1>
@@ -3233,68 +3357,114 @@ export default function RankRoller() {
           <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '8px', marginTop: '40px' }}>
             <button
               onClick={() => {
-                if (canAffordSuperRunes) {
-                  setTotalPoints(p => p - SUPER_RUNE_COST_POINTS);
-                  setMana(m => m - SUPER_RUNE_COST_MANA);
+                if (canAffordSuperRuneUnlock) {
+                  setTotalPoints(p => p - SUPER_RUNE_UNLOCK_COST_POINTS);
+                  setMana(m => m - SUPER_RUNE_UNLOCK_COST_MANA);
                   setSuperRunesUnlocked(true);
                 }
               }}
-              disabled={!canAffordSuperRunes}
+              disabled={!canAffordSuperRuneUnlock}
               style={{
-                padding: '16px 32px',
-                fontSize: '1.1rem',
-                fontWeight: 'bold',
-                backgroundColor: canAffordSuperRunes ? '#442266' : '#222',
-                color: canAffordSuperRunes ? '#ff44ff' : '#666',
-                border: `2px solid ${canAffordSuperRunes ? 'rgba(255, 68, 255, 0.4)' : 'rgba(100, 100, 100, 0.3)'}`,
-                borderRadius: '10px',
-                cursor: canAffordSuperRunes ? 'pointer' : 'not-allowed',
-                boxShadow: canAffordSuperRunes ? '0 4px 20px rgba(255, 68, 255, 0.2)' : 'none',
-                transition: 'all 0.2s ease',
-                display: 'flex',
-                flexDirection: 'column',
-                alignItems: 'center',
-                gap: '4px',
+                padding: '16px 32px', fontSize: '1.1rem', fontWeight: 'bold',
+                backgroundColor: canAffordSuperRuneUnlock ? '#442266' : '#222',
+                color: canAffordSuperRuneUnlock ? '#ff44ff' : '#666',
+                border: `2px solid ${canAffordSuperRuneUnlock ? 'rgba(255, 68, 255, 0.4)' : 'rgba(100, 100, 100, 0.3)'}`,
+                borderRadius: '10px', cursor: canAffordSuperRuneUnlock ? 'pointer' : 'not-allowed',
+                boxShadow: canAffordSuperRuneUnlock ? '0 4px 20px rgba(255, 68, 255, 0.2)' : 'none',
+                transition: 'all 0.2s ease', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '4px',
               }}
             >
-              <span>{formatNumber(SUPER_RUNE_COST_POINTS)} points</span>
-              <span style={{ fontSize: '0.85rem', opacity: 0.8 }}>{formatNumber(SUPER_RUNE_COST_MANA)} mana</span>
+              <span>{formatNumber(SUPER_RUNE_UNLOCK_COST_POINTS)} points</span>
+              <span style={{ fontSize: '0.85rem', opacity: 0.8 }}>{formatNumber(SUPER_RUNE_UNLOCK_COST_MANA)} mana</span>
             </button>
           </div>
         ) : (
-          <div style={{ marginTop: '30px', display: 'grid', gridTemplateColumns: 'repeat(5, 1fr)', gap: '12px', maxWidth: '600px', width: '100%' }}>
-            {SUPER_RUNE_PLACEHOLDERS.map((sr, i) => (
-              <div key={i} style={{
-                backgroundColor: 'rgba(30, 30, 50, 0.9)',
-                border: `2px solid ${sr.color}40`,
-                borderRadius: '10px',
-                padding: '15px 10px',
-                textAlign: 'center',
-                display: 'flex',
-                flexDirection: 'column',
-                alignItems: 'center',
-                gap: '6px',
-              }}>
-                <div style={{
-                  width: '40px',
-                  height: '40px',
-                  borderRadius: '50%',
-                  backgroundColor: `${sr.color}30`,
-                  border: `2px solid ${sr.color}`,
-                  display: 'flex',
-                  alignItems: 'center',
-                  justifyContent: 'center',
-                  fontSize: '1.2rem',
-                  color: sr.color,
-                  textShadow: `0 0 8px ${sr.color}`,
-                }}>
-                  ?
-                </div>
-                <div style={{ color: sr.color, fontSize: '0.75rem', fontWeight: 'bold' }}>{sr.name}</div>
-                <div style={{ color: '#666', fontSize: '0.65rem' }}>Coming soon</div>
-              </div>
-            ))}
-          </div>
+          <>
+            {/* Roll display */}
+            <div style={{
+              width: '200px', height: '200px', borderRadius: '50%', margin: '20px auto',
+              backgroundColor: currentSuperRuneRoll ? `${currentSuperRuneRoll.color}20` : 'rgba(30, 30, 50, 0.9)',
+              border: `3px solid ${currentSuperRuneRoll ? currentSuperRuneRoll.color : '#ff44ff40'}`,
+              display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center',
+              boxShadow: currentSuperRuneRoll ? `0 0 30px ${currentSuperRuneRoll.color}40` : 'none',
+              transition: 'all 0.15s ease',
+            }}>
+              {currentSuperRuneRoll ? (
+                <>
+                  <div style={{ color: currentSuperRuneRoll.color, fontSize: '0.85rem', fontWeight: 'bold', textAlign: 'center', padding: '0 10px' }}>
+                    {currentSuperRuneRoll.name}
+                  </div>
+                </>
+              ) : (
+                <div style={{ color: '#666', fontSize: '1rem' }}>?</div>
+              )}
+            </div>
+
+            {/* Roll button */}
+            <button
+              onClick={handleSuperRuneRoll}
+              disabled={!canAffordSuperRuneRoll || isRollingSuperRune}
+              style={{
+                padding: '14px 40px', fontSize: '1.1rem', fontWeight: 'bold',
+                backgroundColor: canAffordSuperRuneRoll && !isRollingSuperRune ? '#442266' : '#222',
+                color: canAffordSuperRuneRoll && !isRollingSuperRune ? '#ff44ff' : '#666',
+                border: `2px solid ${canAffordSuperRuneRoll && !isRollingSuperRune ? 'rgba(255, 68, 255, 0.4)' : 'rgba(100, 100, 100, 0.3)'}`,
+                borderRadius: '10px', cursor: canAffordSuperRuneRoll && !isRollingSuperRune ? 'pointer' : 'not-allowed',
+                boxShadow: canAffordSuperRuneRoll && !isRollingSuperRune ? '0 4px 20px rgba(255, 68, 255, 0.2)' : 'none',
+                transition: 'all 0.2s ease', marginTop: '10px',
+              }}
+            >
+              {isRollingSuperRune ? 'Rolling...' : `Roll (${formatNumber(SUPER_RUNE_ROLL_COST_POINTS)} pts + ${formatNumber(SUPER_RUNE_ROLL_COST_MANA)} mana)`}
+            </button>
+
+            <div style={{ color: '#aaa', fontSize: '0.8rem', marginTop: '6px' }}>
+              Total rolls: {formatNumber(superRuneRollCount)}
+            </div>
+
+            {/* Buffs button */}
+            <button
+              onClick={() => setShowSuperRuneBuffs(true)}
+              style={{
+                padding: '10px 24px', fontSize: '0.9rem', fontWeight: 'bold',
+                backgroundColor: '#331144', color: '#cc88ff',
+                border: '2px solid rgba(200, 100, 255, 0.3)', borderRadius: '8px',
+                cursor: 'pointer', marginTop: '15px',
+              }}
+            >
+              Rune Buffs
+            </button>
+
+            {/* Rune catalogue */}
+            <div style={{ marginTop: '20px', display: 'grid', gridTemplateColumns: 'repeat(5, 1fr)', gap: '10px', maxWidth: '550px', width: '100%' }}>
+              {SUPER_RUNES.map(sr => {
+                const count = superRuneRollCounts[sr.index] || 0;
+                const prob = sr.weight / SUPER_RUNES.reduce((s, r) => s + r.weight, 0);
+                return (
+                  <div key={sr.index} style={{
+                    backgroundColor: 'rgba(30, 30, 50, 0.9)',
+                    border: `2px solid ${count > 0 ? sr.color : sr.color + '30'}`,
+                    borderRadius: '10px', padding: '12px 8px', textAlign: 'center',
+                    display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '4px',
+                    opacity: count > 0 ? 1 : 0.5,
+                  }}>
+                    <div style={{
+                      width: '36px', height: '36px', borderRadius: '50%',
+                      backgroundColor: count > 0 ? `${sr.color}30` : '#1a1a2e',
+                      border: `2px solid ${count > 0 ? sr.color : '#333'}`,
+                      display: 'flex', alignItems: 'center', justifyContent: 'center',
+                      fontSize: '0.9rem', color: count > 0 ? sr.color : '#444',
+                    }}>
+                      {count > 0 ? count : '?'}
+                    </div>
+                    <div style={{ color: count > 0 ? sr.color : '#555', fontSize: '0.7rem', fontWeight: 'bold' }}>{sr.name}</div>
+                    <div style={{ color: '#666', fontSize: '0.6rem' }}>
+                      {prob >= 0.01 ? `${(prob * 100).toFixed(1)}%` : `1 in ${formatNumber(Math.round(1 / prob))}`}
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          </>
         )}
       </div>
     );
