@@ -3500,9 +3500,11 @@ export default function RankRoller() {
         {/* The Orb */}
         <div style={styles.manaOrbContainer}>
           <div
+            className="mana-orb-sparkle"
             onClick={handleManaOrbClick}
             style={{
               ...styles.manaOrb,
+              position: 'relative',
               transform: orbPulse ? 'scale(1.15)' : 'scale(1)',
               boxShadow: orbPulse
                 ? '0 0 60px rgba(100, 150, 255, 0.8), 0 0 120px rgba(100, 150, 255, 0.4)'
