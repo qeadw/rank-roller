@@ -3377,7 +3377,7 @@ export default function RankRoller() {
                 <div style={{ color: def.color, fontWeight: 'bold', fontSize: '0.95rem' }}>{def.name}</div>
                 <div style={{ color: '#aaa', fontSize: '0.75rem', margin: '4px 0' }}>{def.description}</div>
                 <div style={{ color: '#888', fontSize: '0.75rem' }}>
-                  Power: {def.id === 'guaranteed_rare' ? TIER_NAMES[Math.floor(def.basePower)] || `Tier ${def.basePower}` : `${def.basePower}x`} | Duration: {(def.baseDuration * buffDurationMultiplier / 1000).toFixed(0)}s
+                  Power: {def.id === 'guaranteed_rare' ? TIER_NAMES[Math.floor(def.basePower * buffPowerMultiplier)] || `Tier ${Math.floor(def.basePower * buffPowerMultiplier)}` : `${(def.basePower * buffPowerMultiplier).toFixed(3)}x`} | Duration: {(def.baseDuration * buffDurationMultiplier / 1000).toFixed(0)}s
                 </div>
                 {activeCount > 0 && (
                   <div style={{ color: def.color, fontSize: '0.75rem' }}>Active: {activeCount} stack{activeCount > 1 ? 's' : ''}</div>
