@@ -201,18 +201,18 @@ const MANA_BUFF_DEFINITIONS: Record<ManaBuffType, ManaBuffDefinition> = {
 
 // Mana click upgrades - each doubles mana/click, gated by tier unlocks
 const MANA_CLICK_UPGRADE_TIERS = [
-  { name: 'Mythic Tap', tierRequired: 5, cost: 1000 },
-  { name: 'Divine Tap', tierRequired: 6, cost: 10000 },
-  { name: 'Celestial Tap', tierRequired: 7, cost: 100000 },
-  { name: 'Transcendent Tap', tierRequired: 8, cost: 1000000 },
-  { name: 'Ultimate Tap', tierRequired: 9, cost: 10000000 },
+  { name: 'Mythic Tap', tierRequired: 5, cost: 200 },
+  { name: 'Divine Tap', tierRequired: 6, cost: 1000 },
+  { name: 'Celestial Tap', tierRequired: 7, cost: 50000 },
+  { name: 'Transcendent Tap', tierRequired: 8, cost: 5000000 },
+  { name: 'Ultimate Tap', tierRequired: 9, cost: 500000000 },
 ];
 
 // General mana upgrades
 const MANA_UPGRADE_DEFINITIONS = [
-  { id: 'passive_regen', name: 'Mana Spring', description: '+1 mana/sec per level', baseCost: 200, costScale: 3, maxLevel: 20 },
-  { id: 'buff_duration', name: 'Prolongation', description: '+15% buff duration per level', baseCost: 300, costScale: 2.5, maxLevel: 15 },
-  { id: 'buff_power', name: 'Amplification', description: '+10% buff power per level', baseCost: 500, costScale: 3, maxLevel: 15 },
+  { id: 'passive_regen', name: 'Mana Spring', description: '+1 mana/sec per level', baseCost: 1000, costScale: 3, maxLevel: 20 },
+  { id: 'buff_duration', name: 'Prolongation', description: '+15% buff duration per level (+15% buff cost)', baseCost: 300, costScale: 2.5, maxLevel: 15 },
+  { id: 'buff_power', name: 'Amplification', description: '+10% buff power per level (+10% buff cost)', baseCost: 500, costScale: 3, maxLevel: 15 },
   { id: 'click_cooldown', name: 'Quick Fingers', description: '-50ms click cooldown per level', baseCost: 150, costScale: 2, maxLevel: 20 },
   { id: 'buff_cost_reduction', name: 'Efficiency', description: '-5% buff cost per level', baseCost: 400, costScale: 2.5, maxLevel: 15 },
 ];
@@ -1969,11 +1969,14 @@ export default function RankRoller() {
     return total > 0 ? total : 1;
   };
 
-  // Get cost of next buff (exponential with stacking)
+  // Get cost of next buff (exponential with stacking, increased by Prolongation +15%/lv and Amplification +10%/lv)
   const getBuffCost = (type: ManaBuffType): number => {
     const def = MANA_BUFF_DEFINITIONS[type];
     const currentStacks = activeManaBuffs.filter(b => b.type === type).reduce((sum, b) => sum + b.stackCount, 0);
-    return Math.floor(def.baseCost * Math.pow(def.costExponent, currentStacks) * buffCostReduction);
+    const prolongationCostIncrease = Math.pow(1.15, buffDurationUpgradeLevel);
+    const amplificationCostIncrease = Math.pow(1.10, buffPowerUpgradeLevel);
+    const raw = def.baseCost * Math.pow(def.costExponent, currentStacks) * buffCostReduction * prolongationCostIncrease * amplificationCostIncrease;
+    return Math.ceil(raw / 5) * 5;
   };
 
   // Mana buff multipliers for game mechanics
@@ -3027,8 +3030,8 @@ export default function RankRoller() {
   const fastRuneAutoRollUnlocked = claimedMilestones.has('rune_rolls_5000');
   const runeAutoRollUnlocked = slowRuneAutoRollUnlocked;
 
-  // Check if runes area is unlocked (first Rare)
-  const runesUnlocked = hasAnyFromTier(collectedRanks, 2);
+  // Check if runes area is unlocked (first Rare or above)
+  const runesUnlocked = Array.from(collectedRanks).some(rankIndex => rankIndex >= 20);
 
   // Calculate rolls/sec for achievement tracking
   const rollsPerSecTargetInterval = 16;
@@ -3269,7 +3272,7 @@ export default function RankRoller() {
                 <div style={{ color: def.color, fontWeight: 'bold', fontSize: '0.95rem' }}>{def.name}</div>
                 <div style={{ color: '#aaa', fontSize: '0.75rem', margin: '4px 0' }}>{def.description}</div>
                 <div style={{ color: '#888', fontSize: '0.75rem' }}>
-                  Power: {def.basePower}x | Duration: {(def.baseDuration * buffDurationMultiplier / 1000).toFixed(0)}s
+                  Power: {def.id === 'guaranteed_rare' ? TIER_NAMES[Math.floor(def.basePower)] || `Tier ${def.basePower}` : `${def.basePower}x`} | Duration: {(def.baseDuration * buffDurationMultiplier / 1000).toFixed(0)}s
                 </div>
                 {activeCount > 0 && (
                   <div style={{ color: def.color, fontSize: '0.75rem' }}>Active: {activeCount} stack{activeCount > 1 ? 's' : ''}</div>
@@ -4148,7 +4151,7 @@ export default function RankRoller() {
       )}
 
       {/* Stats Display - Next to Upgrades */}
-      <div className="stats-panel" style={styles.statsPanel}>
+      <div className="stats-panel" style={{...styles.statsPanel, transform: 'scale(0.7)', transformOrigin: 'top right'}}>
         <h3 className="stats-panel-title" style={styles.statsPanelTitle}>Total Stats</h3>
         <div style={styles.statsPanelList}>
           {luckMulti > 1.0 && (
