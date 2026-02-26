@@ -66,6 +66,7 @@ interface SaveData {
   activeBuffsSave?: Array<{ type: ManaBuffType; power: number; remainingMs: number; totalDurationMs: number; stackCount: number }>;
   claimedManaMilestones?: number[];
   manaOrbUnlocked?: boolean;
+  superRunesUnlocked?: boolean;
 }
 
 interface MilestoneState {
@@ -1269,6 +1270,7 @@ export default function RankRoller() {
   const [claimedManaMilestones, setClaimedManaMilestones] = useState<Set<number>>(new Set());
   const [showManaOrb, setShowManaOrb] = useState(false);
   const [showSuperRunes, setShowSuperRunes] = useState(false);
+  const [superRunesUnlocked, setSuperRunesUnlocked] = useState(false);
   const [manaOrbUnlocked, setManaOrbUnlocked] = useState(false);
   const [manaOrbUnlockAnimating, setManaOrbUnlockAnimating] = useState(false);
   const [lastManaClickTime, setLastManaClickTime] = useState(0);
@@ -1358,6 +1360,7 @@ export default function RankRoller() {
         }
         setClaimedManaMilestones(new Set(data.claimedManaMilestones || []));
         setManaOrbUnlocked(data.manaOrbUnlocked || false);
+        setSuperRunesUnlocked(data.superRunesUnlocked || false);
       } catch (e) {
         console.error('Failed to load save data:', e);
       }
@@ -1411,9 +1414,10 @@ export default function RankRoller() {
       activeBuffsSave: activeManaBuffs,
       claimedManaMilestones: Array.from(claimedManaMilestones),
       manaOrbUnlocked,
+      superRunesUnlocked,
     };
     setCookie(SAVE_KEY, obfuscateSave(JSON.stringify(saveData)));
-  }, [isLoaded, rollCount, totalPoints, highestRank, highestRankRoll, collectedRanks, rankRollCounts, ascendedRanks, luckLevel, pointsMultiLevel, speedLevel, costReductionLevel, claimedMilestones, collectedRunes, runeRollCounts, legitimateRuneRollCounts, runeRollCount, bulkRollLevel, runeBulkRollLevel, runeSpeedLevel, gameSpeedMultiplier, rollerPrestigeLevel, runePrestigeLevel, dismissed1MBanner, mana, totalManaEarned, manaClickUpgradeLevel, manaUpgradeLevels, activeManaBuffs, claimedManaMilestones, manaOrbUnlocked]);
+  }, [isLoaded, rollCount, totalPoints, highestRank, highestRankRoll, collectedRanks, rankRollCounts, ascendedRanks, luckLevel, pointsMultiLevel, speedLevel, costReductionLevel, claimedMilestones, collectedRunes, runeRollCounts, legitimateRuneRollCounts, runeRollCount, bulkRollLevel, runeBulkRollLevel, runeSpeedLevel, gameSpeedMultiplier, rollerPrestigeLevel, runePrestigeLevel, dismissed1MBanner, mana, totalManaEarned, manaClickUpgradeLevel, manaUpgradeLevels, activeManaBuffs, claimedManaMilestones, manaOrbUnlocked, superRunesUnlocked]);
 
   // Save whenever saveGame changes (which happens when any saved state changes)
   useEffect(() => {
@@ -2286,16 +2290,16 @@ export default function RankRoller() {
     return () => clearInterval(timer);
   }, [passiveManaPerSec]);
 
-  // Auto-orb buff
+  // Auto-orb buff (use boolean dep so countdown ticks don't reset the interval)
+  const hasAutoOrbBuff = activeManaBuffs.some(b => b.type === 'auto_orb');
   useEffect(() => {
-    const autoOrbBuff = activeManaBuffs.find(b => b.type === 'auto_orb');
-    if (!autoOrbBuff) return;
+    if (!hasAutoOrbBuff) return;
     const timer = setInterval(() => {
       setMana(m => m + manaPerClick);
       setTotalManaEarned(t => t + manaPerClick);
     }, 1000);
     return () => clearInterval(timer);
-  }, [activeManaBuffs, manaPerClick]);
+  }, [hasAutoOrbBuff, manaPerClick]);
 
   // Mana orb unlock detection
   const manaOrbShouldUnlock = hasAnyFromTier(collectedRanks, 5);
@@ -3194,6 +3198,22 @@ export default function RankRoller() {
   };
 
   // Super Runes Screen
+  const SUPER_RUNE_COST_POINTS = 1e23;
+  const SUPER_RUNE_COST_MANA = 1e7;
+  const canAffordSuperRunes = totalPoints >= SUPER_RUNE_COST_POINTS && mana >= SUPER_RUNE_COST_MANA;
+  const SUPER_RUNE_PLACEHOLDERS = [
+    { name: 'Super Rune I', color: '#ff44ff' },
+    { name: 'Super Rune II', color: '#ff6644' },
+    { name: 'Super Rune III', color: '#44ffaa' },
+    { name: 'Super Rune IV', color: '#44aaff' },
+    { name: 'Super Rune V', color: '#ffaa44' },
+    { name: 'Super Rune VI', color: '#aa44ff' },
+    { name: 'Super Rune VII', color: '#ff4444' },
+    { name: 'Super Rune VIII', color: '#44ff44' },
+    { name: 'Super Rune IX', color: '#4444ff' },
+    { name: 'Super Rune X', color: '#ffffff' },
+  ];
+
   if (showSuperRunes && rollerPrestigeLevel > 0) {
     return (
       <div style={styles.container}>
@@ -3206,27 +3226,73 @@ export default function RankRoller() {
         <h1 style={{ color: '#ff44ff', fontSize: '2.5rem', marginBottom: '10px', textShadow: '0 0 20px rgba(255, 68, 255, 0.5)' }}>
           Super Runes
         </h1>
-        <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '8px', marginTop: '40px' }}>
-          <button
-            style={{
-              padding: '16px 32px',
-              fontSize: '1.1rem',
-              fontWeight: 'bold',
-              backgroundColor: '#442266',
-              color: '#ff44ff',
-              border: '2px solid rgba(255, 68, 255, 0.4)',
-              borderRadius: '10px',
-              cursor: 'pointer',
-              boxShadow: '0 4px 20px rgba(255, 68, 255, 0.2)',
-              transition: 'all 0.2s ease',
-            }}
-          >
-            {formatNumber(1e23)} points
-          </button>
-          <div style={{ color: '#aaa', fontSize: '0.9rem' }}>
-            {formatNumber(1e7)} mana
+        {!superRunesUnlocked ? (
+          <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '8px', marginTop: '40px' }}>
+            <button
+              onClick={() => {
+                if (canAffordSuperRunes) {
+                  setTotalPoints(p => p - SUPER_RUNE_COST_POINTS);
+                  setMana(m => m - SUPER_RUNE_COST_MANA);
+                  setSuperRunesUnlocked(true);
+                }
+              }}
+              disabled={!canAffordSuperRunes}
+              style={{
+                padding: '16px 32px',
+                fontSize: '1.1rem',
+                fontWeight: 'bold',
+                backgroundColor: canAffordSuperRunes ? '#442266' : '#222',
+                color: canAffordSuperRunes ? '#ff44ff' : '#666',
+                border: `2px solid ${canAffordSuperRunes ? 'rgba(255, 68, 255, 0.4)' : 'rgba(100, 100, 100, 0.3)'}`,
+                borderRadius: '10px',
+                cursor: canAffordSuperRunes ? 'pointer' : 'not-allowed',
+                boxShadow: canAffordSuperRunes ? '0 4px 20px rgba(255, 68, 255, 0.2)' : 'none',
+                transition: 'all 0.2s ease',
+                display: 'flex',
+                flexDirection: 'column',
+                alignItems: 'center',
+                gap: '4px',
+              }}
+            >
+              <span>{formatNumber(SUPER_RUNE_COST_POINTS)} points</span>
+              <span style={{ fontSize: '0.85rem', opacity: 0.8 }}>{formatNumber(SUPER_RUNE_COST_MANA)} mana</span>
+            </button>
           </div>
-        </div>
+        ) : (
+          <div style={{ marginTop: '30px', display: 'grid', gridTemplateColumns: 'repeat(5, 1fr)', gap: '12px', maxWidth: '600px', width: '100%' }}>
+            {SUPER_RUNE_PLACEHOLDERS.map((sr, i) => (
+              <div key={i} style={{
+                backgroundColor: 'rgba(30, 30, 50, 0.9)',
+                border: `2px solid ${sr.color}40`,
+                borderRadius: '10px',
+                padding: '15px 10px',
+                textAlign: 'center',
+                display: 'flex',
+                flexDirection: 'column',
+                alignItems: 'center',
+                gap: '6px',
+              }}>
+                <div style={{
+                  width: '40px',
+                  height: '40px',
+                  borderRadius: '50%',
+                  backgroundColor: `${sr.color}30`,
+                  border: `2px solid ${sr.color}`,
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  fontSize: '1.2rem',
+                  color: sr.color,
+                  textShadow: `0 0 8px ${sr.color}`,
+                }}>
+                  ?
+                </div>
+                <div style={{ color: sr.color, fontSize: '0.75rem', fontWeight: 'bold' }}>{sr.name}</div>
+                <div style={{ color: '#666', fontSize: '0.65rem' }}>Coming soon</div>
+              </div>
+            ))}
+          </div>
+        )}
       </div>
     );
   }
