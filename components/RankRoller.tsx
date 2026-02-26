@@ -1977,7 +1977,7 @@ export default function RankRoller() {
   // Get cost of next buff (exponential with stacking, increased by Prolongation +15%/lv and Amplification +10%/lv)
   const getBuffCost = (type: ManaBuffType): number => {
     const def = MANA_BUFF_DEFINITIONS[type];
-    const currentStacks = activeManaBuffs.filter(b => b.type === type).reduce((sum, b) => sum + b.stackCount, 0);
+    const currentStacks = activeManaBuffs.filter(b => b.type === type).length;
     const prolongationCostIncrease = Math.pow(1.15, buffDurationUpgradeLevel);
     const amplificationCostIncrease = Math.pow(1.10, buffPowerUpgradeLevel);
     const raw = def.baseCost * Math.pow(def.costExponent, currentStacks) * buffCostReduction * prolongationCostIncrease * amplificationCostIncrease;
@@ -2186,7 +2186,7 @@ export default function RankRoller() {
     const cost = getBuffCost(type);
     if (mana < cost) return;
     const def = MANA_BUFF_DEFINITIONS[type];
-    const currentStacks = activeManaBuffs.filter(b => b.type === type).reduce((sum, b) => sum + b.stackCount, 0);
+    const currentStacks = activeManaBuffs.filter(b => b.type === type).length;
     setMana(m => m - cost);
     setActiveManaBuffs(prev => [
       ...prev,
