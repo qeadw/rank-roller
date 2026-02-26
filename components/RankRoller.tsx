@@ -215,7 +215,7 @@ const MANA_UPGRADE_DEFINITIONS = [
   { id: 'buff_duration', name: 'Prolongation', description: '+15% buff duration per level (+15% buff cost)', baseCost: 300, costScale: 2.5, maxLevel: 15 },
   { id: 'buff_power', name: 'Amplification', description: '+10% buff power per level (+10% buff cost)', baseCost: 500, costScale: 3, maxLevel: 15 },
   { id: 'click_cooldown', name: 'Quick Fingers', description: '-50ms click cooldown per level', baseCost: 150, costScale: 2, maxLevel: 20 },
-  { id: 'buff_cost_reduction', name: 'Efficiency', description: '-5% buff cost per level', baseCost: 400, costScale: 2.5, maxLevel: 15 },
+  { id: 'buff_cost_reduction', name: 'Efficiency', description: '-5% buff cost per level (compounding)', baseCost: 400, costScale: 1.375, maxLevel: 100 },
 ];
 
 // Mana milestones - permanent bonuses at total mana thresholds
@@ -3199,7 +3199,7 @@ export default function RankRoller() {
 
   // Super Runes Screen
   const SUPER_RUNE_COST_POINTS = 1e23;
-  const SUPER_RUNE_COST_MANA = 1e7;
+  const SUPER_RUNE_COST_MANA = 250000;
   const canAffordSuperRunes = totalPoints >= SUPER_RUNE_COST_POINTS && mana >= SUPER_RUNE_COST_MANA;
   const SUPER_RUNE_PLACEHOLDERS = [
     { name: 'Super Rune I', color: '#ff44ff' },
