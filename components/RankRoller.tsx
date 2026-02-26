@@ -3488,7 +3488,7 @@ export default function RankRoller() {
           &larr; Back
         </button>
 
-        <h1 style={styles.manaTitle}>Mana Orb</h1>
+        <h1 style={styles.manaTitle}>Gorb</h1>
 
         {/* Mana display */}
         <div style={styles.manaDisplay}>
