@@ -1989,9 +1989,12 @@ export default function RankRoller() {
   const manaBuffPoints = getManaBuffMultiplier('points');
   const manaBuffSpeed = getManaBuffMultiplier('speed');
   const manaBuffBulk = getManaBuffMultiplier('bulk');
-  const manaBuffGuaranteedTier = activeManaBuffs.find(b => b.type === 'guaranteed_rare')
-    ? Math.floor(activeManaBuffs.find(b => b.type === 'guaranteed_rare')!.power * buffPowerMultiplier)
-    : -1;
+  const manaBuffGuaranteedTier = (() => {
+    const stacks = activeManaBuffs.filter(b => b.type === 'guaranteed_rare');
+    if (stacks.length === 0) return -1;
+    const totalPower = stacks.reduce((sum, b) => sum + b.power, 0) * buffPowerMultiplier;
+    return Math.floor(totalPower);
+  })();
 
   // Mega buff multipliers
   const megaBuffLuckMulti = activeMegaBuffs.reduce((acc, mb) => {
@@ -3380,7 +3383,10 @@ export default function RankRoller() {
                   Power: {def.id === 'guaranteed_rare' ? TIER_NAMES[Math.floor(def.basePower * buffPowerMultiplier)] || `Tier ${Math.floor(def.basePower * buffPowerMultiplier)}` : `${(def.basePower * buffPowerMultiplier).toFixed(3)}x`} | Duration: {(def.baseDuration * buffDurationMultiplier / 1000).toFixed(0)}s
                 </div>
                 {activeCount > 0 && (
-                  <div style={{ color: def.color, fontSize: '0.75rem' }}>Active: {activeCount} stack{activeCount > 1 ? 's' : ''}</div>
+                  <div style={{ color: def.color, fontSize: '0.75rem' }}>
+                    Active: {activeCount} stack{activeCount > 1 ? 's' : ''}
+                    {def.id === 'guaranteed_rare' && manaBuffGuaranteedTier > 0 && ` (min: ${TIER_NAMES[Math.min(manaBuffGuaranteedTier, TIER_NAMES.length - 1)] || `Tier ${manaBuffGuaranteedTier}`})`}
+                  </div>
                 )}
                 <button
                   onClick={() => activateManaBuff(def.id)}
