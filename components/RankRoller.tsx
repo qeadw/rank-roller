@@ -2290,16 +2290,16 @@ export default function RankRoller() {
     return () => clearInterval(timer);
   }, [passiveManaPerSec]);
 
-  // Auto-orb buff (use boolean dep so countdown ticks don't reset the interval)
-  const hasAutoOrbBuff = activeManaBuffs.some(b => b.type === 'auto_orb');
+  // Auto-orb buff (each stack = 1 click/sec)
+  const autoOrbStackCount = activeManaBuffs.filter(b => b.type === 'auto_orb').length;
   useEffect(() => {
-    if (!hasAutoOrbBuff) return;
+    if (autoOrbStackCount === 0) return;
     const timer = setInterval(() => {
-      setMana(m => m + manaPerClick);
-      setTotalManaEarned(t => t + manaPerClick);
+      setMana(m => m + manaPerClick * autoOrbStackCount);
+      setTotalManaEarned(t => t + manaPerClick * autoOrbStackCount);
     }, 1000);
     return () => clearInterval(timer);
-  }, [hasAutoOrbBuff, manaPerClick]);
+  }, [autoOrbStackCount, manaPerClick]);
 
   // Mana orb unlock detection
   const manaOrbShouldUnlock = hasAnyFromTier(collectedRanks, 5);
