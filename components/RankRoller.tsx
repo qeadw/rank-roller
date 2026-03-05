@@ -3240,7 +3240,18 @@ export default function RankRoller() {
     if (!superRunesUnlocked) return;
     const manaCost = SUPER_RUNE_ROLL_COST_MANA * superRuneBulkCount;
     const pointsCost = SUPER_RUNE_ROLL_COST_POINTS * superRuneBulkCount;
-    if (manaRef.current < manaCost || totalPointsRef.current < pointsCost) return;
+    // Reserve mana for auto-buff purchases so super rune rolling doesn't starve them
+    let manaReserve = 0;
+    if (autoBuffEnabled && autoBuffConfigRef.current.length > 0) {
+      const currentBuffs = activeManaBuffsRef.current;
+      for (const cfg of autoBuffConfigRef.current) {
+        const currentStacks = currentBuffs.filter(b => b.type === cfg.type).length;
+        if (currentStacks < cfg.targetStacks) {
+          manaReserve += getBuffCostRef.current(cfg.type);
+        }
+      }
+    }
+    if (manaRef.current < manaCost + manaReserve || totalPointsRef.current < pointsCost) return;
     setIsRollingSuperRune(true);
     setMana(m => m < manaCost ? m : m - manaCost);
     setTotalPoints(p => p < pointsCost ? p : p - pointsCost);
