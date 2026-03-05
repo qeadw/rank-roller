@@ -253,7 +253,7 @@ interface SuperRune {
   color: string;
   weight: number;
   description: string;
-  buffType: 'mana_gain' | 'bulk_multi' | 'rune_bulk_multi' | 'buff_duration_power' | 'luck_multi' | 'points_multi' | 'speed_multi' | 'rune_speed_multi' | 'abundance_gain_multi' | 'rune_luck_multi' | 'rune_points_multi' | 'rune_speed_bonus_multi';
+  buffType: 'mana_gain' | 'bulk_multi' | 'rune_bulk_multi' | 'buff_duration_power' | 'luck_multi' | 'points_multi' | 'speed_multi' | 'rune_speed_multi' | 'abundance_gain_multi' | 'rune_luck_multi' | 'rune_gain_multi' | 'rune_speed_bonus_multi';
   buffValue: number;
 }
 
@@ -269,7 +269,7 @@ const SUPER_RUNES: SuperRune[] = [
   { index: 8, name: 'Rune of Etching', color: '#cc88ff', weight: 1e-6, description: '1.5x rune roll speed', buffType: 'rune_speed_multi', buffValue: 1.5 },
   { index: 9, name: 'Rune of Proliferation', color: '#ff88cc', weight: 1e-9, description: '3x Rune of Abundance gain', buffType: 'abundance_gain_multi', buffValue: 3 },
   { index: 10, name: 'Rune of Insight', color: '#88ffcc', weight: 1e-9, description: '2x rune luck bonus', buffType: 'rune_luck_multi', buffValue: 2 },
-  { index: 11, name: 'Rune of Prosperity', color: '#ffcc44', weight: 1e-9, description: '2x rune points bonus', buffType: 'rune_points_multi', buffValue: 2 },
+  { index: 11, name: 'Rune of Prosperity', color: '#ffcc44', weight: 1e-9, description: '2x rune gain per roll', buffType: 'rune_gain_multi', buffValue: 2 },
   { index: 12, name: 'Rune of Alacrity', color: '#44cccc', weight: 1e-9, description: '2x rune speed bonus', buffType: 'rune_speed_bonus_multi', buffValue: 2 },
 ];
 
@@ -1356,6 +1356,7 @@ export default function RankRoller() {
   const runeRollCostRef = useRef(0);
   const runeBulkCountRef = useRef(1);
   const totalRuneLuckRef = useRef(1);
+  const runeGainMultiRef = useRef(1);
   const collectedRunesRef = useRef<Set<number>>(new Set());
   const lastAutoRollTimeRef = useRef(0);
   const lastRuneAutoRollTimeRef = useRef(0);
@@ -2067,7 +2068,7 @@ export default function RankRoller() {
     const count = superRuneRollCounts[sr.index] || 0;
     return count > 0 ? acc * Math.pow(sr.buffValue, count) : acc;
   }, 1);
-  const superRuneRunePointsMulti = SUPER_RUNES.filter(sr => sr.buffType === 'rune_points_multi').reduce((acc, sr) => {
+  const superRuneRuneGainMulti = SUPER_RUNES.filter(sr => sr.buffType === 'rune_gain_multi').reduce((acc, sr) => {
     const count = superRuneRollCounts[sr.index] || 0;
     return count > 0 ? acc * Math.pow(sr.buffValue, count) : acc;
   }, 1);
@@ -2165,7 +2166,7 @@ export default function RankRoller() {
 
   // Points multiplier calculations
   const basePointsMulti = Math.pow(1.1, pointsMultiLevel);
-  const pointsMulti = basePointsMulti * milestonePointsBonus * runePointsBonus * superRuneRunePointsMulti * rollerPrestigePointsBonus * manaBuffPoints * megaBuffPointsMulti * superRunePointsMulti;
+  const pointsMulti = basePointsMulti * milestonePointsBonus * runePointsBonus * rollerPrestigePointsBonus * manaBuffPoints * megaBuffPointsMulti * superRunePointsMulti;
   const pointsUpgradeCost = Math.floor(100 * Math.pow(2, pointsMultiLevel) * totalCostReduction);
   const canAffordPointsUpgrade = totalPoints >= pointsUpgradeCost;
 
@@ -2880,11 +2881,12 @@ export default function RankRoller() {
         setRuneRollCount((c) => c + currentRuneBulkCount);
 
         // Track all runes collected and their counts
+        const currentRuneGainMulti = Math.floor(runeGainMultiRef.current);
         const newCollected = new Set<number>();
         const runeCountUpdates: Record<number, number> = {};
         for (const result of results) {
           newCollected.add(result.index);
-          runeCountUpdates[result.index] = (runeCountUpdates[result.index] || 0) + 1;
+          runeCountUpdates[result.index] = (runeCountUpdates[result.index] || 0) + currentRuneGainMulti;
         }
 
         setCollectedRunes((prev) => {
@@ -2960,6 +2962,7 @@ export default function RankRoller() {
 
     // Track all runes collected and their counts
     // For new discoveries, only count once (don't multiply)
+    const currentRuneGainMulti = Math.floor(runeGainMultiRef.current);
     const newCollected = new Set<number>();
     const runeCountUpdates: Record<number, number> = {};
     const firstTimeRolls = new Set<number>(); // Track first-time discoveries this batch
@@ -2969,11 +2972,11 @@ export default function RankRoller() {
 
       if (isNewDiscovery) {
         // First time seeing this rune - count once, don't multiply
-        runeCountUpdates[result.index] = (runeCountUpdates[result.index] || 0) + 1;
+        runeCountUpdates[result.index] = (runeCountUpdates[result.index] || 0) + currentRuneGainMulti;
         firstTimeRolls.add(result.index);
       } else {
         // Already collected or seen this batch - apply multiplier
-        runeCountUpdates[result.index] = (runeCountUpdates[result.index] || 0) + resultMultiplier;
+        runeCountUpdates[result.index] = (runeCountUpdates[result.index] || 0) + resultMultiplier * currentRuneGainMulti;
       }
 
       newCollected.add(result.index);
@@ -3039,6 +3042,10 @@ export default function RankRoller() {
   useEffect(() => {
     totalRuneLuckRef.current = totalRuneLuck;
   }, [totalRuneLuck]);
+
+  useEffect(() => {
+    runeGainMultiRef.current = superRuneRuneGainMulti;
+  }, [superRuneRuneGainMulti]);
 
   useEffect(() => {
     collectedRunesRef.current = collectedRunes;
@@ -3490,8 +3497,8 @@ export default function RankRoller() {
                 effectValue = count > 0 ? `${Math.pow(sr.buffValue, count).toFixed(1)}x Abundance gain` : 'No bonus yet';
               } else if (sr.buffType === 'rune_luck_multi') {
                 effectValue = count > 0 ? `${Math.pow(sr.buffValue, count).toFixed(3)}x rune luck bonus` : 'No bonus yet';
-              } else if (sr.buffType === 'rune_points_multi') {
-                effectValue = count > 0 ? `${Math.pow(sr.buffValue, count).toFixed(3)}x rune points bonus` : 'No bonus yet';
+              } else if (sr.buffType === 'rune_gain_multi') {
+                effectValue = count > 0 ? `${Math.pow(sr.buffValue, count).toFixed(1)}x rune gain per roll` : 'No bonus yet';
               } else if (sr.buffType === 'rune_speed_bonus_multi') {
                 effectValue = count > 0 ? `${Math.pow(sr.buffValue, count).toFixed(3)}x rune speed bonus` : 'No bonus yet';
               }
