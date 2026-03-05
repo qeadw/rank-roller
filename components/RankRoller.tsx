@@ -2101,13 +2101,16 @@ export default function RankRoller() {
   const passiveRegenLevel = manaUpgradeLevels['passive_regen'] || 0;
   const passiveManaPerSec = passiveRegenLevel * manaMilestoneAllBonus;
 
-  // Get multiplier from active mana buffs (additive stacking: 2x + 2x = 4x)
+  // Get multiplier from active mana buffs (additive stacking with diminishing returns after 2nd stack)
   const getManaBuffMultiplier = (type: ManaBuffType): number => {
+    const buffsOfType = activeManaBuffs.filter(b => b.type === type);
+    if (buffsOfType.length === 0) return 1;
     let total = 0;
-    for (const buff of activeManaBuffs) {
-      if (buff.type === type) {
-        total += buff.power * buffPowerMultiplier;
-      }
+    for (let i = 0; i < buffsOfType.length; i++) {
+      const basePower = buffsOfType[i].power * buffPowerMultiplier;
+      // First 2 stacks: full power. Each stack after halves the contribution.
+      const diminish = i >= 2 ? Math.pow(0.5, i - 1) : 1;
+      total += basePower * diminish;
     }
     return total > 0 ? total : 1;
   };
@@ -2131,8 +2134,12 @@ export default function RankRoller() {
   const manaBuffGuaranteedTier = (() => {
     const stacks = activeManaBuffs.filter(b => b.type === 'guaranteed_rare');
     if (stacks.length === 0) return -1;
-    const totalPower = stacks.reduce((sum, b) => sum + b.power, 0) * buffPowerMultiplier;
-    return Math.floor(totalPower);
+    let totalPower = 0;
+    for (let i = 0; i < stacks.length; i++) {
+      const diminish = i >= 2 ? Math.pow(0.5, i - 1) : 1;
+      totalPower += stacks[i].power * diminish;
+    }
+    return Math.floor(totalPower * buffPowerMultiplier);
   })();
 
   // Mega buff multipliers
@@ -2326,27 +2333,21 @@ export default function RankRoller() {
 
   const activateManaBuff = useCallback((type: ManaBuffType) => {
     const cost = getBuffCostRef.current(type);
+    if (manaRef.current < cost) return;
     const def = MANA_BUFF_DEFINITIONS[type];
     const currentBuffs = activeManaBuffsRef.current;
     const currentStacks = currentBuffs.filter(b => b.type === type).length;
-    // Use functional update to check actual current mana
-    setMana(m => {
-      if (m < cost) return m; // Can't afford, no change
-      // Schedule buff addition (can't setState inside setState, so use setTimeout)
-      setTimeout(() => {
-        setActiveManaBuffs(prev => [
-          ...prev,
-          {
-            type,
-            power: def.basePower,
-            remainingMs: Math.floor(def.baseDuration * buffDurationMultiplier),
-            totalDurationMs: Math.floor(def.baseDuration * buffDurationMultiplier),
-            stackCount: currentStacks + 1,
-          },
-        ]);
-      }, 0);
-      return m - cost;
-    });
+    setMana(m => m < cost ? m : m - cost);
+    setActiveManaBuffs(prev => [
+      ...prev,
+      {
+        type,
+        power: def.basePower,
+        remainingMs: Math.floor(def.baseDuration * buffDurationMultiplier),
+        totalDurationMs: Math.floor(def.baseDuration * buffDurationMultiplier),
+        stackCount: currentStacks + 1,
+      },
+    ]);
   }, [buffDurationMultiplier]);
 
   // Auto-buff effect: buys buffs in priority order, respecting target stacks
@@ -2446,17 +2447,7 @@ export default function RankRoller() {
     if (activeManaBuffs.length === 0 && activeMegaBuffs.length === 0) return;
     const timer = setInterval(() => {
       setActiveManaBuffs(prev => {
-        // Count stacks per type for entropy calculation
-        const stackCounts: Record<string, number> = {};
-        for (const b of prev) {
-          stackCounts[b.type] = (stackCounts[b.type] || 0) + 1;
-        }
-        const updated = prev.map(b => {
-          // Entropy: buffs decay 2x faster for each stack beyond 2
-          const stacks = stackCounts[b.type] || 1;
-          const entropyMultiplier = stacks > 2 ? Math.pow(2, stacks - 2) : 1;
-          return { ...b, remainingMs: b.remainingMs - 100 * entropyMultiplier };
-        });
+        const updated = prev.map(b => ({ ...b, remainingMs: b.remainingMs - 100 }));
         return updated.filter(b => b.remainingMs > 0);
       });
       setActiveMegaBuffs(prev => {
@@ -3064,9 +3055,8 @@ export default function RankRoller() {
   // Update manaRef synchronously during render for freshest reads
   manaRef.current = mana;
 
-  useEffect(() => {
-    activeManaBuffsRef.current = activeManaBuffs;
-  }, [activeManaBuffs]);
+  // Update synchronously during render for freshest reads
+  activeManaBuffsRef.current = activeManaBuffs;
 
   useEffect(() => {
     activeMegaBuffsRef.current = activeMegaBuffs;
