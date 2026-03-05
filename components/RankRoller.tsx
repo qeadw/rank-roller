@@ -2337,7 +2337,11 @@ export default function RankRoller() {
     const def = MANA_BUFF_DEFINITIONS[type];
     const currentBuffs = activeManaBuffsRef.current;
     const currentStacks = currentBuffs.filter(b => b.type === type).length;
-    setMana(m => m < cost ? m : m - cost);
+    setMana(m => {
+      if (m < cost) return m;
+      manaRef.current = m - cost;
+      return m - cost;
+    });
     setActiveManaBuffs(prev => [
       ...prev,
       {
@@ -2474,7 +2478,7 @@ export default function RankRoller() {
     const timer = setInterval(() => {
       const regenAmount = Math.floor(passiveManaPerSec);
       if (regenAmount > 0) {
-        setMana(m => m + regenAmount);
+        setMana(m => { manaRef.current = m + regenAmount; return m + regenAmount; });
         setTotalManaEarned(t => t + regenAmount);
       }
     }, 1000);
@@ -2490,7 +2494,7 @@ export default function RankRoller() {
     if (!hasAutoOrb) return;
     const timer = setInterval(() => {
       const gain = Math.floor(manaPerClick * autoOrbEffectivePower);
-      setMana(m => m + gain);
+      setMana(m => { manaRef.current = m + gain; return m + gain; });
       setTotalManaEarned(t => t + gain);
     }, 1000);
     return () => clearInterval(timer);
@@ -3253,7 +3257,11 @@ export default function RankRoller() {
     }
     if (manaRef.current < manaCost + manaReserve || totalPointsRef.current < pointsCost) return;
     setIsRollingSuperRune(true);
-    setMana(m => m < manaCost ? m : m - manaCost);
+    setMana(m => {
+      if (m < manaCost) return m;
+      manaRef.current = m - manaCost;
+      return m - manaCost;
+    });
     setTotalPoints(p => p < pointsCost ? p : p - pointsCost);
 
     let animCount = 0;
