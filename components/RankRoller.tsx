@@ -3245,14 +3245,12 @@ export default function RankRoller() {
     const manaCost = SUPER_RUNE_ROLL_COST_MANA * superRuneBulkCount;
     const pointsCost = SUPER_RUNE_ROLL_COST_POINTS * superRuneBulkCount;
     // Reserve mana for auto-buff purchases so super rune rolling doesn't starve them
+    // ALWAYS reserve for ALL configured buffs, even when at target stacks, so that
+    // when a buff expires there's mana available to re-buy before the roller grabs it
     let manaReserve = 0;
     if (autoBuffEnabled && autoBuffConfigRef.current.length > 0) {
-      const currentBuffs = activeManaBuffsRef.current;
       for (const cfg of autoBuffConfigRef.current) {
-        const currentStacks = currentBuffs.filter(b => b.type === cfg.type).length;
-        if (currentStacks < cfg.targetStacks) {
-          manaReserve += getBuffCostRef.current(cfg.type);
-        }
+        manaReserve += getBuffCostRef.current(cfg.type);
       }
     }
     if (manaRef.current < manaCost + manaReserve || totalPointsRef.current < pointsCost) return;
