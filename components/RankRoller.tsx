@@ -2301,37 +2301,45 @@ export default function RankRoller() {
   }, [mana, activeManaBuffs, buffDurationMultiplier]);
 
   // Auto-buff effect: buys buffs in priority order, respecting target stacks
-  // Saves mana for higher priority buffs before buying lower priority ones
+  // Runs every second, re-reads latest state each tick via refs
+  const autoBuffConfigRef = useRef(autoBuffConfig);
+  autoBuffConfigRef.current = autoBuffConfig;
+  const getBuffCostRef = useRef(getBuffCost);
+  getBuffCostRef.current = getBuffCost;
+  const activateManaBuffRef = useRef(activateManaBuff);
+  activateManaBuffRef.current = activateManaBuff;
+
   useEffect(() => {
-    if (!autoBuffUnlocked || !autoBuffEnabled || autoBuffConfig.length === 0) return;
+    if (!autoBuffUnlocked || !autoBuffEnabled) return;
     const timer = setInterval(() => {
-      // Process in order (index 0 = highest priority)
-      let reservedMana = 0;
-      // First pass: calculate total mana needed for all higher-priority buffs
-      const costs: { type: ManaBuffType; cost: number; needsBuy: boolean }[] = autoBuffConfig.map(cfg => {
-        const currentStacks = activeManaBuffs.filter(b => b.type === cfg.type).length;
+      const config = autoBuffConfigRef.current;
+      if (config.length === 0) return;
+      const currentMana = manaRef.current;
+      const currentBuffs = activeManaBuffsRef.current;
+      // Build cost list in priority order
+      const costs = config.map(cfg => {
+        const currentStacks = currentBuffs.filter(b => b.type === cfg.type).length;
         const needsBuy = currentStacks < cfg.targetStacks;
-        const cost = needsBuy ? getBuffCost(cfg.type) : 0;
+        const cost = needsBuy ? getBuffCostRef.current(cfg.type) : 0;
         return { type: cfg.type, cost, needsBuy };
       });
-      // Buy in priority order, reserving mana for higher priority items
+      // Buy in priority order, reserving mana for lower priority items
+      let spentSoFar = 0;
       for (let i = 0; i < costs.length; i++) {
         if (!costs[i].needsBuy) continue;
-        // Reserve mana needed for all remaining higher-priority buys after this one
+        // Calculate mana needed for remaining items after this one
         let manaNeededAfter = 0;
         for (let j = i + 1; j < costs.length; j++) {
           if (costs[j].needsBuy) manaNeededAfter += costs[j].cost;
         }
-        // Only buy if we can afford this AND still have enough for lower priority items
-        // Actually: reserve mana for items BEFORE this (higher priority) - but we process top-down
-        // So just check: can we afford this + all remaining needed buffs?
-        if (mana >= costs[i].cost + manaNeededAfter) {
-          activateManaBuff(costs[i].type);
+        if (currentMana - spentSoFar >= costs[i].cost) {
+          activateManaBuffRef.current(costs[i].type);
+          spentSoFar += costs[i].cost;
         }
       }
     }, 1000);
     return () => clearInterval(timer);
-  }, [autoBuffUnlocked, autoBuffEnabled, autoBuffConfig, activateManaBuff, activeManaBuffs, mana]);
+  }, [autoBuffUnlocked, autoBuffEnabled]);
 
   const handleManaClickUpgrade = useCallback(() => {
     if (manaClickUpgradeLevel >= MANA_CLICK_UPGRADE_TIERS.length) return;
