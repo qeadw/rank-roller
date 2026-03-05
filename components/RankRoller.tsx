@@ -2283,22 +2283,29 @@ export default function RankRoller() {
   }, [lastManaClickTime, manaClickCooldown, manaPerClick]);
 
   const activateManaBuff = useCallback((type: ManaBuffType) => {
-    const cost = getBuffCost(type);
-    if (mana < cost) return;
+    const cost = getBuffCostRef.current(type);
     const def = MANA_BUFF_DEFINITIONS[type];
-    const currentStacks = activeManaBuffs.filter(b => b.type === type).length;
-    setMana(m => m - cost);
-    setActiveManaBuffs(prev => [
-      ...prev,
-      {
-        type,
-        power: def.basePower,
-        remainingMs: Math.floor(def.baseDuration * buffDurationMultiplier),
-        totalDurationMs: Math.floor(def.baseDuration * buffDurationMultiplier),
-        stackCount: currentStacks + 1,
-      },
-    ]);
-  }, [mana, activeManaBuffs, buffDurationMultiplier]);
+    const currentBuffs = activeManaBuffsRef.current;
+    const currentStacks = currentBuffs.filter(b => b.type === type).length;
+    // Use functional update to check actual current mana
+    setMana(m => {
+      if (m < cost) return m; // Can't afford, no change
+      // Schedule buff addition (can't setState inside setState, so use setTimeout)
+      setTimeout(() => {
+        setActiveManaBuffs(prev => [
+          ...prev,
+          {
+            type,
+            power: def.basePower,
+            remainingMs: Math.floor(def.baseDuration * buffDurationMultiplier),
+            totalDurationMs: Math.floor(def.baseDuration * buffDurationMultiplier),
+            stackCount: currentStacks + 1,
+          },
+        ]);
+      }, 0);
+      return m - cost;
+    });
+  }, [buffDurationMultiplier]);
 
   // Auto-buff effect: buys buffs in priority order, respecting target stacks
   // Runs every second, re-reads latest state each tick via refs
@@ -3183,9 +3190,19 @@ export default function RankRoller() {
   const superRuneAnimFrames = Math.max(5, Math.floor(15 * superRuneRollSpeedMultiplier));
   const canAffordSuperRuneRoll = superRunesUnlocked && totalPoints >= SUPER_RUNE_ROLL_COST_POINTS * superRuneBulkCount && mana >= SUPER_RUNE_ROLL_COST_MANA * superRuneBulkCount;
   const handleSuperRuneRoll = useCallback(() => {
-    if (isRollingSuperRune || !canAffordSuperRuneRoll) return;
+    if (isRollingSuperRune) return;
+    // Check affordability using refs for fresh state
+    const currentMana = manaRef.current;
+    if (!superRunesUnlocked || currentMana < SUPER_RUNE_ROLL_COST_MANA * superRuneBulkCount) return;
     setIsRollingSuperRune(true);
-    setTotalPoints(p => p - SUPER_RUNE_ROLL_COST_POINTS * superRuneBulkCount);
+    setTotalPoints(p => {
+      if (p < SUPER_RUNE_ROLL_COST_POINTS * superRuneBulkCount) {
+        // Can't afford, cancel
+        setTimeout(() => setIsRollingSuperRune(false), 0);
+        return p;
+      }
+      return p - SUPER_RUNE_ROLL_COST_POINTS * superRuneBulkCount;
+    });
     setMana(m => m - SUPER_RUNE_ROLL_COST_MANA * superRuneBulkCount);
 
     let animCount = 0;
