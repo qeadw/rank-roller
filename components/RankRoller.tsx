@@ -74,6 +74,8 @@ interface SaveData {
   superRuneBulkLevel?: number;
   superRuneAutoRollUnlocked?: boolean;
   superRuneSpeedLevel?: number;
+  autoBuffUnlocked?: boolean;
+  autoBuffEnabledTypes?: ManaBuffType[];
 }
 
 interface MilestoneState {
@@ -1323,6 +1325,10 @@ export default function RankRoller() {
   const [superRuneSpeedLevel, setSuperRuneSpeedLevel] = useState(0);
   const [superRuneAutoRollEnabled, setSuperRuneAutoRollEnabled] = useState(false);
   const lastSuperRuneAutoRollTimeRef = useRef(0);
+  const [autoBuffUnlocked, setAutoBuffUnlocked] = useState(false);
+  const [autoBuffEnabledTypes, setAutoBuffEnabledTypes] = useState<Set<ManaBuffType>>(new Set());
+  const [autoBuffEnabled, setAutoBuffEnabled] = useState(false);
+  const [showAutoBuffConfig, setShowAutoBuffConfig] = useState(false);
   const [manaOrbUnlocked, setManaOrbUnlocked] = useState(false);
   const [manaOrbUnlockAnimating, setManaOrbUnlockAnimating] = useState(false);
   const [lastManaClickTime, setLastManaClickTime] = useState(0);
@@ -1418,6 +1424,8 @@ export default function RankRoller() {
         setSuperRuneBulkLevel(data.superRuneBulkLevel || 0);
         setSuperRuneAutoRollUnlocked(data.superRuneAutoRollUnlocked || false);
         setSuperRuneSpeedLevel(data.superRuneSpeedLevel || 0);
+        setAutoBuffUnlocked(data.autoBuffUnlocked || false);
+        setAutoBuffEnabledTypes(new Set(data.autoBuffEnabledTypes || []));
       } catch (e) {
         console.error('Failed to load save data:', e);
       }
@@ -1477,9 +1485,11 @@ export default function RankRoller() {
       superRuneBulkLevel,
       superRuneAutoRollUnlocked,
       superRuneSpeedLevel,
+      autoBuffUnlocked,
+      autoBuffEnabledTypes: Array.from(autoBuffEnabledTypes),
     };
     setCookie(SAVE_KEY, obfuscateSave(JSON.stringify(saveData)));
-  }, [isLoaded, rollCount, totalPoints, highestRank, highestRankRoll, collectedRanks, rankRollCounts, ascendedRanks, luckLevel, pointsMultiLevel, speedLevel, costReductionLevel, claimedMilestones, collectedRunes, runeRollCounts, legitimateRuneRollCounts, runeRollCount, bulkRollLevel, runeBulkRollLevel, runeSpeedLevel, gameSpeedMultiplier, rollerPrestigeLevel, runePrestigeLevel, dismissed1MBanner, mana, totalManaEarned, manaClickUpgradeLevel, manaUpgradeLevels, activeManaBuffs, claimedManaMilestones, manaOrbUnlocked, superRunesUnlocked, superRuneRollCounts, superRuneRollCount, superRuneBulkLevel, superRuneAutoRollUnlocked, superRuneSpeedLevel]);
+  }, [isLoaded, rollCount, totalPoints, highestRank, highestRankRoll, collectedRanks, rankRollCounts, ascendedRanks, luckLevel, pointsMultiLevel, speedLevel, costReductionLevel, claimedMilestones, collectedRunes, runeRollCounts, legitimateRuneRollCounts, runeRollCount, bulkRollLevel, runeBulkRollLevel, runeSpeedLevel, gameSpeedMultiplier, rollerPrestigeLevel, runePrestigeLevel, dismissed1MBanner, mana, totalManaEarned, manaClickUpgradeLevel, manaUpgradeLevels, activeManaBuffs, claimedManaMilestones, manaOrbUnlocked, superRunesUnlocked, superRuneRollCounts, superRuneRollCount, superRuneBulkLevel, superRuneAutoRollUnlocked, superRuneSpeedLevel, autoBuffUnlocked, autoBuffEnabledTypes]);
 
   // Save whenever saveGame changes (which happens when any saved state changes)
   useEffect(() => {
@@ -2280,6 +2290,17 @@ export default function RankRoller() {
       },
     ]);
   }, [mana, activeManaBuffs, buffDurationMultiplier]);
+
+  // Auto-buff effect: automatically buy enabled buffs when affordable
+  useEffect(() => {
+    if (!autoBuffUnlocked || !autoBuffEnabled || autoBuffEnabledTypes.size === 0) return;
+    const timer = setInterval(() => {
+      for (const type of autoBuffEnabledTypes) {
+        activateManaBuff(type);
+      }
+    }, 1000);
+    return () => clearInterval(timer);
+  }, [autoBuffUnlocked, autoBuffEnabled, autoBuffEnabledTypes, activateManaBuff]);
 
   const handleManaClickUpgrade = useCallback(() => {
     if (manaClickUpgradeLevel >= MANA_CLICK_UPGRADE_TIERS.length) return;
@@ -3633,6 +3654,105 @@ export default function RankRoller() {
                     </button>
                   );
                 })()}
+
+                {/* Auto Buff unlock */}
+                {!autoBuffUnlocked && (() => {
+                  const abundanceCount = superRuneRollCounts[0] || 0;
+                  const autoBuffCost = 1000;
+                  const canAffordAutoBuff = abundanceCount >= autoBuffCost;
+                  return (
+                    <button
+                      onClick={() => {
+                        if (canAffordAutoBuff) {
+                          setSuperRuneRollCounts(prev => ({ ...prev, 0: (prev[0] || 0) - autoBuffCost }));
+                          setAutoBuffUnlocked(true);
+                        }
+                      }}
+                      disabled={!canAffordAutoBuff}
+                      style={{
+                        padding: '12px 16px', fontSize: '0.9rem', fontWeight: 'bold',
+                        backgroundColor: canAffordAutoBuff ? '#331144' : '#1a1a2e',
+                        color: canAffordAutoBuff ? '#ff88ff' : '#555',
+                        border: `2px solid ${canAffordAutoBuff ? 'rgba(255, 68, 255, 0.4)' : 'rgba(100, 100, 100, 0.2)'}`,
+                        borderRadius: '8px', cursor: canAffordAutoBuff ? 'pointer' : 'not-allowed',
+                        textAlign: 'left', display: 'flex', justifyContent: 'space-between', alignItems: 'center',
+                      }}
+                    >
+                      <div>
+                        <div>Unlock Auto Buffs</div>
+                        <div style={{ fontSize: '0.7rem', opacity: 0.7 }}>Automatically purchases mana buffs</div>
+                      </div>
+                      <div style={{ fontSize: '0.8rem', color: canAffordAutoBuff ? '#ff44ff' : '#444' }}>
+                        1,000 Abundance
+                      </div>
+                    </button>
+                  );
+                })()}
+
+                {/* Auto Buff toggle + config (if unlocked) */}
+                {autoBuffUnlocked && (
+                  <>
+                    <div style={{ display: 'flex', gap: '8px' }}>
+                      <button
+                        onClick={() => setAutoBuffEnabled(prev => !prev)}
+                        style={{
+                          flex: 1, padding: '12px 16px', fontSize: '0.9rem', fontWeight: 'bold',
+                          backgroundColor: autoBuffEnabled ? '#224422' : '#331144',
+                          color: autoBuffEnabled ? '#88ff88' : '#ff88ff',
+                          border: `2px solid ${autoBuffEnabled ? 'rgba(100, 255, 100, 0.4)' : 'rgba(255, 68, 255, 0.4)'}`,
+                          borderRadius: '8px', cursor: 'pointer', textAlign: 'left',
+                        }}
+                      >
+                        Auto Buffs: {autoBuffEnabled ? 'ON' : 'OFF'}
+                      </button>
+                      <button
+                        onClick={() => setShowAutoBuffConfig(prev => !prev)}
+                        style={{
+                          padding: '12px 16px', fontSize: '0.9rem', fontWeight: 'bold',
+                          backgroundColor: '#331144', color: '#ff88ff',
+                          border: '2px solid rgba(255, 68, 255, 0.4)',
+                          borderRadius: '8px', cursor: 'pointer',
+                        }}
+                      >
+                        {showAutoBuffConfig ? 'Hide' : 'Configure'}
+                      </button>
+                    </div>
+                    {showAutoBuffConfig && (
+                      <div style={{
+                        backgroundColor: 'rgba(30, 30, 50, 0.9)', border: '2px solid rgba(255, 68, 255, 0.2)',
+                        borderRadius: '8px', padding: '12px', display: 'flex', flexDirection: 'column', gap: '6px',
+                      }}>
+                        {(Object.values(MANA_BUFF_DEFINITIONS) as ManaBuffDefinition[]).map(def => {
+                          const isEnabled = autoBuffEnabledTypes.has(def.id);
+                          return (
+                            <button
+                              key={def.id}
+                              onClick={() => {
+                                setAutoBuffEnabledTypes(prev => {
+                                  const next = new Set(prev);
+                                  if (next.has(def.id)) next.delete(def.id);
+                                  else next.add(def.id);
+                                  return next;
+                                });
+                              }}
+                              style={{
+                                padding: '8px 12px', fontSize: '0.85rem', fontWeight: 'bold',
+                                backgroundColor: isEnabled ? `${def.color}20` : '#1a1a2e',
+                                color: isEnabled ? def.color : '#555',
+                                border: `2px solid ${isEnabled ? def.color + '60' : 'rgba(100, 100, 100, 0.2)'}`,
+                                borderRadius: '6px', cursor: 'pointer', textAlign: 'left',
+                                display: 'flex', justifyContent: 'space-between', alignItems: 'center',
+                              }}
+                            >
+                              <span>{def.name}</span>
+                              <span style={{ fontSize: '0.75rem' }}>{isEnabled ? 'ON' : 'OFF'}</span>
+                            </button>
+                          );
+                        })}
+                      </div>
+                    )}
+                  </>
+                )}
               </div>
             </div>
           </>
