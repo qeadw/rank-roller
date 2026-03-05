@@ -75,7 +75,7 @@ interface SaveData {
   superRuneAutoRollUnlocked?: boolean;
   superRuneSpeedLevel?: number;
   autoBuffUnlocked?: boolean;
-  autoBuffEnabledTypes?: ManaBuffType[];
+  autoBuffConfig?: Array<{ type: ManaBuffType; targetStacks: number }>;
   abundanceGainLevel?: number;
 }
 
@@ -1327,7 +1327,7 @@ export default function RankRoller() {
   const [superRuneAutoRollEnabled, setSuperRuneAutoRollEnabled] = useState(false);
   const lastSuperRuneAutoRollTimeRef = useRef(0);
   const [autoBuffUnlocked, setAutoBuffUnlocked] = useState(false);
-  const [autoBuffEnabledTypes, setAutoBuffEnabledTypes] = useState<Set<ManaBuffType>>(new Set());
+  const [autoBuffConfig, setAutoBuffConfig] = useState<Array<{ type: ManaBuffType; targetStacks: number }>>([]);
   const [autoBuffEnabled, setAutoBuffEnabled] = useState(false);
   const [showAutoBuffConfig, setShowAutoBuffConfig] = useState(false);
   const [abundanceGainLevel, setAbundanceGainLevel] = useState(0);
@@ -1427,7 +1427,12 @@ export default function RankRoller() {
         setSuperRuneAutoRollUnlocked(data.superRuneAutoRollUnlocked || false);
         setSuperRuneSpeedLevel(data.superRuneSpeedLevel || 0);
         setAutoBuffUnlocked(data.autoBuffUnlocked || false);
-        setAutoBuffEnabledTypes(new Set(data.autoBuffEnabledTypes || []));
+        if (data.autoBuffConfig) {
+          setAutoBuffConfig(data.autoBuffConfig);
+        } else if ((data as any).autoBuffEnabledTypes) {
+          // Migrate old format
+          setAutoBuffConfig(((data as any).autoBuffEnabledTypes as ManaBuffType[]).map(type => ({ type, targetStacks: 1 })));
+        }
         setAbundanceGainLevel(data.abundanceGainLevel || 0);
       } catch (e) {
         console.error('Failed to load save data:', e);
@@ -1489,11 +1494,11 @@ export default function RankRoller() {
       superRuneAutoRollUnlocked,
       superRuneSpeedLevel,
       autoBuffUnlocked,
-      autoBuffEnabledTypes: Array.from(autoBuffEnabledTypes),
+      autoBuffConfig,
       abundanceGainLevel,
     };
     setCookie(SAVE_KEY, obfuscateSave(JSON.stringify(saveData)));
-  }, [isLoaded, rollCount, totalPoints, highestRank, highestRankRoll, collectedRanks, rankRollCounts, ascendedRanks, luckLevel, pointsMultiLevel, speedLevel, costReductionLevel, claimedMilestones, collectedRunes, runeRollCounts, legitimateRuneRollCounts, runeRollCount, bulkRollLevel, runeBulkRollLevel, runeSpeedLevel, gameSpeedMultiplier, rollerPrestigeLevel, runePrestigeLevel, dismissed1MBanner, mana, totalManaEarned, manaClickUpgradeLevel, manaUpgradeLevels, activeManaBuffs, claimedManaMilestones, manaOrbUnlocked, superRunesUnlocked, superRuneRollCounts, superRuneRollCount, superRuneBulkLevel, superRuneAutoRollUnlocked, superRuneSpeedLevel, autoBuffUnlocked, autoBuffEnabledTypes, abundanceGainLevel]);
+  }, [isLoaded, rollCount, totalPoints, highestRank, highestRankRoll, collectedRanks, rankRollCounts, ascendedRanks, luckLevel, pointsMultiLevel, speedLevel, costReductionLevel, claimedMilestones, collectedRunes, runeRollCounts, legitimateRuneRollCounts, runeRollCount, bulkRollLevel, runeBulkRollLevel, runeSpeedLevel, gameSpeedMultiplier, rollerPrestigeLevel, runePrestigeLevel, dismissed1MBanner, mana, totalManaEarned, manaClickUpgradeLevel, manaUpgradeLevels, activeManaBuffs, claimedManaMilestones, manaOrbUnlocked, superRunesUnlocked, superRuneRollCounts, superRuneRollCount, superRuneBulkLevel, superRuneAutoRollUnlocked, superRuneSpeedLevel, autoBuffUnlocked, autoBuffConfig, abundanceGainLevel]);
 
   // Save whenever saveGame changes (which happens when any saved state changes)
   useEffect(() => {
@@ -2295,16 +2300,38 @@ export default function RankRoller() {
     ]);
   }, [mana, activeManaBuffs, buffDurationMultiplier]);
 
-  // Auto-buff effect: automatically buy enabled buffs when affordable
+  // Auto-buff effect: buys buffs in priority order, respecting target stacks
+  // Saves mana for higher priority buffs before buying lower priority ones
   useEffect(() => {
-    if (!autoBuffUnlocked || !autoBuffEnabled || autoBuffEnabledTypes.size === 0) return;
+    if (!autoBuffUnlocked || !autoBuffEnabled || autoBuffConfig.length === 0) return;
     const timer = setInterval(() => {
-      Array.from(autoBuffEnabledTypes).forEach(type => {
-        activateManaBuff(type);
+      // Process in order (index 0 = highest priority)
+      let reservedMana = 0;
+      // First pass: calculate total mana needed for all higher-priority buffs
+      const costs: { type: ManaBuffType; cost: number; needsBuy: boolean }[] = autoBuffConfig.map(cfg => {
+        const currentStacks = activeManaBuffs.filter(b => b.type === cfg.type).length;
+        const needsBuy = currentStacks < cfg.targetStacks;
+        const cost = needsBuy ? getBuffCost(cfg.type) : 0;
+        return { type: cfg.type, cost, needsBuy };
       });
+      // Buy in priority order, reserving mana for higher priority items
+      for (let i = 0; i < costs.length; i++) {
+        if (!costs[i].needsBuy) continue;
+        // Reserve mana needed for all remaining higher-priority buys after this one
+        let manaNeededAfter = 0;
+        for (let j = i + 1; j < costs.length; j++) {
+          if (costs[j].needsBuy) manaNeededAfter += costs[j].cost;
+        }
+        // Only buy if we can afford this AND still have enough for lower priority items
+        // Actually: reserve mana for items BEFORE this (higher priority) - but we process top-down
+        // So just check: can we afford this + all remaining needed buffs?
+        if (mana >= costs[i].cost + manaNeededAfter) {
+          activateManaBuff(costs[i].type);
+        }
+      }
     }, 1000);
     return () => clearInterval(timer);
-  }, [autoBuffUnlocked, autoBuffEnabled, autoBuffEnabledTypes, activateManaBuff]);
+  }, [autoBuffUnlocked, autoBuffEnabled, autoBuffConfig, activateManaBuff, activeManaBuffs, mana]);
 
   const handleManaClickUpgrade = useCallback(() => {
     if (manaClickUpgradeLevel >= MANA_CLICK_UPGRADE_TIERS.length) return;
@@ -3763,33 +3790,91 @@ export default function RankRoller() {
                         backgroundColor: 'rgba(30, 30, 50, 0.9)', border: '2px solid rgba(255, 68, 255, 0.2)',
                         borderRadius: '8px', padding: '12px', display: 'flex', flexDirection: 'column', gap: '6px',
                       }}>
-                        {(Object.values(MANA_BUFF_DEFINITIONS) as ManaBuffDefinition[]).map(def => {
-                          const isEnabled = autoBuffEnabledTypes.has(def.id);
+                        <div style={{ color: '#aaa', fontSize: '0.7rem', marginBottom: '4px' }}>
+                          Priority order (top = highest). Set stacks to 0 to disable. Higher priority buffs are bought first.
+                        </div>
+                        {/* Active config entries (in priority order) */}
+                        {autoBuffConfig.map((cfg, idx) => {
+                          const def = MANA_BUFF_DEFINITIONS[cfg.type];
+                          const currentStacks = activeManaBuffs.filter(b => b.type === cfg.type).length;
                           return (
+                            <div key={cfg.type} style={{
+                              padding: '8px 10px', fontSize: '0.85rem', fontWeight: 'bold',
+                              backgroundColor: cfg.targetStacks > 0 ? `${def.color}15` : '#1a1a2e',
+                              color: cfg.targetStacks > 0 ? def.color : '#555',
+                              border: `2px solid ${cfg.targetStacks > 0 ? def.color + '40' : 'rgba(100, 100, 100, 0.2)'}`,
+                              borderRadius: '6px', display: 'flex', alignItems: 'center', gap: '6px',
+                            }}>
+                              <div style={{ display: 'flex', flexDirection: 'column', gap: '2px' }}>
+                                <button onClick={() => {
+                                  if (idx === 0) return;
+                                  setAutoBuffConfig(prev => {
+                                    const next = [...prev];
+                                    [next[idx - 1], next[idx]] = [next[idx], next[idx - 1]];
+                                    return next;
+                                  });
+                                }} style={{
+                                  background: 'none', border: 'none', color: idx === 0 ? '#333' : '#888',
+                                  cursor: idx === 0 ? 'default' : 'pointer', fontSize: '0.6rem', padding: '0', lineHeight: 1,
+                                }}>▲</button>
+                                <button onClick={() => {
+                                  if (idx === autoBuffConfig.length - 1) return;
+                                  setAutoBuffConfig(prev => {
+                                    const next = [...prev];
+                                    [next[idx], next[idx + 1]] = [next[idx + 1], next[idx]];
+                                    return next;
+                                  });
+                                }} style={{
+                                  background: 'none', border: 'none', color: idx === autoBuffConfig.length - 1 ? '#333' : '#888',
+                                  cursor: idx === autoBuffConfig.length - 1 ? 'default' : 'pointer', fontSize: '0.6rem', padding: '0', lineHeight: 1,
+                                }}>▼</button>
+                              </div>
+                              <span style={{ fontSize: '0.65rem', color: '#666', width: '16px' }}>#{idx + 1}</span>
+                              <span style={{ flex: 1 }}>{def.name}</span>
+                              <span style={{ fontSize: '0.7rem', color: '#888', marginRight: '4px' }}>{currentStacks}/{cfg.targetStacks}</span>
+                              <button onClick={() => {
+                                setAutoBuffConfig(prev => prev.map((c, i) => i === idx ? { ...c, targetStacks: Math.max(0, c.targetStacks - 1) } : c));
+                              }} style={{
+                                background: 'rgba(255,255,255,0.1)', border: 'none', color: '#ccc', cursor: 'pointer',
+                                width: '22px', height: '22px', borderRadius: '4px', fontSize: '0.8rem', fontWeight: 'bold',
+                              }}>-</button>
+                              <span style={{ fontSize: '0.8rem', width: '20px', textAlign: 'center' }}>{cfg.targetStacks}</span>
+                              <button onClick={() => {
+                                setAutoBuffConfig(prev => prev.map((c, i) => i === idx ? { ...c, targetStacks: c.targetStacks + 1 } : c));
+                              }} style={{
+                                background: 'rgba(255,255,255,0.1)', border: 'none', color: '#ccc', cursor: 'pointer',
+                                width: '22px', height: '22px', borderRadius: '4px', fontSize: '0.8rem', fontWeight: 'bold',
+                              }}>+</button>
+                              <button onClick={() => {
+                                setAutoBuffConfig(prev => prev.filter((_, i) => i !== idx));
+                              }} style={{
+                                background: 'rgba(255,50,50,0.2)', border: 'none', color: '#f66', cursor: 'pointer',
+                                width: '22px', height: '22px', borderRadius: '4px', fontSize: '0.7rem',
+                              }}>✕</button>
+                            </div>
+                          );
+                        })}
+                        {/* Add buff buttons for types not yet in config */}
+                        {(Object.values(MANA_BUFF_DEFINITIONS) as ManaBuffDefinition[])
+                          .filter(def => !autoBuffConfig.some(c => c.type === def.id))
+                          .map(def => (
                             <button
                               key={def.id}
                               onClick={() => {
-                                setAutoBuffEnabledTypes(prev => {
-                                  const next = new Set(prev);
-                                  if (next.has(def.id)) next.delete(def.id);
-                                  else next.add(def.id);
-                                  return next;
-                                });
+                                setAutoBuffConfig(prev => [...prev, { type: def.id, targetStacks: 1 }]);
                               }}
                               style={{
                                 padding: '8px 12px', fontSize: '0.85rem', fontWeight: 'bold',
-                                backgroundColor: isEnabled ? `${def.color}20` : '#1a1a2e',
-                                color: isEnabled ? def.color : '#555',
-                                border: `2px solid ${isEnabled ? def.color + '60' : 'rgba(100, 100, 100, 0.2)'}`,
+                                backgroundColor: '#1a1a2e', color: '#555',
+                                border: '2px dashed rgba(100, 100, 100, 0.3)',
                                 borderRadius: '6px', cursor: 'pointer', textAlign: 'left',
                                 display: 'flex', justifyContent: 'space-between', alignItems: 'center',
                               }}
                             >
-                              <span>{def.name}</span>
-                              <span style={{ fontSize: '0.75rem' }}>{isEnabled ? 'ON' : 'OFF'}</span>
+                              <span>+ Add {def.name}</span>
                             </button>
-                          );
-                        })}
+                          ))
+                        }
                       </div>
                     )}
                   </>
