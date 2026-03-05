@@ -76,6 +76,7 @@ interface SaveData {
   superRuneSpeedLevel?: number;
   autoBuffUnlocked?: boolean;
   autoBuffEnabledTypes?: ManaBuffType[];
+  abundanceGainLevel?: number;
 }
 
 interface MilestoneState {
@@ -1329,6 +1330,7 @@ export default function RankRoller() {
   const [autoBuffEnabledTypes, setAutoBuffEnabledTypes] = useState<Set<ManaBuffType>>(new Set());
   const [autoBuffEnabled, setAutoBuffEnabled] = useState(false);
   const [showAutoBuffConfig, setShowAutoBuffConfig] = useState(false);
+  const [abundanceGainLevel, setAbundanceGainLevel] = useState(0);
   const [manaOrbUnlocked, setManaOrbUnlocked] = useState(false);
   const [manaOrbUnlockAnimating, setManaOrbUnlockAnimating] = useState(false);
   const [lastManaClickTime, setLastManaClickTime] = useState(0);
@@ -1426,6 +1428,7 @@ export default function RankRoller() {
         setSuperRuneSpeedLevel(data.superRuneSpeedLevel || 0);
         setAutoBuffUnlocked(data.autoBuffUnlocked || false);
         setAutoBuffEnabledTypes(new Set(data.autoBuffEnabledTypes || []));
+        setAbundanceGainLevel(data.abundanceGainLevel || 0);
       } catch (e) {
         console.error('Failed to load save data:', e);
       }
@@ -1487,9 +1490,10 @@ export default function RankRoller() {
       superRuneSpeedLevel,
       autoBuffUnlocked,
       autoBuffEnabledTypes: Array.from(autoBuffEnabledTypes),
+      abundanceGainLevel,
     };
     setCookie(SAVE_KEY, obfuscateSave(JSON.stringify(saveData)));
-  }, [isLoaded, rollCount, totalPoints, highestRank, highestRankRoll, collectedRanks, rankRollCounts, ascendedRanks, luckLevel, pointsMultiLevel, speedLevel, costReductionLevel, claimedMilestones, collectedRunes, runeRollCounts, legitimateRuneRollCounts, runeRollCount, bulkRollLevel, runeBulkRollLevel, runeSpeedLevel, gameSpeedMultiplier, rollerPrestigeLevel, runePrestigeLevel, dismissed1MBanner, mana, totalManaEarned, manaClickUpgradeLevel, manaUpgradeLevels, activeManaBuffs, claimedManaMilestones, manaOrbUnlocked, superRunesUnlocked, superRuneRollCounts, superRuneRollCount, superRuneBulkLevel, superRuneAutoRollUnlocked, superRuneSpeedLevel, autoBuffUnlocked, autoBuffEnabledTypes]);
+  }, [isLoaded, rollCount, totalPoints, highestRank, highestRankRoll, collectedRanks, rankRollCounts, ascendedRanks, luckLevel, pointsMultiLevel, speedLevel, costReductionLevel, claimedMilestones, collectedRunes, runeRollCounts, legitimateRuneRollCounts, runeRollCount, bulkRollLevel, runeBulkRollLevel, runeSpeedLevel, gameSpeedMultiplier, rollerPrestigeLevel, runePrestigeLevel, dismissed1MBanner, mana, totalManaEarned, manaClickUpgradeLevel, manaUpgradeLevels, activeManaBuffs, claimedManaMilestones, manaOrbUnlocked, superRunesUnlocked, superRuneRollCounts, superRuneRollCount, superRuneBulkLevel, superRuneAutoRollUnlocked, superRuneSpeedLevel, autoBuffUnlocked, autoBuffEnabledTypes, abundanceGainLevel]);
 
   // Save whenever saveGame changes (which happens when any saved state changes)
   useEffect(() => {
@@ -3137,6 +3141,7 @@ export default function RankRoller() {
   const autoRollUnlocked = slowAutoRollUnlocked;
 
   // Super Rune roll handler
+  const abundanceGainMulti = 1 + abundanceGainLevel;
   const superRuneBulkCount = 1 + superRuneBulkLevel;
   const superRuneRollSpeedMultiplier = Math.pow(0.75, superRuneSpeedLevel); // 25% faster per level
   const superRuneAnimFrameTime = Math.max(10, Math.floor(80 * superRuneRollSpeedMultiplier));
@@ -3162,7 +3167,8 @@ export default function RankRoller() {
         setSuperRuneRollCounts(prev => {
           const newCounts = { ...prev };
           for (const result of results) {
-            newCounts[result.index] = (newCounts[result.index] || 0) + 1;
+            const gain = result.index === 0 ? abundanceGainMulti : 1;
+            newCounts[result.index] = (newCounts[result.index] || 0) + gain;
           }
           return newCounts;
         });
@@ -3170,7 +3176,7 @@ export default function RankRoller() {
         setIsRollingSuperRune(false);
       }
     }, superRuneAnimFrameTime);
-  }, [isRollingSuperRune, canAffordSuperRuneRoll, superRuneBulkCount, superRuneAnimFrameTime, superRuneAnimFrames]);
+  }, [isRollingSuperRune, canAffordSuperRuneRoll, superRuneBulkCount, superRuneAnimFrameTime, superRuneAnimFrames, abundanceGainMulti]);
 
   // Check if rune auto-roll is unlocked (slow at 500 rune rolls, fast at 5000 rune rolls)
   const slowRuneAutoRollUnlocked = claimedMilestones.has('rune_rolls_500');
@@ -3650,6 +3656,41 @@ export default function RankRoller() {
                       </div>
                       <div style={{ fontSize: '0.8rem', color: canAffordSpeed ? '#ff44ff' : '#444' }}>
                         {formatNumber(speedCost)} Abundance
+                      </div>
+                    </button>
+                  );
+                })()}
+
+                {/* Abundance Gain multiplier */}
+                {(() => {
+                  const abundanceCount = superRuneRollCounts[0] || 0;
+                  const rawCost = 100 * Math.pow(2.5, abundanceGainLevel);
+                  const abundanceGainCost = Math.round(rawCost / 50) * 50;
+                  const canAffordAbundanceGain = abundanceCount >= abundanceGainCost;
+                  return (
+                    <button
+                      onClick={() => {
+                        if (canAffordAbundanceGain) {
+                          setSuperRuneRollCounts(prev => ({ ...prev, 0: (prev[0] || 0) - abundanceGainCost }));
+                          setAbundanceGainLevel(l => l + 1);
+                        }
+                      }}
+                      disabled={!canAffordAbundanceGain}
+                      style={{
+                        padding: '12px 16px', fontSize: '0.9rem', fontWeight: 'bold',
+                        backgroundColor: canAffordAbundanceGain ? '#331144' : '#1a1a2e',
+                        color: canAffordAbundanceGain ? '#ff88ff' : '#555',
+                        border: `2px solid ${canAffordAbundanceGain ? 'rgba(255, 68, 255, 0.4)' : 'rgba(100, 100, 100, 0.2)'}`,
+                        borderRadius: '8px', cursor: canAffordAbundanceGain ? 'pointer' : 'not-allowed',
+                        textAlign: 'left', display: 'flex', justifyContent: 'space-between', alignItems: 'center',
+                      }}
+                    >
+                      <div>
+                        <div>Abundance Multiplier (Lv {abundanceGainLevel})</div>
+                        <div style={{ fontSize: '0.7rem', opacity: 0.7 }}>Current: {abundanceGainMulti}x Rune of Abundance per roll</div>
+                      </div>
+                      <div style={{ fontSize: '0.8rem', color: canAffordAbundanceGain ? '#ff44ff' : '#444' }}>
+                        {formatNumber(abundanceGainCost)} Abundance
                       </div>
                     </button>
                   );
