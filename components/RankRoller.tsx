@@ -253,7 +253,7 @@ interface SuperRune {
   color: string;
   weight: number;
   description: string;
-  buffType: 'mana_gain' | 'bulk_multi' | 'rune_bulk_multi' | 'buff_duration_power';
+  buffType: 'mana_gain' | 'bulk_multi' | 'rune_bulk_multi' | 'buff_duration_power' | 'luck_multi' | 'points_multi' | 'speed_multi' | 'rune_speed_multi';
   buffValue: number;
 }
 
@@ -263,6 +263,10 @@ const SUPER_RUNES: SuperRune[] = [
   { index: 2, name: 'Rune of Momentum', color: '#ff6644', weight: 1e-6, description: '+1x bulk multiplier', buffType: 'bulk_multi', buffValue: 1 },
   { index: 3, name: 'Rune of Resonance', color: '#44aaff', weight: 1e-6, description: '+1x rune bulk multiplier', buffType: 'rune_bulk_multi', buffValue: 1 },
   { index: 4, name: 'Rune of Infinity', color: '#ffaa44', weight: 1e-6, description: '1.8x buff duration & power', buffType: 'buff_duration_power', buffValue: 1.8 },
+  { index: 5, name: 'Rune of Fortune', color: '#00ff88', weight: 1e-6, description: '2x luck multiplier', buffType: 'luck_multi', buffValue: 2 },
+  { index: 6, name: 'Rune of Avarice', color: '#ffd700', weight: 1e-6, description: '2x points multiplier', buffType: 'points_multi', buffValue: 2 },
+  { index: 7, name: 'Rune of Haste', color: '#00ccff', weight: 1e-6, description: '1.5x roll speed', buffType: 'speed_multi', buffValue: 1.5 },
+  { index: 8, name: 'Rune of Etching', color: '#cc88ff', weight: 1e-6, description: '1.5x rune roll speed', buffType: 'rune_speed_multi', buffValue: 1.5 },
 ];
 
 const SUPER_RUNE_ROLL_COST_POINTS = 1e21; // 1Sx
@@ -2035,6 +2039,22 @@ export default function RankRoller() {
     const count = superRuneRollCounts[sr.index] || 0;
     return count > 0 ? acc * Math.pow(sr.buffValue, count) : acc;
   }, 1);
+  const superRuneLuckMulti = SUPER_RUNES.filter(sr => sr.buffType === 'luck_multi').reduce((acc, sr) => {
+    const count = superRuneRollCounts[sr.index] || 0;
+    return count > 0 ? acc * Math.pow(sr.buffValue, count) : acc;
+  }, 1);
+  const superRunePointsMulti = SUPER_RUNES.filter(sr => sr.buffType === 'points_multi').reduce((acc, sr) => {
+    const count = superRuneRollCounts[sr.index] || 0;
+    return count > 0 ? acc * Math.pow(sr.buffValue, count) : acc;
+  }, 1);
+  const superRuneSpeedMulti = SUPER_RUNES.filter(sr => sr.buffType === 'speed_multi').reduce((acc, sr) => {
+    const count = superRuneRollCounts[sr.index] || 0;
+    return count > 0 ? acc * Math.pow(sr.buffValue, count) : acc;
+  }, 1);
+  const superRuneRuneSpeedMulti = SUPER_RUNES.filter(sr => sr.buffType === 'rune_speed_multi').reduce((acc, sr) => {
+    const count = superRuneRollCounts[sr.index] || 0;
+    return count > 0 ? acc * Math.pow(sr.buffValue, count) : acc;
+  }, 1);
   // ============ END SUPER RUNE BUFFS ============
 
   // Mana per click: base 1 + milestone bonuses, then doubled per tap upgrade level, then super rune mana multi
@@ -2119,13 +2139,13 @@ export default function RankRoller() {
 
   // Luck calculations
   const baseLuckMulti = Math.pow(1.1, luckLevel);
-  const luckMulti = baseLuckMulti * milestoneLuckBonus * runeLuckBonus * rollerPrestigeLuckBonus * manaBuffLuck * megaBuffLuckMulti;
+  const luckMulti = baseLuckMulti * milestoneLuckBonus * runeLuckBonus * rollerPrestigeLuckBonus * manaBuffLuck * megaBuffLuckMulti * superRuneLuckMulti;
   const luckUpgradeCost = Math.floor(100 * Math.pow(2, luckLevel) * totalCostReduction);
   const canAffordLuckUpgrade = totalPoints >= luckUpgradeCost;
 
   // Points multiplier calculations
   const basePointsMulti = Math.pow(1.1, pointsMultiLevel);
-  const pointsMulti = basePointsMulti * milestonePointsBonus * runePointsBonus * rollerPrestigePointsBonus * manaBuffPoints * megaBuffPointsMulti;
+  const pointsMulti = basePointsMulti * milestonePointsBonus * runePointsBonus * rollerPrestigePointsBonus * manaBuffPoints * megaBuffPointsMulti * superRunePointsMulti;
   const pointsUpgradeCost = Math.floor(100 * Math.pow(2, pointsMultiLevel) * totalCostReduction);
   const canAffordPointsUpgrade = totalPoints >= pointsUpgradeCost;
 
@@ -2161,7 +2181,7 @@ export default function RankRoller() {
     }
   };
   const baseSpeedMulti = Math.pow(1.1, speedLevel);
-  const rawSpeedMulti = baseSpeedMulti * milestoneSpeedBonus * runeSpeedBonus * rollerPrestigeSpeedBonus * manaBuffSpeed * megaBuffSpeedMulti;
+  const rawSpeedMulti = baseSpeedMulti * milestoneSpeedBonus * runeSpeedBonus * rollerPrestigeSpeedBonus * manaBuffSpeed * megaBuffSpeedMulti * superRuneSpeedMulti;
   const speedMulti = applySpeedSoftCap(rawSpeedMulti);
   const speedUpgradeCost = Math.floor(100 * Math.pow(2, speedLevel) * totalCostReduction);
   const canAffordSpeedUpgrade = totalPoints >= speedUpgradeCost;
@@ -2785,7 +2805,7 @@ export default function RankRoller() {
   // Rune speed upgrade: 10% faster per level (multiplier of 0.9^level)
   const runeSpeedUpgradeMultiplier = Math.pow(0.9, runeSpeedLevel);
   // Use fractional values for smooth progression instead of discrete jumps
-  const runeRollTime = Math.max(1, baseRuneRollTime * runeSpeedUpgradeMultiplier / (milestoneRuneSpeedBonus * runeRuneSpeedBonus * gameSpeedMultiplier));
+  const runeRollTime = Math.max(1, baseRuneRollTime * runeSpeedUpgradeMultiplier / (milestoneRuneSpeedBonus * runeRuneSpeedBonus * gameSpeedMultiplier * superRuneRuneSpeedMulti));
   const runeAnimationInterval = Math.max(10, Math.floor(100 / gameSpeedMultiplier)); // Animation frame rate for runes
   // Apply milestone and prestige rune bulk bonuses
   const effectiveRuneBulkCount = Math.floor((runeBulkCount + rollerPrestigeRuneBulkBonus + superRuneRuneBulkBonus) * milestoneRuneBulkBonus);
@@ -3438,6 +3458,14 @@ export default function RankRoller() {
                 effectValue = count > 0 ? `+${count * sr.buffValue}x rune bulk` : 'No bonus yet';
               } else if (sr.buffType === 'buff_duration_power') {
                 effectValue = count > 0 ? `${Math.pow(sr.buffValue, count).toFixed(3)}x buff duration & power` : 'No bonus yet';
+              } else if (sr.buffType === 'luck_multi') {
+                effectValue = count > 0 ? `${Math.pow(sr.buffValue, count).toFixed(3)}x luck` : 'No bonus yet';
+              } else if (sr.buffType === 'points_multi') {
+                effectValue = count > 0 ? `${Math.pow(sr.buffValue, count).toFixed(3)}x points` : 'No bonus yet';
+              } else if (sr.buffType === 'speed_multi') {
+                effectValue = count > 0 ? `${Math.pow(sr.buffValue, count).toFixed(3)}x roll speed` : 'No bonus yet';
+              } else if (sr.buffType === 'rune_speed_multi') {
+                effectValue = count > 0 ? `${Math.pow(sr.buffValue, count).toFixed(3)}x rune roll speed` : 'No bonus yet';
               }
               return (
                 <div key={sr.index} style={{
