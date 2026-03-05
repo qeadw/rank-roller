@@ -3238,19 +3238,31 @@ export default function RankRoller() {
   const canAffordSuperRuneRoll = superRunesUnlocked && totalPoints >= SUPER_RUNE_ROLL_COST_POINTS * superRuneBulkCount && mana >= SUPER_RUNE_ROLL_COST_MANA * superRuneBulkCount;
   const handleSuperRuneRoll = useCallback(() => {
     if (isRollingSuperRune) return;
-    // Check affordability using refs for fresh state
-    const currentMana = manaRef.current;
-    if (!superRunesUnlocked || currentMana < SUPER_RUNE_ROLL_COST_MANA * superRuneBulkCount) return;
+    if (!superRunesUnlocked) return;
+    const manaCost = SUPER_RUNE_ROLL_COST_MANA * superRuneBulkCount;
+    const pointsCost = SUPER_RUNE_ROLL_COST_POINTS * superRuneBulkCount;
+    // Quick ref check to avoid unnecessary state updates
+    if (manaRef.current < manaCost || totalPointsRef.current < pointsCost) return;
+    // Atomically deduct mana — if can't afford, don't deduct
+    let manaDeducted = false;
+    setMana(m => {
+      if (m < manaCost) return m;
+      manaDeducted = true;
+      return m - manaCost;
+    });
+    // React processes setMana synchronously in event handlers,
+    // so manaDeducted is set by the time we reach here
+    if (!manaDeducted) return;
     setIsRollingSuperRune(true);
     setTotalPoints(p => {
-      if (p < SUPER_RUNE_ROLL_COST_POINTS * superRuneBulkCount) {
-        // Can't afford, cancel
+      if (p < pointsCost) {
+        // Can't afford points — refund mana
+        setMana(m => m + manaCost);
         setTimeout(() => setIsRollingSuperRune(false), 0);
         return p;
       }
-      return p - SUPER_RUNE_ROLL_COST_POINTS * superRuneBulkCount;
+      return p - pointsCost;
     });
-    setMana(m => m - SUPER_RUNE_ROLL_COST_MANA * superRuneBulkCount);
 
     let animCount = 0;
     const timer = setInterval(() => {
