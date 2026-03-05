@@ -3474,7 +3474,7 @@ export default function RankRoller() {
             Super Rune Buffs
           </h1>
           <div style={{ marginTop: '20px', display: 'flex', flexDirection: 'column', gap: '12px', maxWidth: '500px', width: '100%' }}>
-            {SUPER_RUNES.map(sr => {
+            {SUPER_RUNES.filter(sr => (superRuneRollCounts[sr.index] || 0) > 0).map(sr => {
               const count = superRuneRollCounts[sr.index] || 0;
               let effectValue = '';
               if (sr.buffType === 'mana_gain') {
@@ -3622,7 +3622,7 @@ export default function RankRoller() {
 
             {/* Rune catalogue */}
             <div style={{ marginTop: '20px', display: 'grid', gridTemplateColumns: 'repeat(5, 1fr)', gap: '10px', maxWidth: '550px', width: '100%' }}>
-              {SUPER_RUNES.map(sr => {
+              {SUPER_RUNES.filter(sr => (superRuneRollCounts[sr.index] || 0) > 0).map(sr => {
                 const count = superRuneRollCounts[sr.index] || 0;
                 const prob = sr.weight / SUPER_RUNES.reduce((s, r) => s + r.weight, 0);
                 return (
