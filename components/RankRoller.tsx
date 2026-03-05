@@ -2116,9 +2116,9 @@ export default function RankRoller() {
   };
 
   // Get cost of next buff (exponential with stacking, increased by Prolongation +15%/lv and Amplification +10%/lv)
-  const getBuffCost = (type: ManaBuffType): number => {
+  const getBuffCost = (type: ManaBuffType, stackOverride?: number): number => {
     const def = MANA_BUFF_DEFINITIONS[type];
-    const currentStacks = activeManaBuffs.filter(b => b.type === type).length;
+    const currentStacks = stackOverride !== undefined ? stackOverride : activeManaBuffs.filter(b => b.type === type).length;
     const prolongationCostIncrease = Math.pow(1.15, buffDurationUpgradeLevel);
     const amplificationCostIncrease = Math.pow(1.10, buffPowerUpgradeLevel);
     const overStackPenalty = currentStacks >= 3 ? Math.pow(10, currentStacks - 2) : 1;
@@ -2391,7 +2391,7 @@ export default function RankRoller() {
           spentSoFar += costs[i].cost;
         }
       }
-    }, 1000);
+    }, 250); // Check frequently so buffs get re-bought quickly after expiring
     return () => clearInterval(timer);
   }, [autoBuffUnlocked, autoBuffEnabled]);
 
@@ -3245,12 +3245,15 @@ export default function RankRoller() {
     const manaCost = SUPER_RUNE_ROLL_COST_MANA * superRuneBulkCount;
     const pointsCost = SUPER_RUNE_ROLL_COST_POINTS * superRuneBulkCount;
     // Reserve mana for auto-buff purchases so super rune rolling doesn't starve them
-    // ALWAYS reserve for ALL configured buffs, even when at target stacks, so that
-    // when a buff expires there's mana available to re-buy before the roller grabs it
+    // Reserve the RENEWAL cost (cost at 0 stacks) for each configured buff, so that
+    // when a buff expires there's always enough mana to re-buy it
     let manaReserve = 0;
     if (autoBuffEnabled && autoBuffConfigRef.current.length > 0) {
       for (const cfg of autoBuffConfigRef.current) {
-        manaReserve += getBuffCostRef.current(cfg.type);
+        // Reserve cost to buy from 0 stacks up to target stacks
+        for (let s = 0; s < cfg.targetStacks; s++) {
+          manaReserve += getBuffCostRef.current(cfg.type, s);
+        }
       }
     }
     if (manaRef.current < manaCost + manaReserve || totalPointsRef.current < pointsCost) return;
