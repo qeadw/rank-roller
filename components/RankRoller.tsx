@@ -2118,7 +2118,8 @@ export default function RankRoller() {
     const currentStacks = activeManaBuffs.filter(b => b.type === type).length;
     const prolongationCostIncrease = Math.pow(1.15, buffDurationUpgradeLevel);
     const amplificationCostIncrease = Math.pow(1.10, buffPowerUpgradeLevel);
-    const raw = def.baseCost * Math.pow(def.costExponent, currentStacks) * buffCostReduction * prolongationCostIncrease * amplificationCostIncrease;
+    const overStackPenalty = currentStacks >= 3 ? Math.pow(10, currentStacks - 2) : 1;
+    const raw = def.baseCost * Math.pow(def.costExponent, currentStacks) * buffCostReduction * prolongationCostIncrease * amplificationCostIncrease * overStackPenalty;
     return Math.ceil(raw / 5) * 5;
   };
 
@@ -2445,7 +2446,17 @@ export default function RankRoller() {
     if (activeManaBuffs.length === 0 && activeMegaBuffs.length === 0) return;
     const timer = setInterval(() => {
       setActiveManaBuffs(prev => {
-        const updated = prev.map(b => ({ ...b, remainingMs: b.remainingMs - 100 }));
+        // Count stacks per type for entropy calculation
+        const stackCounts: Record<string, number> = {};
+        for (const b of prev) {
+          stackCounts[b.type] = (stackCounts[b.type] || 0) + 1;
+        }
+        const updated = prev.map(b => {
+          // Entropy: buffs decay 2x faster for each stack beyond 2
+          const stacks = stackCounts[b.type] || 1;
+          const entropyMultiplier = stacks > 2 ? Math.pow(2, stacks - 2) : 1;
+          return { ...b, remainingMs: b.remainingMs - 100 * entropyMultiplier };
+        });
         return updated.filter(b => b.remainingMs > 0);
       });
       setActiveMegaBuffs(prev => {
