@@ -3019,9 +3019,8 @@ export default function RankRoller() {
     rollCountRef.current = rollCount;
   }, [rollCount]);
 
-  useEffect(() => {
-    totalPointsRef.current = totalPoints;
-  }, [totalPoints]);
+  // Update totalPointsRef synchronously during render for freshest reads
+  totalPointsRef.current = totalPoints;
 
   useEffect(() => {
     isRollingRuneRef.current = isRollingRune;
@@ -3051,9 +3050,8 @@ export default function RankRoller() {
     collectedRunesRef.current = collectedRunes;
   }, [collectedRunes]);
 
-  useEffect(() => {
-    manaRef.current = mana;
-  }, [mana]);
+  // Update manaRef synchronously during render for freshest reads
+  manaRef.current = mana;
 
   useEffect(() => {
     activeManaBuffsRef.current = activeManaBuffs;
@@ -3243,8 +3241,8 @@ export default function RankRoller() {
     const pointsCost = SUPER_RUNE_ROLL_COST_POINTS * superRuneBulkCount;
     if (manaRef.current < manaCost || totalPointsRef.current < pointsCost) return;
     setIsRollingSuperRune(true);
-    setMana(m => Math.max(0, m - manaCost));
-    setTotalPoints(p => Math.max(0, p - pointsCost));
+    setMana(m => m < manaCost ? m : m - manaCost);
+    setTotalPoints(p => p < pointsCost ? p : p - pointsCost);
 
     let animCount = 0;
     const timer = setInterval(() => {
