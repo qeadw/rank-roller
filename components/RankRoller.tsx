@@ -2299,9 +2299,9 @@ export default function RankRoller() {
   useEffect(() => {
     if (!autoBuffUnlocked || !autoBuffEnabled || autoBuffEnabledTypes.size === 0) return;
     const timer = setInterval(() => {
-      for (const type of autoBuffEnabledTypes) {
+      Array.from(autoBuffEnabledTypes).forEach(type => {
         activateManaBuff(type);
-      }
+      });
     }, 1000);
     return () => clearInterval(timer);
   }, [autoBuffUnlocked, autoBuffEnabled, autoBuffEnabledTypes, activateManaBuff]);
