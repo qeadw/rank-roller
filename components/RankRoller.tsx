@@ -4198,6 +4198,33 @@ export default function RankRoller() {
                     style={styles.cheatInput}
                   />
                 </div>
+                <div style={styles.cheatItem}>
+                  <label style={styles.cheatLabel}>Mana:</label>
+                  <input
+                    type="number"
+                    value={mana}
+                    onChange={(e) => setMana(Number(e.target.value))}
+                    style={styles.cheatInput}
+                  />
+                </div>
+                <div style={styles.cheatItem}>
+                  <label style={styles.cheatLabel}>Total Mana Earned:</label>
+                  <input
+                    type="number"
+                    value={totalManaEarned}
+                    onChange={(e) => setTotalManaEarned(Number(e.target.value))}
+                    style={styles.cheatInput}
+                  />
+                </div>
+                <div style={styles.cheatItem}>
+                  <label style={styles.cheatLabel}>Mana Click Level:</label>
+                  <input
+                    type="number"
+                    value={manaClickUpgradeLevel}
+                    onChange={(e) => setManaClickUpgradeLevel(Number(e.target.value))}
+                    style={styles.cheatInput}
+                  />
+                </div>
               </div>
               <button
                 onClick={() => setUncapModeEnabled(prev => !prev)}
@@ -4210,6 +4237,12 @@ export default function RankRoller() {
                 style={{...styles.cheatCloseBtn, backgroundColor: '#9333ea', marginBottom: '10px'}}
               >
                 Unlock Runes
+              </button>
+              <button
+                onClick={() => { setManaOrbUnlocked(true); }}
+                style={{...styles.cheatCloseBtn, backgroundColor: '#3b82f6', marginBottom: '10px'}}
+              >
+                Unlock Mana
               </button>
               <button
                 onClick={() => setShowCheatMenu(false)}
@@ -5950,6 +5983,33 @@ export default function RankRoller() {
                   style={styles.cheatInput}
                 />
               </div>
+              <div style={styles.cheatItem}>
+                <label style={styles.cheatLabel}>Mana:</label>
+                <input
+                  type="number"
+                  value={mana}
+                  onChange={(e) => setMana(Number(e.target.value))}
+                  style={styles.cheatInput}
+                />
+              </div>
+              <div style={styles.cheatItem}>
+                <label style={styles.cheatLabel}>Total Mana Earned:</label>
+                <input
+                  type="number"
+                  value={totalManaEarned}
+                  onChange={(e) => setTotalManaEarned(Number(e.target.value))}
+                  style={styles.cheatInput}
+                />
+              </div>
+              <div style={styles.cheatItem}>
+                <label style={styles.cheatLabel}>Mana Click Level:</label>
+                <input
+                  type="number"
+                  value={manaClickUpgradeLevel}
+                  onChange={(e) => setManaClickUpgradeLevel(Number(e.target.value))}
+                  style={styles.cheatInput}
+                />
+              </div>
             </div>
             <button
               onClick={() => setUncapModeEnabled(prev => !prev)}
@@ -5962,6 +6022,12 @@ export default function RankRoller() {
               style={{...styles.cheatCloseBtn, backgroundColor: '#9333ea', marginBottom: '10px'}}
             >
               Unlock Runes
+            </button>
+            <button
+              onClick={() => { setManaOrbUnlocked(true); }}
+              style={{...styles.cheatCloseBtn, backgroundColor: '#3b82f6', marginBottom: '10px'}}
+            >
+              Unlock Mana
             </button>
             <button
               onClick={() => setShowCheatMenu(false)}
