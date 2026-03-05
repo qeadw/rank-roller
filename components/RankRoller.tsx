@@ -3467,7 +3467,7 @@ export default function RankRoller() {
           <h1 style={{ color: '#ff44ff', fontSize: '2.5rem', marginBottom: '10px', textShadow: '0 0 20px rgba(255, 68, 255, 0.5)' }}>
             Super Rune Buffs
           </h1>
-          <div style={{ marginTop: '20px', display: 'flex', flexDirection: 'column', gap: '12px', maxWidth: '500px', width: '100%' }}>
+          <div style={{ marginTop: '20px', display: 'flex', flexDirection: 'column', gap: '8px', maxWidth: '500px', width: '100%', flex: 1, overflowY: 'auto', paddingRight: '4px' }}>
             {SUPER_RUNES.filter(sr => (superRuneRollCounts[sr.index] || 0) > 0).map(sr => {
               const count = superRuneRollCounts[sr.index] || 0;
               let effectValue = '';
@@ -3500,24 +3500,23 @@ export default function RankRoller() {
                 <div key={sr.index} style={{
                   backgroundColor: 'rgba(30, 30, 50, 0.9)',
                   border: `2px solid ${sr.color}40`,
-                  borderRadius: '10px',
-                  padding: '12px 16px',
+                  borderRadius: '8px',
+                  padding: '8px 12px',
                   display: 'flex',
                   alignItems: 'center',
-                  gap: '12px',
+                  gap: '10px',
                 }}>
                   <div style={{
-                    width: '36px', height: '36px', borderRadius: '50%',
+                    width: '30px', height: '30px', borderRadius: '50%',
                     backgroundColor: `${sr.color}30`, border: `2px solid ${sr.color}`,
                     display: 'flex', alignItems: 'center', justifyContent: 'center',
-                    fontSize: '1rem', color: sr.color, flexShrink: 0,
+                    fontSize: '0.85rem', color: sr.color, flexShrink: 0,
                   }}>
-                    {count > 0 ? count : '?'}
+                    {count}
                   </div>
                   <div style={{ flex: 1 }}>
-                    <div style={{ color: sr.color, fontWeight: 'bold', fontSize: '0.9rem' }}>{sr.name}</div>
-                    <div style={{ color: '#aaa', fontSize: '0.75rem' }}>{sr.description}</div>
-                    <div style={{ color: count > 0 ? '#88ff88' : '#666', fontSize: '0.75rem', marginTop: '2px' }}>{effectValue}</div>
+                    <div style={{ color: sr.color, fontWeight: 'bold', fontSize: '0.8rem' }}>{sr.name}</div>
+                    <div style={{ color: '#88ff88', fontSize: '0.7rem' }}>{effectValue}</div>
                   </div>
                 </div>
               );
