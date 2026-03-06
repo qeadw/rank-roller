@@ -2472,12 +2472,19 @@ export default function RankRoller() {
 
   // Cost scaling slows to 1/4 rate for levels past the base max
   const getManaUpgradeCost = (upgradeDef: typeof MANA_UPGRADE_DEFINITIONS[0], level: number) => {
+    let raw: number;
     if (level < upgradeDef.maxLevel) {
-      return Math.floor(upgradeDef.baseCost * Math.pow(upgradeDef.costScale, level));
+      raw = upgradeDef.baseCost * Math.pow(upgradeDef.costScale, level);
+    } else {
+      const baseMaxCost = upgradeDef.baseCost * Math.pow(upgradeDef.costScale, upgradeDef.maxLevel);
+      const overLevel = (level - upgradeDef.maxLevel) * 0.125;
+      raw = baseMaxCost * Math.pow(upgradeDef.costScale, overLevel);
     }
-    const baseMaxCost = upgradeDef.baseCost * Math.pow(upgradeDef.costScale, upgradeDef.maxLevel);
-    const overLevel = (level - upgradeDef.maxLevel) * 0.125;
-    return Math.floor(baseMaxCost * Math.pow(upgradeDef.costScale, overLevel));
+    // Mana Spring costs 1/3rd, rounded up to nearest 50
+    if (upgradeDef.id === 'passive_regen') {
+      return Math.ceil(raw / 3 / 50) * 50;
+    }
+    return Math.floor(raw);
   };
 
   const handleManaUpgrade = useCallback((upgradeId: string) => {
