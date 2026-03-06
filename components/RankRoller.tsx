@@ -2482,9 +2482,9 @@ export default function RankRoller() {
       const overLevel = (level - upgradeDef.maxLevel) * 0.125;
       raw = baseMaxCost * Math.pow(upgradeDef.costScale, overLevel);
     }
-    // Mana Spring costs 1/3rd, rounded up to nearest 50
+    // Mana Spring costs 1/16th, rounded up to nearest 50
     if (upgradeDef.id === 'passive_regen') {
-      return Math.ceil(raw / 3 / 50) * 50;
+      return Math.ceil(raw / 16 / 50) * 50;
     }
     return Math.floor(raw);
   };
