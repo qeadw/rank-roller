@@ -3884,6 +3884,17 @@ export default function RankRoller() {
                         {showAutoBuffConfig ? 'Hide' : 'Configure'}
                       </button>
                     </div>
+                    {autoBuffEnabled && autoBuffManaReserve > mana && (
+                      <div style={{
+                        padding: '8px 12px', fontSize: '0.8rem', fontWeight: 'bold',
+                        backgroundColor: 'rgba(255, 180, 0, 0.1)',
+                        color: '#ffaa00',
+                        border: '2px solid rgba(255, 180, 0, 0.3)',
+                        borderRadius: '8px', textAlign: 'center',
+                      }}>
+                        ⚠ Auto-buff reserve ({formatNumber(Math.ceil(autoBuffManaReserve))} mana) exceeds your current mana ({formatNumber(Math.floor(mana))}). Super rune rolls are blocked until you have enough.
+                      </div>
+                    )}
                     {showAutoBuffConfig && (
                       <div style={{
                         backgroundColor: 'rgba(30, 30, 50, 0.9)', border: '2px solid rgba(255, 68, 255, 0.2)',
