@@ -2462,13 +2462,23 @@ export default function RankRoller() {
     setManaClickUpgradeLevel(l => l + 1);
   }, [manaClickUpgradeLevel, mana, collectedRanks]);
 
+  // Cost scaling slows to 1/4 rate for levels past the base max
+  const getManaUpgradeCost = (upgradeDef: typeof MANA_UPGRADE_DEFINITIONS[0], level: number) => {
+    if (level < upgradeDef.maxLevel) {
+      return Math.floor(upgradeDef.baseCost * Math.pow(upgradeDef.costScale, level));
+    }
+    const baseMaxCost = upgradeDef.baseCost * Math.pow(upgradeDef.costScale, upgradeDef.maxLevel);
+    const overLevel = (level - upgradeDef.maxLevel) * 0.25;
+    return Math.floor(baseMaxCost * Math.pow(upgradeDef.costScale, overLevel));
+  };
+
   const handleManaUpgrade = useCallback((upgradeId: string) => {
     const upgradeDef = MANA_UPGRADE_DEFINITIONS.find(u => u.id === upgradeId);
     if (!upgradeDef) return;
     const currentLevel = manaUpgradeLevels[upgradeId] || 0;
     const effectiveMax = getEffectiveMaxLevel(upgradeDef.maxLevel);
     if (currentLevel >= effectiveMax) return;
-    const cost = Math.floor(upgradeDef.baseCost * Math.pow(upgradeDef.costScale, currentLevel));
+    const cost = getManaUpgradeCost(upgradeDef, currentLevel);
     if (mana < cost) return;
     setMana(m => m - cost);
     setManaUpgradeLevels(prev => ({ ...prev, [upgradeId]: currentLevel + 1 }));
@@ -4288,7 +4298,7 @@ export default function RankRoller() {
           {MANA_UPGRADE_DEFINITIONS.map(upgDef => {
             const currentLevel = manaUpgradeLevels[upgDef.id] || 0;
             const effectiveMax = getEffectiveMaxLevel(upgDef.maxLevel);
-            const cost = Math.floor(upgDef.baseCost * Math.pow(upgDef.costScale, currentLevel));
+            const cost = getManaUpgradeCost(upgDef, currentLevel);
             const canAfford = mana >= cost && currentLevel < effectiveMax;
             const isMaxed = currentLevel >= effectiveMax;
             return (
