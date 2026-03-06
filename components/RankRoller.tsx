@@ -6715,6 +6715,7 @@ export default function RankRoller() {
           <span style={{...styles.keybindHint, fontSize: '0.7rem', opacity: 0.7}}>Double-tap to hide</span>
         </div>
       )}
+      {saveModalJSX}
     </div>
   );
 }
