@@ -232,7 +232,7 @@ const MANA_CLICK_UPGRADE_TIERS = [
 
 // General mana upgrades
 const MANA_UPGRADE_DEFINITIONS = [
-  { id: 'passive_regen', name: 'Mana Spring', description: '+1 mana/sec per level', baseCost: 1000, costScale: 1.1, maxLevel: 100 },
+  { id: 'passive_regen', name: 'Mana Spring', description: '+1 mana/sec per level', baseCost: 1000, costScale: 1.075, maxLevel: 100 },
   { id: 'buff_duration', name: 'Prolongation', description: '+15% buff duration per level (+15% buff cost)', baseCost: 300, costScale: 2.5, maxLevel: 15 },
   { id: 'buff_power', name: 'Amplification', description: '+10% buff power per level (+10% buff cost)', baseCost: 500, costScale: 3, maxLevel: 15 },
   { id: 'click_cooldown', name: 'Quick Fingers', description: '-50ms click cooldown per level', baseCost: 150, costScale: 2, maxLevel: 20 },
