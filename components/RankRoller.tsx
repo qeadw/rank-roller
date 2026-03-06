@@ -76,7 +76,18 @@ interface SaveData {
   superRuneSpeedLevel?: number;
   autoBuffUnlocked?: boolean;
   autoBuffConfig?: Array<{ type: ManaBuffType; targetStacks: number }>;
+  autoBuffEnabled?: boolean;
   abundanceGainLevel?: number;
+  // Auto-roll toggles
+  autoRollEnabled?: boolean;
+  runeAutoRollEnabled?: boolean;
+  superRuneAutoRollEnabled?: boolean;
+  // Mega buffs
+  activeMegaBuffsSave?: Array<{ id: string; remainingMs: number; totalDurationMs: number }>;
+  // UI preferences
+  showPercentFormat?: boolean;
+  hideKeybinds?: boolean;
+  showOriginalChances?: boolean;
 }
 
 interface MilestoneState {
@@ -1443,6 +1454,17 @@ export default function RankRoller() {
           setAutoBuffConfig(((data as any).autoBuffEnabledTypes as ManaBuffType[]).map(type => ({ type, targetStacks: 1 })));
         }
         setAbundanceGainLevel(data.abundanceGainLevel || 0);
+        if (data.autoBuffEnabled) setAutoBuffEnabled(true);
+        // Auto-roll toggles
+        if (data.autoRollEnabled) setAutoRollEnabled(true);
+        if (data.runeAutoRollEnabled) setRuneAutoRollEnabled(true);
+        if (data.superRuneAutoRollEnabled) setSuperRuneAutoRollEnabled(true);
+        // Mega buffs
+        if (data.activeMegaBuffsSave) setActiveMegaBuffs(data.activeMegaBuffsSave);
+        // UI preferences
+        if (data.showPercentFormat) setShowPercentFormat(true);
+        if (data.hideKeybinds) setHideKeybinds(true);
+        if (data.showOriginalChances) setShowOriginalChances(true);
       } catch (e) {
         console.error('Failed to load save data:', e);
       }
@@ -1504,10 +1526,21 @@ export default function RankRoller() {
       superRuneSpeedLevel,
       autoBuffUnlocked,
       autoBuffConfig,
+      autoBuffEnabled,
       abundanceGainLevel,
+      // Auto-roll toggles
+      autoRollEnabled,
+      runeAutoRollEnabled,
+      superRuneAutoRollEnabled,
+      // Mega buffs
+      activeMegaBuffsSave: activeMegaBuffs,
+      // UI preferences
+      showPercentFormat,
+      hideKeybinds,
+      showOriginalChances,
     };
     setCookie(SAVE_KEY, obfuscateSave(JSON.stringify(saveData)));
-  }, [isLoaded, rollCount, totalPoints, highestRank, highestRankRoll, collectedRanks, rankRollCounts, ascendedRanks, luckLevel, pointsMultiLevel, speedLevel, costReductionLevel, claimedMilestones, collectedRunes, runeRollCounts, legitimateRuneRollCounts, runeRollCount, bulkRollLevel, runeBulkRollLevel, runeSpeedLevel, gameSpeedMultiplier, rollerPrestigeLevel, runePrestigeLevel, dismissed1MBanner, mana, totalManaEarned, manaClickUpgradeLevel, manaUpgradeLevels, activeManaBuffs, claimedManaMilestones, manaOrbUnlocked, superRunesUnlocked, superRuneRollCounts, superRuneRollCount, superRuneBulkLevel, superRuneAutoRollUnlocked, superRuneSpeedLevel, autoBuffUnlocked, autoBuffConfig, abundanceGainLevel]);
+  }, [isLoaded, rollCount, totalPoints, highestRank, highestRankRoll, collectedRanks, rankRollCounts, ascendedRanks, luckLevel, pointsMultiLevel, speedLevel, costReductionLevel, claimedMilestones, collectedRunes, runeRollCounts, legitimateRuneRollCounts, runeRollCount, bulkRollLevel, runeBulkRollLevel, runeSpeedLevel, gameSpeedMultiplier, rollerPrestigeLevel, runePrestigeLevel, dismissed1MBanner, mana, totalManaEarned, manaClickUpgradeLevel, manaUpgradeLevels, activeManaBuffs, claimedManaMilestones, manaOrbUnlocked, superRunesUnlocked, superRuneRollCounts, superRuneRollCount, superRuneBulkLevel, superRuneAutoRollUnlocked, superRuneSpeedLevel, autoBuffUnlocked, autoBuffConfig, autoBuffEnabled, abundanceGainLevel, autoRollEnabled, runeAutoRollEnabled, superRuneAutoRollEnabled, activeMegaBuffs, showPercentFormat, hideKeybinds, showOriginalChances]);
 
   // Save whenever saveGame changes (which happens when any saved state changes)
   useEffect(() => {
