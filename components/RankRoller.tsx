@@ -1586,7 +1586,7 @@ export default function RankRoller() {
     a.href = url;
     a.download = `rank-roller-save-${new Date().toISOString().split('T')[0]}.sav`;
     a.click();
-    URL.revokeObjectURL(url);
+    setTimeout(() => URL.revokeObjectURL(url), 1000);
   };
 
   // Import save from file
@@ -1598,17 +1598,33 @@ export default function RankRoller() {
     reader.onload = (event) => {
       try {
         const saveData = event.target?.result as string;
-        // Validate obfuscated format
-        if (!saveData.startsWith('RR1:')) {
-          alert('Invalid save file format!');
+        if (!saveData || !saveData.trim()) {
+          alert('Save file is empty!');
           return;
         }
-        setCookie(SAVE_KEY, saveData);
+        // Support both obfuscated (RR1:) and legacy unobfuscated JSON saves
+        let parsed: SaveData;
+        if (saveData.startsWith('RR1:')) {
+          parsed = JSON.parse(deobfuscateSave(saveData));
+        } else {
+          // Try parsing as raw JSON (legacy format)
+          parsed = JSON.parse(saveData);
+        }
+        // Basic validation — must have core fields
+        if (typeof parsed.rollCount !== 'number' || typeof parsed.totalPoints !== 'number') {
+          alert('Invalid save file — missing core game data!');
+          return;
+        }
+        // Re-obfuscate for storage (normalizes legacy saves to new format)
+        setCookie(SAVE_KEY, obfuscateSave(JSON.stringify(parsed)));
         alert('Save imported successfully! Refreshing...');
         window.location.reload();
       } catch {
-        alert('Invalid save file!');
+        alert('Invalid save file — could not parse data!');
       }
+    };
+    reader.onerror = () => {
+      alert('Failed to read file!');
     };
     reader.readAsText(file);
     e.target.value = '';
@@ -2747,6 +2763,7 @@ export default function RankRoller() {
       setClaimedMilestones(new Set());
       setAutoRollEnabled(false);
       setRuneAutoRollEnabled(false);
+      setSuperRuneAutoRollEnabled(false);
       // DON'T reset rune data - keep runes, rune rolls, rune prestige
       // Only reset current rune roll display and rolling state
       setCurrentRuneRoll(null);
@@ -2857,6 +2874,31 @@ export default function RankRoller() {
       setLastManaClickTime(0);
       setManaFloatingTexts([]);
       setActiveMegaBuffs([]);
+      // Reset super rune state
+      setShowSuperRunes(false);
+      setSuperRunesUnlocked(false);
+      setSuperRuneRollCounts({});
+      setSuperRuneRollCount(0);
+      setCurrentSuperRuneRoll(null);
+      setIsRollingSuperRune(false);
+      setShowSuperRuneBuffs(false);
+      setSuperRuneBulkLevel(0);
+      setSuperRuneAutoRollUnlocked(false);
+      setSuperRuneSpeedLevel(0);
+      setSuperRuneAutoRollEnabled(false);
+      // Reset auto-buff state
+      setAutoBuffUnlocked(false);
+      setAutoBuffConfig([]);
+      setAutoBuffEnabled(false);
+      setShowAutoBuffConfig(false);
+      setAbundanceGainLevel(0);
+      // Reset remaining missing fields
+      setRuneSpeedLevel(0);
+      setDismissed1MBanner(false);
+      setUncapModeEnabled(false);
+      setShowPercentFormat(false);
+      setHideKeybinds(false);
+      setShowOriginalChances(false);
     }
   };
 
@@ -3504,6 +3546,28 @@ export default function RankRoller() {
     return `1 in ${oneIn >= 1e8 ? formatNumber(oneIn) : oneIn.toLocaleString()}`;
   };
 
+  // Save Management Modal (shared across all screens)
+  const saveModalJSX = showSaveModal ? (
+    <div style={styles.modalOverlay} onClick={() => setShowSaveModal(false)}>
+      <div className="modal" style={{...styles.cheatModal, maxWidth: '400px'}} onClick={(e) => e.stopPropagation()}>
+        <h2 style={styles.cheatTitle}>💾 Save Management</h2>
+        <p style={{color: '#aaa', marginBottom: '20px', textAlign: 'center'}}>Export your save to back it up, or import a previous save.</p>
+        <div style={{display: 'flex', flexDirection: 'column', gap: '10px'}}>
+          <button onClick={exportSave} style={{...styles.cheatCloseBtn, backgroundColor: '#4a9'}}>
+            📥 Export Save
+          </button>
+          <label style={{...styles.cheatCloseBtn, backgroundColor: '#49a', cursor: 'pointer', textAlign: 'center'}}>
+            📤 Import Save
+            <input type="file" accept=".sav,.json,.txt" onChange={importSave} style={{display: 'none'}} />
+          </label>
+          <button onClick={() => setShowSaveModal(false)} style={{...styles.cheatCloseBtn, marginTop: '10px'}}>
+            Close
+          </button>
+        </div>
+      </div>
+    </div>
+  ) : null;
+
   // Super Runes Screen
   const SUPER_RUNE_UNLOCK_COST_POINTS = 1e23;
   const SUPER_RUNE_UNLOCK_COST_MANA = 250000;
@@ -3512,7 +3576,7 @@ export default function RankRoller() {
   if (showSuperRunes && rollerPrestigeLevel > 0) {
     // Super Rune Buffs sub-screen
     if (showSuperRuneBuffs) {
-      return (
+      return (<>
         <div style={styles.container}>
           <button onClick={() => setShowSuperRuneBuffs(false)} style={styles.backBtn}>&larr; Back</button>
           <h1 style={{ color: '#ff44ff', fontSize: '2.5rem', marginBottom: '10px', textShadow: '0 0 20px rgba(255, 68, 255, 0.5)' }}>
@@ -3574,10 +3638,11 @@ export default function RankRoller() {
             })}
           </div>
         </div>
-      );
+        {saveModalJSX}
+      </>);
     }
 
-    return (
+    return (<>
       <div style={styles.container}>
         <button onClick={() => setShowSuperRunes(false)} style={styles.backBtn}>&larr; Back</button>
         <h1 style={{ color: '#ff44ff', fontSize: '2.5rem', marginBottom: '10px', textShadow: '0 0 20px rgba(255, 68, 255, 0.5)' }}>
@@ -4027,7 +4092,8 @@ export default function RankRoller() {
           </>
         )}
       </div>
-    );
+      {saveModalJSX}
+    </>);
   }
 
   // Mana Orb Screen
@@ -4035,7 +4101,7 @@ export default function RankRoller() {
     const unclaimedManaMilestonesList = MANA_MILESTONES.filter(m => totalManaEarned >= m.threshold && !claimedManaMilestones.has(m.threshold));
     const cooldownPercent = Math.min(1, (Date.now() - lastManaClickTime) / manaClickCooldown);
 
-    return (
+    return (<>
       <div style={styles.container}>
         <button
           onClick={() => setShowManaOrb(false)}
@@ -4318,12 +4384,13 @@ export default function RankRoller() {
           </div>
         )}
       </div>
-    );
+      {saveModalJSX}
+    </>);
   }
 
   // Runes Screen
   if (showRunes) {
-    return (
+    return (<>
       <div style={styles.container} onDoubleClick={() => setHideKeybinds(prev => !prev)}>
         <button
           onClick={() => setShowRunes(false)}
@@ -4810,27 +4877,7 @@ export default function RankRoller() {
           </div>
         )}
 
-        {/* Save Management Modal */}
-        {showSaveModal && (
-          <div style={styles.modalOverlay} onClick={() => setShowSaveModal(false)}>
-            <div className="modal" style={{...styles.cheatModal, maxWidth: '400px'}} onClick={(e) => e.stopPropagation()}>
-              <h2 style={styles.cheatTitle}>💾 Save Management</h2>
-              <p style={{color: '#aaa', marginBottom: '20px', textAlign: 'center'}}>Export your save to back it up, or import a previous save.</p>
-              <div style={{display: 'flex', flexDirection: 'column', gap: '10px'}}>
-                <button onClick={exportSave} style={{...styles.cheatCloseBtn, backgroundColor: '#4a9'}}>
-                  📥 Export Save
-                </button>
-                <label style={{...styles.cheatCloseBtn, backgroundColor: '#49a', cursor: 'pointer', textAlign: 'center'}}>
-                  📤 Import Save
-                  <input type="file" accept=".sav" onChange={importSave} style={{display: 'none'}} />
-                </label>
-                <button onClick={() => setShowSaveModal(false)} style={{...styles.cheatCloseBtn, marginTop: '10px'}}>
-                  Close
-                </button>
-              </div>
-            </div>
-          </div>
-        )}
+        {saveModalJSX}
 
         {/* Multiplier Breakdown Modal (also available on runes screen) */}
         {showMultiplierBreakdown && (
@@ -4911,7 +4958,8 @@ export default function RankRoller() {
           </div>
         )}
       </div>
-    );
+      {saveModalJSX}
+    </>);
   }
 
   return (
@@ -6591,28 +6639,6 @@ export default function RankRoller() {
             >
               Close
             </button>
-          </div>
-        </div>
-      )}
-
-      {/* Save Management Modal (Runes Screen) */}
-      {showSaveModal && (
-        <div style={styles.modalOverlay} onClick={() => setShowSaveModal(false)}>
-          <div className="modal" style={{...styles.cheatModal, maxWidth: '400px'}} onClick={(e) => e.stopPropagation()}>
-            <h2 style={styles.cheatTitle}>💾 Save Management</h2>
-            <p style={{color: '#aaa', marginBottom: '20px', textAlign: 'center'}}>Export your save to back it up, or import a previous save.</p>
-            <div style={{display: 'flex', flexDirection: 'column', gap: '10px'}}>
-              <button onClick={exportSave} style={{...styles.cheatCloseBtn, backgroundColor: '#4a9'}}>
-                📥 Export Save
-              </button>
-              <label style={{...styles.cheatCloseBtn, backgroundColor: '#49a', cursor: 'pointer', textAlign: 'center'}}>
-                📤 Import Save
-                <input type="file" accept=".sav" onChange={importSave} style={{display: 'none'}} />
-              </label>
-              <button onClick={() => setShowSaveModal(false)} style={{...styles.cheatCloseBtn, marginTop: '10px'}}>
-                Close
-              </button>
-            </div>
           </div>
         </div>
       )}
