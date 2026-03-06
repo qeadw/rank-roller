@@ -2154,7 +2154,7 @@ export default function RankRoller() {
 
   // Mana click cooldown: base 1500ms, reduced by upgrade
   const clickCooldownLevel = manaUpgradeLevels['click_cooldown'] || 0;
-  const manaClickCooldown = Math.max(500, 1500 - clickCooldownLevel * 50);
+  const manaClickCooldown = Math.max(100, 1500 - clickCooldownLevel * 50);
 
   // Buff duration multiplier from upgrades + milestones
   const buffDurationUpgradeLevel = manaUpgradeLevels['buff_duration'] || 0;
