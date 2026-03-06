@@ -2476,7 +2476,7 @@ export default function RankRoller() {
       return Math.floor(upgradeDef.baseCost * Math.pow(upgradeDef.costScale, level));
     }
     const baseMaxCost = upgradeDef.baseCost * Math.pow(upgradeDef.costScale, upgradeDef.maxLevel);
-    const overLevel = (level - upgradeDef.maxLevel) * 0.25;
+    const overLevel = (level - upgradeDef.maxLevel) * 0.125;
     return Math.floor(baseMaxCost * Math.pow(upgradeDef.costScale, overLevel));
   };
 
