@@ -1570,6 +1570,8 @@ export default function RankRoller() {
   // Cheat code and save modal listener
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
+      const tag = (e.target as HTMLElement)?.tagName;
+      if (tag === 'INPUT' || tag === 'TEXTAREA' || tag === 'SELECT') return;
       const newBuffer = (cheatBuffer + e.key).slice(-7);
       setCheatBuffer(newBuffer);
       if (newBuffer.toLowerCase() === 'cheater') {
@@ -3531,6 +3533,8 @@ export default function RankRoller() {
   // Spacebar to roll, A to toggle auto roll
   useEffect(() => {
     const handleKeyPress = (e: KeyboardEvent) => {
+      const tag = (e.target as HTMLElement)?.tagName;
+      if (tag === 'INPUT' || tag === 'TEXTAREA' || tag === 'SELECT') return;
       if (e.code === 'Space' && !e.repeat) {
         // Prevent scrolling
         e.preventDefault();
