@@ -2527,13 +2527,17 @@ export default function RankRoller() {
   const handleActivateMegaBuff = useCallback((megaBuffId: string) => {
     const def = MEGA_BUFFS.find(d => d.id === megaBuffId);
     if (!def) return;
-    if (mana < def.cost) return;
-    setMana(m => m - def.cost);
+    if (manaRef.current < def.cost) return;
+    setMana(m => {
+      if (m < def.cost) return m;
+      manaRef.current = m - def.cost;
+      return m - def.cost;
+    });
     setActiveMegaBuffs(prev => [
       ...prev,
       { id: megaBuffId, remainingMs: def.duration, totalDurationMs: def.duration },
     ]);
-  }, [mana]);
+  }, []);
 
   // Buff countdown timer
   useEffect(() => {
