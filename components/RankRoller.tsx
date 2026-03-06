@@ -1222,10 +1222,11 @@ function generateRanks(prestigeLevel: number = 0): Rank[] {
 
 function getEffectiveWeights(ranks: Rank[], luckMulti: number): number[] {
   // Luck multiplier boosts higher ranks smoothly based on individual rank index
-  // Rank 0 (Common 1) gets no boost, Rank 99 (Ultimate 10) gets full luck boost
+  // Rank 0 (Common 1) gets no boost, highest rank gets full luck boost
   // This ensures rarer ranks always stay rarer, even with very high luck
+  const maxIndex = ranks.length - 1;
   return ranks.map((rank) => {
-    return rank.weight * Math.pow(luckMulti, rank.index / 99);
+    return rank.weight * Math.pow(luckMulti, rank.index / maxIndex);
   });
 }
 
@@ -1383,7 +1384,11 @@ export default function RankRoller() {
   const RUNE_BULK_UPGRADE_COSTS = [1000000000, 1000000000000];
 
   // Load save data from cookies on mount
+  const hasLoadedRef = useRef(false);
   useEffect(() => {
+    // Only load from save on initial mount — NOT when ranks regenerates (e.g. after prestige)
+    if (hasLoadedRef.current) return;
+    hasLoadedRef.current = true;
     const savedData = getCookie(SAVE_KEY);
     if (savedData) {
       try {
@@ -1391,7 +1396,9 @@ export default function RankRoller() {
         setRollCount(data.rollCount || 0);
         setTotalPoints(data.totalPoints || 0);
         if (data.highestRankIndex !== null && data.highestRankIndex !== undefined) {
-          setHighestRank(ranks[data.highestRankIndex]);
+          // Use the saved prestige level to generate the correct ranks for index lookup
+          const savedRanks = generateRanks(data.rollerPrestigeLevel || 0);
+          setHighestRank(savedRanks[data.highestRankIndex] || null);
         }
         setHighestRankRoll(data.highestRankRoll || null);
         setCollectedRanks(new Set(data.collectedRanks || []));
@@ -1474,7 +1481,8 @@ export default function RankRoller() {
       }
     }
     setIsLoaded(true);
-  }, [ranks]);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   // Save to cookies whenever state changes
   const saveGame = useCallback(() => {
@@ -2760,55 +2768,58 @@ export default function RankRoller() {
 
     // Use setTimeout to ensure the loading screen renders before state resets
     setTimeout(() => {
-      // Increase prestige level
-      setRollerPrestigeLevel(prev => prev + 1);
+      try {
+        // Increase prestige level
+        setRollerPrestigeLevel(prev => prev + 1);
 
-      // Full reset - everything except roller prestige level
-      setCurrentRoll(null);
-      setHighestRank(null);
-      setHighestRankRoll(null);
-      setRollCount(0);
-      setTotalPoints(0);
-      setLastPointsGained(null);
-      setIsRolling(false);
-      setCollectedRanks(new Set());
-      setRankRollCounts({});
-      setAscendedRanks(new Map());
-      setAscendPrompt(null);
-      setExpandedTiers(new Set());
-      setLuckLevel(0);
-      setPointsMultiLevel(0);
-      setSpeedLevel(0);
-      setCostReductionLevel(0);
-      setClaimedMilestones(new Set());
-      setAutoRollEnabled(false);
-      setRuneAutoRollEnabled(false);
-      setSuperRuneAutoRollEnabled(false);
-      // DON'T reset rune data - keep runes, rune rolls, rune prestige
-      // Only reset current rune roll display and rolling state
-      setCurrentRuneRoll(null);
-      setIsRollingRune(false);
-      // Reset UI state
-      setShowRunes(false);
-      setShowResetModal(false);
-      setResetInput('');
-      setShowCheatMenu(false);
-      setCheatBuffer('');
-      setShowMilestones(false);
-      setShowMultiplierBreakdown(false);
-      setShowSaveModal(false);
-      // Reset bulk, rune speed, but keep game speed (it's a cheat)
-      setBulkRollLevel(0);
-      setRuneBulkRollLevel(0);
-      setRuneSpeedLevel(0);
-      // DON'T reset rune prestige - keep it
-      // Reset active mana buffs but keep mana, upgrades, and milestones
-      setActiveManaBuffs([]);
-      setActiveMegaBuffs([]);
-      setShowManaOrb(false);
-
-      // Clear loading state after resets complete
-      setTimeout(() => setIsPrestigeResetting(false), 50);
+        // Full reset - everything except roller prestige level
+        setCurrentRoll(null);
+        setHighestRank(null);
+        setHighestRankRoll(null);
+        setRollCount(0);
+        setTotalPoints(0);
+        setLastPointsGained(null);
+        setIsRolling(false);
+        setCollectedRanks(new Set());
+        setRankRollCounts({});
+        setAscendedRanks(new Map());
+        setAscendPrompt(null);
+        setExpandedTiers(new Set());
+        setLuckLevel(0);
+        setPointsMultiLevel(0);
+        setSpeedLevel(0);
+        setCostReductionLevel(0);
+        setClaimedMilestones(new Set());
+        setAutoRollEnabled(false);
+        setRuneAutoRollEnabled(false);
+        setSuperRuneAutoRollEnabled(false);
+        setAutoBuffEnabled(false);
+        // DON'T reset rune data - keep runes, rune rolls, rune prestige
+        // Only reset current rune roll display and rolling state
+        setCurrentRuneRoll(null);
+        setIsRollingRune(false);
+        // Reset UI state
+        setShowRunes(false);
+        setShowResetModal(false);
+        setResetInput('');
+        setShowCheatMenu(false);
+        setCheatBuffer('');
+        setShowMilestones(false);
+        setShowMultiplierBreakdown(false);
+        setShowSaveModal(false);
+        // Reset bulk, rune speed, but keep game speed (it's a cheat)
+        setBulkRollLevel(0);
+        setRuneBulkRollLevel(0);
+        setRuneSpeedLevel(0);
+        // DON'T reset rune prestige - keep it
+        // Reset active mana buffs but keep mana, upgrades, and milestones
+        setActiveManaBuffs([]);
+        setActiveMegaBuffs([]);
+        setShowManaOrb(false);
+      } finally {
+        // Always clear loading state, even if an error occurs
+        setTimeout(() => setIsPrestigeResetting(false), 100);
+      }
     }, 0);
   };
 
