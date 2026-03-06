@@ -2144,7 +2144,10 @@ export default function RankRoller() {
   // Repeatable mana milestone: +5% max level per 1M total mana earned
   const repeatableManaCount = Math.max(0, Math.floor(totalManaEarned / REPEATABLE_MANA_MILESTONE_INTERVAL));
   const manaMaxLevelBonus = 1 + repeatableManaCount * REPEATABLE_MANA_MILESTONE_BONUS;
-  const getEffectiveMaxLevel = (baseMax: number) => Math.floor(baseMax * manaMaxLevelBonus);
+  const getEffectiveMaxLevel = (baseMax: number, upgradeId?: string) => {
+    const multiplier = upgradeId === 'passive_regen' ? 1 + repeatableManaCount * REPEATABLE_MANA_MILESTONE_BONUS * 10 : manaMaxLevelBonus;
+    return Math.floor(baseMax * multiplier);
+  };
 
   // Mana per click: base 1 + milestone bonuses, then doubled per tap upgrade level, then super rune mana multi
   const manaPerClick = Math.floor((1 + manaMilestoneClickBonus) * Math.pow(2, manaClickUpgradeLevel) * manaMilestoneAllBonus * superRuneManaGainMulti);
@@ -2493,7 +2496,7 @@ export default function RankRoller() {
     const upgradeDef = MANA_UPGRADE_DEFINITIONS.find(u => u.id === upgradeId);
     if (!upgradeDef) return;
     const currentLevel = manaUpgradeLevels[upgradeId] || 0;
-    const effectiveMax = getEffectiveMaxLevel(upgradeDef.maxLevel);
+    const effectiveMax = getEffectiveMaxLevel(upgradeDef.maxLevel, upgradeId);
     if (currentLevel >= effectiveMax) return;
     const cost = getManaUpgradeCost(upgradeDef, currentLevel);
     if (mana < cost) return;
@@ -4319,7 +4322,7 @@ export default function RankRoller() {
           {/* General upgrades */}
           {MANA_UPGRADE_DEFINITIONS.map(upgDef => {
             const currentLevel = manaUpgradeLevels[upgDef.id] || 0;
-            const effectiveMax = getEffectiveMaxLevel(upgDef.maxLevel);
+            const effectiveMax = getEffectiveMaxLevel(upgDef.maxLevel, upgDef.id);
             const cost = getManaUpgradeCost(upgDef, currentLevel);
             const canAfford = mana >= cost && currentLevel < effectiveMax;
             const isMaxed = currentLevel >= effectiveMax;
