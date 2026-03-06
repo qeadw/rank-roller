@@ -254,8 +254,8 @@ const REPEATABLE_MANA_MILESTONE_BONUS = 0.005; // +0.5% additive per milestone
 
 // Mega buffs - expensive endgame mana sinks
 const MEGA_BUFFS = [
-  { id: 'godly_fortune', name: 'Godly Fortune', cost: 10000000, description: '10x luck + 10x points for 5 minutes', duration: 300000, luckMulti: 10, pointsMulti: 10 },
-  { id: 'omnipotence', name: 'Omnipotence', cost: 100000000, description: '100x ALL multipliers for 3 minutes', duration: 180000, allMulti: 100 },
+  { id: 'godly_fortune', name: 'Godly Fortune', cost: 10000000000000, description: '10x luck + 10x points for 5 minutes', duration: 300000, luckMulti: 10, pointsMulti: 10 },
+  { id: 'omnipotence', name: 'Omnipotence', cost: 100000000000000, description: '100x ALL multipliers for 3 minutes', duration: 180000, allMulti: 100 },
 ];
 
 // ============ END MANA ORB SYSTEM ============
