@@ -250,7 +250,7 @@ const MANA_MILESTONES = [
 
 // Repeatable mana milestone: every 1M total mana earned gives +5% max level to all mana upgrades
 const REPEATABLE_MANA_MILESTONE_INTERVAL = 1_000_000;
-const REPEATABLE_MANA_MILESTONE_BONUS = 0.05; // +5% additive per milestone
+const REPEATABLE_MANA_MILESTONE_BONUS = 0.005; // +0.5% additive per milestone
 
 // Mega buffs - expensive endgame mana sinks
 const MEGA_BUFFS = [
@@ -4370,7 +4370,7 @@ export default function RankRoller() {
               {repeatableManaCount > 0 && <span style={{ color: '#88ffaa', fontSize: '0.8rem' }}>x{repeatableManaCount}</span>}
             </div>
             <div style={{ color: '#aaa', fontSize: '0.75rem', marginTop: '4px' }}>
-              +5% max upgrade levels per milestone (current: +{Math.round((manaMaxLevelBonus - 1) * 100)}%)
+              +0.5% max upgrade levels per milestone (current: +{((manaMaxLevelBonus - 1) * 100).toFixed(1)}%)
             </div>
             <div style={{ color: '#666', fontSize: '0.65rem', marginTop: '2px' }}>
               Next at {formatNumber((repeatableManaCount + 1) * REPEATABLE_MANA_MILESTONE_INTERVAL)} total mana ({formatNumber(Math.max(0, (repeatableManaCount + 1) * REPEATABLE_MANA_MILESTONE_INTERVAL - totalManaEarned))} to go)
