@@ -3238,25 +3238,24 @@ export default function RankRoller() {
   const superRuneRollSpeedMultiplier = Math.pow(0.75, superRuneSpeedLevel); // 25% faster per level
   const superRuneAnimFrameTime = Math.max(10, Math.floor(80 * superRuneRollSpeedMultiplier));
   const superRuneAnimFrames = Math.max(5, Math.floor(15 * superRuneRollSpeedMultiplier));
-  const canAffordSuperRuneRoll = superRunesUnlocked && totalPoints >= SUPER_RUNE_ROLL_COST_POINTS * superRuneBulkCount && mana >= SUPER_RUNE_ROLL_COST_MANA * superRuneBulkCount;
+  // Calculate mana reserve for auto-buff so both button state and handler agree
+  let autoBuffManaReserve = 0;
+  if (autoBuffEnabled && autoBuffConfig.length > 0) {
+    for (const cfg of autoBuffConfig) {
+      for (let s = 0; s < cfg.targetStacks; s++) {
+        autoBuffManaReserve += getBuffCost(cfg.type, s);
+      }
+    }
+  }
+  const autoBuffManaReserveRef = useRef(autoBuffManaReserve);
+  autoBuffManaReserveRef.current = autoBuffManaReserve;
+  const canAffordSuperRuneRoll = superRunesUnlocked && totalPoints >= SUPER_RUNE_ROLL_COST_POINTS * superRuneBulkCount && mana >= SUPER_RUNE_ROLL_COST_MANA * superRuneBulkCount + autoBuffManaReserve;
   const handleSuperRuneRoll = useCallback(() => {
     if (isRollingSuperRune) return;
     if (!superRunesUnlocked) return;
     const manaCost = SUPER_RUNE_ROLL_COST_MANA * superRuneBulkCount;
     const pointsCost = SUPER_RUNE_ROLL_COST_POINTS * superRuneBulkCount;
-    // Reserve mana for auto-buff purchases so super rune rolling doesn't starve them
-    // Reserve the RENEWAL cost (cost at 0 stacks) for each configured buff, so that
-    // when a buff expires there's always enough mana to re-buy it
-    let manaReserve = 0;
-    if (autoBuffEnabled && autoBuffConfigRef.current.length > 0) {
-      for (const cfg of autoBuffConfigRef.current) {
-        // Reserve cost to buy from 0 stacks up to target stacks
-        for (let s = 0; s < cfg.targetStacks; s++) {
-          manaReserve += getBuffCostRef.current(cfg.type, s);
-        }
-      }
-    }
-    if (manaRef.current < manaCost + manaReserve || totalPointsRef.current < pointsCost) return;
+    if (manaRef.current < manaCost + autoBuffManaReserveRef.current || totalPointsRef.current < pointsCost) return;
     setIsRollingSuperRune(true);
     setMana(m => {
       if (m < manaCost) return m;
