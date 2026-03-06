@@ -248,6 +248,10 @@ const MANA_MILESTONES = [
   { threshold: 1000000, name: 'Mana Overlord', bonus: 'allBuffs', value: 1.5, description: '1.5x to all mana bonuses' },
 ];
 
+// Repeatable mana milestone: every 1M total mana earned gives +5% max level to all mana upgrades
+const REPEATABLE_MANA_MILESTONE_INTERVAL = 1_000_000;
+const REPEATABLE_MANA_MILESTONE_BONUS = 0.05; // +5% additive per milestone
+
 // Mega buffs - expensive endgame mana sinks
 const MEGA_BUFFS = [
   { id: 'godly_fortune', name: 'Godly Fortune', cost: 10000000, description: '10x luck + 10x points for 5 minutes', duration: 300000, luckMulti: 10, pointsMulti: 10 },
@@ -2127,6 +2131,11 @@ export default function RankRoller() {
   }, 1);
   // ============ END SUPER RUNE BUFFS ============
 
+  // Repeatable mana milestone: +5% max level per 1M total mana earned
+  const repeatableManaCount = Math.max(0, Math.floor(totalManaEarned / REPEATABLE_MANA_MILESTONE_INTERVAL));
+  const manaMaxLevelBonus = 1 + repeatableManaCount * REPEATABLE_MANA_MILESTONE_BONUS;
+  const getEffectiveMaxLevel = (baseMax: number) => Math.floor(baseMax * manaMaxLevelBonus);
+
   // Mana per click: base 1 + milestone bonuses, then doubled per tap upgrade level, then super rune mana multi
   const manaPerClick = Math.floor((1 + manaMilestoneClickBonus) * Math.pow(2, manaClickUpgradeLevel) * manaMilestoneAllBonus * superRuneManaGainMulti);
 
@@ -2457,12 +2466,13 @@ export default function RankRoller() {
     const upgradeDef = MANA_UPGRADE_DEFINITIONS.find(u => u.id === upgradeId);
     if (!upgradeDef) return;
     const currentLevel = manaUpgradeLevels[upgradeId] || 0;
-    if (currentLevel >= upgradeDef.maxLevel) return;
+    const effectiveMax = getEffectiveMaxLevel(upgradeDef.maxLevel);
+    if (currentLevel >= effectiveMax) return;
     const cost = Math.floor(upgradeDef.baseCost * Math.pow(upgradeDef.costScale, currentLevel));
     if (mana < cost) return;
     setMana(m => m - cost);
     setManaUpgradeLevels(prev => ({ ...prev, [upgradeId]: currentLevel + 1 }));
-  }, [mana, manaUpgradeLevels]);
+  }, [mana, manaUpgradeLevels, getEffectiveMaxLevel]);
 
   const handleClaimManaMilestone = useCallback((threshold: number) => {
     if (totalManaEarned < threshold) return;
@@ -4277,14 +4287,15 @@ export default function RankRoller() {
           {/* General upgrades */}
           {MANA_UPGRADE_DEFINITIONS.map(upgDef => {
             const currentLevel = manaUpgradeLevels[upgDef.id] || 0;
+            const effectiveMax = getEffectiveMaxLevel(upgDef.maxLevel);
             const cost = Math.floor(upgDef.baseCost * Math.pow(upgDef.costScale, currentLevel));
-            const canAfford = mana >= cost && currentLevel < upgDef.maxLevel;
-            const isMaxed = currentLevel >= upgDef.maxLevel;
+            const canAfford = mana >= cost && currentLevel < effectiveMax;
+            const isMaxed = currentLevel >= effectiveMax;
             return (
               <div key={upgDef.id} style={styles.manaUpgradeCard}>
                 <div style={{ color: '#88bbff', fontWeight: 'bold' }}>{upgDef.name}</div>
                 <div style={{ color: '#aaa', fontSize: '0.75rem' }}>{upgDef.description}</div>
-                <div style={{ color: '#888', fontSize: '0.7rem' }}>Lv {currentLevel}/{upgDef.maxLevel}</div>
+                <div style={{ color: '#888', fontSize: '0.7rem' }}>Lv {currentLevel}/{effectiveMax}{effectiveMax > upgDef.maxLevel ? ` (base ${upgDef.maxLevel})` : ''}</div>
                 {!isMaxed ? (
                   <button
                     onClick={() => handleManaUpgrade(upgDef.id)}
@@ -4344,6 +4355,27 @@ export default function RankRoller() {
               </div>
             );
           })}
+          {/* Repeatable milestone */}
+          <div style={{
+            ...styles.manaMilestoneItem,
+            borderColor: repeatableManaCount > 0 ? '#88ffaa' : '#333',
+            opacity: repeatableManaCount > 0 ? 1 : 0.4,
+            marginTop: '8px',
+          }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+              <div>
+                <span style={{ color: '#88ffaa', fontWeight: 'bold' }}>Mana Mastery</span>
+                <span style={{ color: '#888', fontSize: '0.8rem', marginLeft: '10px' }}>every {formatNumber(REPEATABLE_MANA_MILESTONE_INTERVAL)} total mana</span>
+              </div>
+              {repeatableManaCount > 0 && <span style={{ color: '#88ffaa', fontSize: '0.8rem' }}>x{repeatableManaCount}</span>}
+            </div>
+            <div style={{ color: '#aaa', fontSize: '0.75rem', marginTop: '4px' }}>
+              +5% max upgrade levels per milestone (current: +{Math.round((manaMaxLevelBonus - 1) * 100)}%)
+            </div>
+            <div style={{ color: '#666', fontSize: '0.65rem', marginTop: '2px' }}>
+              Next at {formatNumber((repeatableManaCount + 1) * REPEATABLE_MANA_MILESTONE_INTERVAL)} total mana ({formatNumber(Math.max(0, (repeatableManaCount + 1) * REPEATABLE_MANA_MILESTONE_INTERVAL - totalManaEarned))} to go)
+            </div>
+          </div>
         </div>
 
         {/* Active Buffs Panel (middle-left) */}
