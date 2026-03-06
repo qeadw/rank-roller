@@ -3550,7 +3550,7 @@ export default function RankRoller() {
         }
       }
       // A key to toggle auto roll (only when auto roll is unlocked)
-      if (e.code === 'KeyA' && !e.repeat && autoRollUnlocked) {
+      if (e.code === 'KeyQ' && !e.repeat && autoRollUnlocked) {
         if (showRunes) {
           if (runeAutoRollUnlocked) {
             setRuneAutoRollEnabled((prev) => !prev);
@@ -6711,7 +6711,7 @@ export default function RankRoller() {
       {!hideKeybinds && (
         <div style={styles.keybindHints}>
           <span style={styles.keybindHint}>[SPACE] Roll</span>
-          {autoRollUnlocked && <span style={styles.keybindHint}>[A] Auto Roll</span>}
+          {autoRollUnlocked && <span style={styles.keybindHint}>[Q] Auto Roll</span>}
           <span style={{...styles.keybindHint, fontSize: '0.7rem', opacity: 0.7}}>Double-tap to hide</span>
         </div>
       )}
