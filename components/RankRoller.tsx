@@ -3,9 +3,17 @@
 import { useState, useMemo, useEffect, useCallback, useRef } from 'react';
 import Decimal from 'break_eternity.js';
 
-const D = (val: number | string | Decimal = 0): Decimal => new Decimal(val);
-const ZERO = D(0);
-const ONE = D(1);
+const D = (val: number | string | Decimal = 0): Decimal => {
+  try {
+    const d = new Decimal(val);
+    if (isNaN(d.mag)) return new Decimal(0);
+    return d;
+  } catch {
+    return new Decimal(0);
+  }
+};
+const ZERO = new Decimal(0);
+const ONE = new Decimal(1);
 
 const SAVE_KEY = 'rankroller_save';
 const SAVE_VERSION = 'RR1:';
@@ -1272,31 +1280,55 @@ function calculatePoints(rank: Rank): number {
 
 // Format large numbers with suffixes (K, M, B, T, Qa, Qi, Sx, Sp, Oc, No, Dc)
 function formatNumber(num: number | Decimal): string {
-  const d = num instanceof Decimal ? num : D(num);
-  if (d.eq(0) || (d.abs().lt(1000) && d.layer === 0)) {
-    const n = d.toNumber();
-    if (!isFinite(n)) return d.toString();
-    return Number.isInteger(n) ? n.toLocaleString() : n.toLocaleString(undefined, {maximumFractionDigits: 2});
+  try {
+    const d = num instanceof Decimal ? num : D(num);
+    // Guard against NaN/invalid Decimals
+    if (d.sign === 0 || (d.mag === 0 && d.layer === 0)) return '0';
+    if (!isFinite(d.mag) || isNaN(d.mag)) return d.sign < 0 ? '-Infinity' : 'Infinity';
+
+    // Small numbers (layer 0, < 1000)
+    if (d.layer === 0 && d.mag < 1000) {
+      const n = d.toNumber();
+      if (!isFinite(n)) return 'Infinity';
+      return Number.isInteger(n) ? n.toLocaleString() : n.toLocaleString(undefined, {maximumFractionDigits: 2});
+    }
+
+    // Layer 0: normal large numbers — use suffixes then exponential
+    if (d.layer === 0) {
+      const log10val = Math.log10(d.mag);
+      if (!isFinite(log10val)) return d.toExponential(2);
+      const suffixes = ['', 'K', 'M', 'B', 'T', 'Qa', 'Qi', 'Sx', 'Sp', 'Oc', 'No', 'Dc'];
+      const tier = Math.floor(log10val / 3);
+      if (tier >= suffixes.length) return d.toExponential(2);
+      const suffix = suffixes[tier];
+      const scale = Math.pow(10, tier * 3);
+      const scaled = d.mag / scale;
+      return (scaled < 10 ? scaled.toFixed(2) : scaled < 100 ? scaled.toFixed(1) : scaled.toFixed(0)) + suffix;
+    }
+
+    // Layer 1: numbers like 1e1000 — show as e notation
+    if (d.layer === 1) {
+      const exponent = d.mag;
+      if (!isFinite(exponent)) return 'e∞';
+      if (exponent < 1e6) {
+        // Show as 1.23e456
+        const mantissa = Math.pow(10, exponent - Math.floor(exponent));
+        return mantissa.toFixed(2) + 'e' + Math.floor(exponent).toLocaleString();
+      }
+      // Very large exponent: show as e1.23M, e4.56B, etc.
+      return 'e' + formatNumber(D(exponent));
+    }
+
+    // Layer 2+: tetration-level — show as ee notation
+    if (d.layer === 2) {
+      return 'ee' + (isFinite(d.mag) ? formatNumber(D(d.mag)) : '∞');
+    }
+
+    // Layer 3+
+    return 'e'.repeat(d.layer) + (isFinite(d.mag) ? d.mag.toFixed(3) : '∞');
+  } catch {
+    return String(num);
   }
-  // For tetration-level numbers (layer >= 2), show as ee notation
-  if (d.layer >= 2) {
-    return 'ee' + Decimal.log10(d.log10()).toFixed(3);
-  }
-  // For numbers beyond normal float range (layer 1 or mag is huge), use exponential
-  if (d.layer >= 1) {
-    const log = d.log10();
-    if (log.gte(1e15)) return 'e' + formatNumber(log);
-    return d.toExponential(2);
-  }
-  const log10val = d.log10().toNumber();
-  if (!isFinite(log10val)) return d.toString();
-  const suffixes = ['', 'K', 'M', 'B', 'T', 'Qa', 'Qi', 'Sx', 'Sp', 'Oc', 'No', 'Dc'];
-  const tier = Math.floor(log10val / 3);
-  if (tier >= suffixes.length) return d.toExponential(2);
-  const suffix = suffixes[tier];
-  const scale = Decimal.pow(10, tier * 3);
-  const scaled = d.div(scale).toNumber();
-  return (scaled < 10 ? scaled.toFixed(2) : scaled < 100 ? scaled.toFixed(1) : scaled.toFixed(0)) + suffix;
 }
 
 export default function RankRoller() {
@@ -1411,6 +1443,14 @@ export default function RankRoller() {
     // Only load from save on initial mount — NOT when ranks regenerates (e.g. after prestige)
     if (hasLoadedRef.current) return;
     hasLoadedRef.current = true;
+    // Emergency reset: add ?reset to URL to clear corrupted save
+    if (typeof window !== 'undefined' && window.location.search.includes('reset')) {
+      setCookie(SAVE_KEY, '');
+      try { localStorage.removeItem(SAVE_KEY); } catch {}
+      window.history.replaceState({}, '', window.location.pathname);
+      setIsLoaded(true);
+      return;
+    }
     const savedData = getCookie(SAVE_KEY);
     if (savedData) {
       try {
