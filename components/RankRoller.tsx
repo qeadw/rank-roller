@@ -1273,12 +1273,25 @@ function calculatePoints(rank: Rank): number {
 // Format large numbers with suffixes (K, M, B, T, Qa, Qi, Sx, Sp, Oc, No, Dc)
 function formatNumber(num: number | Decimal): string {
   const d = num instanceof Decimal ? num : D(num);
-  if (d.lt(1000)) {
+  if (d.eq(0) || (d.abs().lt(1000) && d.layer === 0)) {
     const n = d.toNumber();
+    if (!isFinite(n)) return d.toString();
     return Number.isInteger(n) ? n.toLocaleString() : n.toLocaleString(undefined, {maximumFractionDigits: 2});
   }
+  // For tetration-level numbers (layer >= 2), show as ee notation
+  if (d.layer >= 2) {
+    return 'ee' + Decimal.log10(d.log10()).toFixed(3);
+  }
+  // For numbers beyond normal float range (layer 1 or mag is huge), use exponential
+  if (d.layer >= 1) {
+    const log = d.log10();
+    if (log.gte(1e15)) return 'e' + formatNumber(log);
+    return d.toExponential(2);
+  }
+  const log10val = d.log10().toNumber();
+  if (!isFinite(log10val)) return d.toString();
   const suffixes = ['', 'K', 'M', 'B', 'T', 'Qa', 'Qi', 'Sx', 'Sp', 'Oc', 'No', 'Dc'];
-  const tier = Math.floor(d.log10().toNumber() / 3);
+  const tier = Math.floor(log10val / 3);
   if (tier >= suffixes.length) return d.toExponential(2);
   const suffix = suffixes[tier];
   const scale = Decimal.pow(10, tier * 3);
@@ -4966,7 +4979,7 @@ export default function RankRoller() {
               <div style={{...styles.milestonesList, maxHeight: '60vh'}}>
                 {/* Luck Breakdown */}
                 <div style={styles.breakdownSection}>
-                  <h3 style={styles.breakdownHeader}>Luck ({luckMulti.toFixed(2)}x total)</h3>
+                  <h3 style={styles.breakdownHeader}>Luck ({luckMulti.gte(1e9) ? formatNumber(luckMulti) : luckMulti.toFixed(2)}x total)</h3>
                   <div style={styles.breakdownItem}>
                     <span>Base (Upgrades Lv.{luckLevel})</span>
                     <span>{baseLuckMulti.gte(1e9) ? formatNumber(baseLuckMulti) : baseLuckMulti.toFixed(2)}x</span>
@@ -4987,7 +5000,7 @@ export default function RankRoller() {
 
                 {/* Points Breakdown */}
                 <div style={styles.breakdownSection}>
-                  <h3 style={styles.breakdownHeader}>Points ({pointsMulti.toFixed(2)}x total)</h3>
+                  <h3 style={styles.breakdownHeader}>Points ({pointsMulti.gte(1e9) ? formatNumber(pointsMulti) : pointsMulti.toFixed(2)}x total)</h3>
                   <div style={styles.breakdownItem}>
                     <span>Base (Upgrades Lv.{pointsMultiLevel})</span>
                     <span>{basePointsMulti.gte(1e9) ? formatNumber(basePointsMulti) : basePointsMulti.toFixed(2)}x</span>
@@ -5008,7 +5021,7 @@ export default function RankRoller() {
 
                 {/* Speed Breakdown */}
                 <div style={styles.breakdownSection}>
-                  <h3 style={styles.breakdownHeader}>Speed ({speedMulti.toFixed(2)}x total)</h3>
+                  <h3 style={styles.breakdownHeader}>Speed ({speedMulti.gte(1e9) ? formatNumber(speedMulti) : speedMulti.toFixed(2)}x total)</h3>
                   <div style={styles.breakdownItem}>
                     <span>Base (Upgrades Lv.{speedLevel})</span>
                     <span>{baseSpeedMulti.gte(1e9) ? formatNumber(baseSpeedMulti) : baseSpeedMulti.toFixed(2)}x</span>
