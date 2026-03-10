@@ -1,0 +1,143 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Game Hub</title>
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body {
+    font-family: 'Courier New', monospace;
+    background: #0a0a1a;
+    color: #e0e0e0;
+    min-height: 100vh;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    padding: 40px 20px;
+  }
+
+  h1 {
+    font-size: 36px;
+    color: #fff;
+    margin-bottom: 8px;
+    letter-spacing: 4px;
+  }
+  .subtitle {
+    color: #555;
+    font-size: 14px;
+    margin-bottom: 48px;
+  }
+
+  .games-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+    gap: 24px;
+    max-width: 960px;
+    width: 100%;
+  }
+
+  .game-card {
+    background: #12122a;
+    border: 1px solid #1a1a3e;
+    border-radius: 12px;
+    padding: 32px 28px;
+    transition: all 0.25s ease;
+    text-decoration: none;
+    color: inherit;
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+    position: relative;
+    overflow: hidden;
+  }
+  .game-card::before {
+    content: '';
+    position: absolute;
+    top: 0; left: 0; right: 0;
+    height: 3px;
+    background: var(--accent);
+    opacity: 0;
+    transition: opacity 0.25s;
+  }
+  .game-card:hover {
+    border-color: var(--accent);
+    transform: translateY(-4px);
+    box-shadow: 0 8px 32px rgba(0,0,0,0.4);
+  }
+  .game-card:hover::before { opacity: 1; }
+
+  .game-icon {
+    font-size: 40px;
+    margin-bottom: 4px;
+  }
+  .game-title {
+    font-size: 22px;
+    font-weight: bold;
+    color: #fff;
+  }
+  .game-desc {
+    font-size: 13px;
+    color: #888;
+    line-height: 1.5;
+  }
+  .game-tag {
+    display: inline-block;
+    padding: 4px 10px;
+    border-radius: 4px;
+    font-size: 11px;
+    color: var(--accent);
+    border: 1px solid var(--accent);
+    align-self: flex-start;
+    margin-top: auto;
+  }
+
+  .footer {
+    margin-top: 60px;
+    color: #333;
+    font-size: 12px;
+  }
+</style>
+</head>
+<body>
+
+<h1>GAME HUB</h1>
+<p class="subtitle">// select a game to play</p>
+
+<div class="games-grid">
+
+  <a class="game-card" href="https://github.com/qeadw/rank-roller" style="--accent: #e94560;">
+    <div class="game-icon">&#x1F4A5;</div>
+    <div class="game-title">Nova</div>
+    <div class="game-desc">Click to destroy enemies, earn upgrades, and unleash devastating nova attacks. Features recursive crit rolling, permanent upgrades, and competitive scoring.</div>
+    <span class="game-tag">rank-roller</span>
+  </a>
+
+  <a class="game-card" href="https://github.com/WolfHoundz/Gamu" style="--accent: #4fc3f7;">
+    <div class="game-icon">&#x1F3AE;</div>
+    <div class="game-title">Gamu</div>
+    <div class="game-desc">It gamu. An HTML-based game project.</div>
+    <span class="game-tag">WolfHoundz/Gamu</span>
+  </a>
+
+  <a class="game-card" href="fishing.html" style="--accent: #ffd700;">
+    <div class="game-icon">&#x1F3A3;</div>
+    <div class="game-title">Fishing Game</div>
+    <div class="game-desc">Cast your line, catch rare species, upgrade your gear, and fill out your journal. From Bluegill to Goblin Shark.</div>
+    <span class="game-tag">play now</span>
+  </a>
+
+  <a class="game-card" href="https://voidsector.qeadw.fun" style="--accent: #a855f7;">
+    <div class="game-icon">&#x1F30C;</div>
+    <div class="game-title">Void Sector</div>
+    <div class="game-desc">Enter the void. A space exploration and combat game set in the depths of uncharted sectors.</div>
+    <span class="game-tag">voidsector</span>
+  </a>
+
+</div>
+
+<div class="footer">game hub</div>
+
+</body>
+</html>
