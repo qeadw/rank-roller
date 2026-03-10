@@ -1,6 +1,11 @@
 'use client';
 
 import { useState, useMemo, useEffect, useCallback, useRef } from 'react';
+import Decimal from 'break_eternity.js';
+
+const D = (val: number | string | Decimal = 0): Decimal => new Decimal(val);
+const ZERO = D(0);
+const ONE = D(1);
 
 const SAVE_KEY = 'rankroller_save';
 const SAVE_VERSION = 'RR1:';
@@ -27,7 +32,7 @@ function deobfuscateSave(data: string): string {
 
 interface SaveData {
   rollCount: number;
-  totalPoints: number;
+  totalPoints: number | string;
   highestRankIndex: number | null;
   highestRankRoll: number | null;
   collectedRanks: number[];
@@ -59,8 +64,8 @@ interface SaveData {
   // UI state
   dismissed1MBanner?: boolean;
   // Mana system
-  mana?: number;
-  totalManaEarned?: number;
+  mana?: number | string;
+  totalManaEarned?: number | string;
   manaClickUpgradeLevel?: number;
   manaUpgradeLevels?: Record<string, number>;
   activeBuffsSave?: Array<{ type: ManaBuffType; power: number; remainingMs: number; totalDurationMs: number; stackCount: number }>;
@@ -1266,15 +1271,19 @@ function calculatePoints(rank: Rank): number {
 }
 
 // Format large numbers with suffixes (K, M, B, T, Qa, Qi, Sx, Sp, Oc, No, Dc)
-function formatNumber(num: number): string {
-  if (num < 1000) return num.toLocaleString();
+function formatNumber(num: number | Decimal): string {
+  const d = num instanceof Decimal ? num : D(num);
+  if (d.lt(1000)) {
+    const n = d.toNumber();
+    return Number.isInteger(n) ? n.toLocaleString() : n.toLocaleString(undefined, {maximumFractionDigits: 2});
+  }
   const suffixes = ['', 'K', 'M', 'B', 'T', 'Qa', 'Qi', 'Sx', 'Sp', 'Oc', 'No', 'Dc'];
-  const tier = Math.floor(Math.log10(Math.abs(num)) / 3);
-  if (tier >= suffixes.length) return num.toExponential(2);
+  const tier = Math.floor(d.log10().toNumber() / 3);
+  if (tier >= suffixes.length) return d.toExponential(2);
   const suffix = suffixes[tier];
-  const scale = Math.pow(10, tier * 3);
-  const scaled = num / scale;
-  return scaled.toFixed(scaled < 10 ? 2 : scaled < 100 ? 1 : 0) + suffix;
+  const scale = Decimal.pow(10, tier * 3);
+  const scaled = d.div(scale).toNumber();
+  return (scaled < 10 ? scaled.toFixed(2) : scaled < 100 ? scaled.toFixed(1) : scaled.toFixed(0)) + suffix;
 }
 
 export default function RankRoller() {
@@ -1286,8 +1295,8 @@ export default function RankRoller() {
   const [highestRank, setHighestRank] = useState<Rank | null>(null);
   const [highestRankRoll, setHighestRankRoll] = useState<number | null>(null);
   const [rollCount, setRollCount] = useState(0);
-  const [totalPoints, setTotalPoints] = useState(0);
-  const [lastPointsGained, setLastPointsGained] = useState<number | null>(null);
+  const [totalPoints, setTotalPoints] = useState<Decimal>(ZERO);
+  const [lastPointsGained, setLastPointsGained] = useState<Decimal | null>(null);
   const [isRolling, setIsRolling] = useState(false);
   const [collectedRanks, setCollectedRanks] = useState<Set<number>>(new Set());
   const [rankRollCounts, setRankRollCounts] = useState<Record<number, number>>({});
@@ -1331,8 +1340,8 @@ export default function RankRoller() {
   const [showOriginalChances, setShowOriginalChances] = useState(false); // Toggle original chances (without luck) display
   const [isPrestigeResetting, setIsPrestigeResetting] = useState(false); // Brief loading state during prestige reset
   // Mana Orb state
-  const [mana, setMana] = useState(0);
-  const [totalManaEarned, setTotalManaEarned] = useState(0);
+  const [mana, setMana] = useState<Decimal>(ZERO);
+  const [totalManaEarned, setTotalManaEarned] = useState<Decimal>(ZERO);
   const [manaClickUpgradeLevel, setManaClickUpgradeLevel] = useState(0);
   const [manaUpgradeLevels, setManaUpgradeLevels] = useState<Record<string, number>>({});
   const [activeManaBuffs, setActiveManaBuffs] = useState<ActiveManaBuff[]>([]);
@@ -1362,14 +1371,14 @@ export default function RankRoller() {
   const [manaFloatIdCounter, setManaFloatIdCounter] = useState(0);
   const [orbPulse, setOrbPulse] = useState(false);
   const [activeMegaBuffs, setActiveMegaBuffs] = useState<Array<{ id: string; remainingMs: number; totalDurationMs: number }>>([]);
-  const manaRef = useRef(mana);
+  const manaRef = useRef<Decimal>(mana);
   const activeManaBuffsRef = useRef(activeManaBuffs);
   const activeMegaBuffsRef = useRef(activeMegaBuffs);
   const rollCountRef = useRef(rollCount);
-  const totalPointsRef = useRef(totalPoints);
+  const totalPointsRef = useRef<Decimal>(totalPoints);
   const isRollingRuneRef = useRef(isRollingRune);
   const availableRunesRef = useRef<typeof runes>([]);
-  const runeRollCostRef = useRef(0);
+  const runeRollCostRef = useRef<Decimal>(ZERO);
   const runeBulkCountRef = useRef(1);
   const totalRuneLuckRef = useRef(1);
   const runeGainMultiRef = useRef(1);
@@ -1394,7 +1403,7 @@ export default function RankRoller() {
       try {
         const data: SaveData = JSON.parse(deobfuscateSave(savedData));
         setRollCount(data.rollCount || 0);
-        setTotalPoints(data.totalPoints || 0);
+        setTotalPoints(D(data.totalPoints || 0));
         if (data.highestRankIndex !== null && data.highestRankIndex !== undefined) {
           // Use the saved prestige level to generate the correct ranks for index lookup
           const savedRanks = generateRanks(data.rollerPrestigeLevel || 0);
@@ -1442,8 +1451,8 @@ export default function RankRoller() {
         // Load UI state
         setDismissed1MBanner(data.dismissed1MBanner || false);
         // Load mana data
-        setMana(data.mana || 0);
-        setTotalManaEarned(data.totalManaEarned || 0);
+        setMana(D(data.mana || 0));
+        setTotalManaEarned(D(data.totalManaEarned || 0));
         setManaClickUpgradeLevel(data.manaClickUpgradeLevel || 0);
         setManaUpgradeLevels(data.manaUpgradeLevels || {});
         if (data.activeBuffsSave) {
@@ -1496,7 +1505,7 @@ export default function RankRoller() {
 
     const saveData: SaveData = {
       rollCount,
-      totalPoints,
+      totalPoints: totalPoints.toString(),
       highestRankIndex: highestRank?.index ?? null,
       highestRankRoll,
       collectedRanks: Array.from(collectedRanks),
@@ -1523,8 +1532,8 @@ export default function RankRoller() {
       // UI state
       dismissed1MBanner,
       // Mana data
-      mana,
-      totalManaEarned,
+      mana: mana.toString(),
+      totalManaEarned: totalManaEarned.toString(),
       manaClickUpgradeLevel,
       manaUpgradeLevels,
       activeBuffsSave: activeManaBuffs,
@@ -1625,7 +1634,7 @@ export default function RankRoller() {
           parsed = JSON.parse(saveData);
         }
         // Basic validation — must have core fields
-        if (typeof parsed.rollCount !== 'number' || typeof parsed.totalPoints !== 'number') {
+        if (typeof parsed.rollCount !== 'number' || (typeof parsed.totalPoints !== 'number' && typeof parsed.totalPoints !== 'string')) {
           alert('Invalid save file — missing core game data!');
           return;
         }
@@ -1968,14 +1977,14 @@ export default function RankRoller() {
   // Cost Reduction Upgrade - unlocks at 1 quadrillion, 5 tiers, each gives 10% compounding
   // Costs: 1q, 100q, 10Q, 1s, 100s (1e15, 1e17, 1e19, 1e21, 1e23)
   const COST_REDUCTION_UPGRADE_COSTS = [1e15, 1e17, 1e19, 1e21, 1e23];
-  const costReductionUnlocked = totalPoints >= 1e15 || costReductionLevel > 0;
+  const costReductionUnlocked = totalPoints.gte(1e15) || costReductionLevel > 0;
   const upgradeCostReduction = Math.pow(0.9, costReductionLevel); // Each level = 10% reduction (0.9^level)
-  const costReductionUpgradeCost = costReductionLevel < 5 ? COST_REDUCTION_UPGRADE_COSTS[costReductionLevel] : Infinity;
-  const canAffordCostReductionUpgrade = totalPoints >= costReductionUpgradeCost && costReductionLevel < 5;
+  const costReductionUpgradeCost = costReductionLevel < 5 ? D(COST_REDUCTION_UPGRADE_COSTS[costReductionLevel]) : D(Infinity);
+  const canAffordCostReductionUpgrade = totalPoints.gte(costReductionUpgradeCost) && costReductionLevel < 5;
 
   const handleUpgradeCostReduction = () => {
     if (canAffordCostReductionUpgrade) {
-      setTotalPoints((p) => p - costReductionUpgradeCost);
+      setTotalPoints((p) => p.sub(costReductionUpgradeCost));
       setCostReductionLevel((l) => l + 1);
     }
   };
@@ -1985,37 +1994,37 @@ export default function RankRoller() {
   // After roller prestige, max levels are 10x higher. In uncap mode, no limits.
   const bulkMaxLevel = uncapModeEnabled ? Infinity : (rollerPrestigeLevel > 0 ? 40 : 4);
   const runeBulkMaxLevel = uncapModeEnabled ? Infinity : (rollerPrestigeLevel > 0 ? 20 : 2);
-  const getBulkUpgradeCost = (level: number) => {
+  const getBulkUpgradeCost = (level: number): Decimal => {
     if (level < BULK_UPGRADE_COSTS.length) {
-      return Math.floor(BULK_UPGRADE_COSTS[level] * totalCostReduction);
+      return Decimal.floor(D(BULK_UPGRADE_COSTS[level]).mul(totalCostReduction));
     }
     // Beyond normal max: continue scaling at 10x per level from last cost
-    return Math.floor(BULK_UPGRADE_COSTS[BULK_UPGRADE_COSTS.length - 1] * Math.pow(10, level - BULK_UPGRADE_COSTS.length + 1) * totalCostReduction);
+    return Decimal.floor(D(BULK_UPGRADE_COSTS[BULK_UPGRADE_COSTS.length - 1]).mul(Decimal.pow(10, level - BULK_UPGRADE_COSTS.length + 1)).mul(totalCostReduction));
   };
-  const getRuneBulkUpgradeCost = (level: number) => {
+  const getRuneBulkUpgradeCost = (level: number): Decimal => {
     if (level < RUNE_BULK_UPGRADE_COSTS.length) {
-      return Math.floor(RUNE_BULK_UPGRADE_COSTS[level] * totalCostReduction);
+      return Decimal.floor(D(RUNE_BULK_UPGRADE_COSTS[level]).mul(totalCostReduction));
     }
     // Beyond normal max: continue scaling at 1000x per level from last cost
-    return Math.floor(RUNE_BULK_UPGRADE_COSTS[RUNE_BULK_UPGRADE_COSTS.length - 1] * Math.pow(1000, level - RUNE_BULK_UPGRADE_COSTS.length + 1) * totalCostReduction);
+    return Decimal.floor(D(RUNE_BULK_UPGRADE_COSTS[RUNE_BULK_UPGRADE_COSTS.length - 1]).mul(Decimal.pow(1000, level - RUNE_BULK_UPGRADE_COSTS.length + 1)).mul(totalCostReduction));
   };
-  const bulkUpgradeCost = bulkRollLevel < bulkMaxLevel ? getBulkUpgradeCost(bulkRollLevel) : Infinity;
-  const canAffordBulkUpgrade = totalPoints >= bulkUpgradeCost && bulkRollLevel < bulkMaxLevel;
-  const runeBulkUpgradeCost = runeBulkRollLevel < runeBulkMaxLevel ? getRuneBulkUpgradeCost(runeBulkRollLevel) : Infinity;
-  const canAffordRuneBulkUpgrade = totalPoints >= runeBulkUpgradeCost && runeBulkRollLevel < runeBulkMaxLevel;
+  const bulkUpgradeCost = bulkRollLevel < bulkMaxLevel ? getBulkUpgradeCost(bulkRollLevel) : D(Infinity);
+  const canAffordBulkUpgrade = totalPoints.gte(bulkUpgradeCost) && bulkRollLevel < bulkMaxLevel;
+  const runeBulkUpgradeCost = runeBulkRollLevel < runeBulkMaxLevel ? getRuneBulkUpgradeCost(runeBulkRollLevel) : D(Infinity);
+  const canAffordRuneBulkUpgrade = totalPoints.gte(runeBulkUpgradeCost) && runeBulkRollLevel < runeBulkMaxLevel;
 
   // Rune speed upgrade: 9 levels, 10% faster per level, starts at 100k, scales 100x per level
   // Only available after roller prestige
   const RUNE_SPEED_MAX_LEVEL = uncapModeEnabled ? Infinity : 9;
-  const getRuneSpeedUpgradeCost = (level: number) => {
-    return Math.floor(100000 * Math.pow(100, level) * totalCostReduction);
+  const getRuneSpeedUpgradeCost = (level: number): Decimal => {
+    return Decimal.floor(D(100000).mul(Decimal.pow(100, level)).mul(totalCostReduction));
   };
-  const runeSpeedUpgradeCost = runeSpeedLevel < RUNE_SPEED_MAX_LEVEL ? getRuneSpeedUpgradeCost(runeSpeedLevel) : Infinity;
-  const canAffordRuneSpeedUpgrade = totalPoints >= runeSpeedUpgradeCost && runeSpeedLevel < RUNE_SPEED_MAX_LEVEL && rollerPrestigeLevel > 0;
+  const runeSpeedUpgradeCost = runeSpeedLevel < RUNE_SPEED_MAX_LEVEL ? getRuneSpeedUpgradeCost(runeSpeedLevel) : D(Infinity);
+  const canAffordRuneSpeedUpgrade = totalPoints.gte(runeSpeedUpgradeCost) && runeSpeedLevel < RUNE_SPEED_MAX_LEVEL && rollerPrestigeLevel > 0;
 
   const handleUpgradeRuneSpeed = () => {
     if (canAffordRuneSpeedUpgrade) {
-      setTotalPoints((p) => p - runeSpeedUpgradeCost);
+      setTotalPoints((p) => p.sub(runeSpeedUpgradeCost));
       setRuneSpeedLevel((l) => l + 1);
     }
   };
@@ -2063,9 +2072,9 @@ export default function RankRoller() {
   // - 10x speed
   // - +10 roller bulk
   // - +15 rune bulk
-  const rollerPrestigeLuckBonus = Math.pow(5, rollerPrestigeLevel);
-  const rollerPrestigePointsBonus = Math.pow(15, rollerPrestigeLevel);
-  const rollerPrestigeSpeedBonus = Math.pow(10, rollerPrestigeLevel);
+  const rollerPrestigeLuckBonus = Decimal.pow(5, rollerPrestigeLevel);
+  const rollerPrestigePointsBonus = Decimal.pow(15, rollerPrestigeLevel);
+  const rollerPrestigeSpeedBonus = Decimal.pow(10, rollerPrestigeLevel);
   const rollerPrestigeBulkBonus = rollerPrestigeLevel * 10;
   const rollerPrestigeRuneBulkBonus = rollerPrestigeLevel * 15;
   const runePrestigeBonus = 1 + (runePrestigeLevel * 0.05);
@@ -2105,44 +2114,44 @@ export default function RankRoller() {
   }, 0);
   const superRuneBuffMulti = SUPER_RUNES.filter(sr => sr.buffType === 'buff_duration_power').reduce((acc, sr) => {
     const count = superRuneRollCounts[sr.index] || 0;
-    return count > 0 ? acc * Math.pow(sr.buffValue, count) : acc;
+    return count > 0 ? acc * Decimal.pow(sr.buffValue, count).toNumber() : acc;
   }, 1);
   const superRuneLuckMulti = SUPER_RUNES.filter(sr => sr.buffType === 'luck_multi').reduce((acc, sr) => {
     const count = superRuneRollCounts[sr.index] || 0;
-    return count > 0 ? acc * Math.pow(sr.buffValue, count) : acc;
-  }, 1);
+    return count > 0 ? acc.mul(Decimal.pow(sr.buffValue, count)) : acc;
+  }, ONE);
   const superRunePointsMulti = SUPER_RUNES.filter(sr => sr.buffType === 'points_multi').reduce((acc, sr) => {
     const count = superRuneRollCounts[sr.index] || 0;
-    return count > 0 ? acc * Math.pow(sr.buffValue, count) : acc;
-  }, 1);
+    return count > 0 ? acc.mul(Decimal.pow(sr.buffValue, count)) : acc;
+  }, ONE);
   const superRuneSpeedMulti = SUPER_RUNES.filter(sr => sr.buffType === 'speed_multi').reduce((acc, sr) => {
     const count = superRuneRollCounts[sr.index] || 0;
-    return count > 0 ? acc * Math.pow(sr.buffValue, count) : acc;
-  }, 1);
+    return count > 0 ? acc.mul(Decimal.pow(sr.buffValue, count)) : acc;
+  }, ONE);
   const superRuneRuneSpeedMulti = SUPER_RUNES.filter(sr => sr.buffType === 'rune_speed_multi').reduce((acc, sr) => {
     const count = superRuneRollCounts[sr.index] || 0;
-    return count > 0 ? acc * Math.pow(sr.buffValue, count) : acc;
+    return count > 0 ? acc * Decimal.pow(sr.buffValue, count).toNumber() : acc;
   }, 1);
   const superRuneAbundanceGainMulti = SUPER_RUNES.filter(sr => sr.buffType === 'abundance_gain_multi').reduce((acc, sr) => {
     const count = superRuneRollCounts[sr.index] || 0;
-    return count > 0 ? acc * Math.pow(sr.buffValue, count) : acc;
+    return count > 0 ? acc * Decimal.pow(sr.buffValue, count).toNumber() : acc;
   }, 1);
   const superRuneRuneLuckMulti = SUPER_RUNES.filter(sr => sr.buffType === 'rune_luck_multi').reduce((acc, sr) => {
     const count = superRuneRollCounts[sr.index] || 0;
-    return count > 0 ? acc * Math.pow(sr.buffValue, count) : acc;
+    return count > 0 ? acc * Decimal.pow(sr.buffValue, count).toNumber() : acc;
   }, 1);
   const superRuneRuneGainMulti = SUPER_RUNES.filter(sr => sr.buffType === 'rune_gain_multi').reduce((acc, sr) => {
     const count = superRuneRollCounts[sr.index] || 0;
-    return count > 0 ? acc * Math.pow(sr.buffValue, count) : acc;
+    return count > 0 ? acc * Decimal.pow(sr.buffValue, count).toNumber() : acc;
   }, 1);
   const superRuneRuneSpeedBonusMulti = SUPER_RUNES.filter(sr => sr.buffType === 'rune_speed_bonus_multi').reduce((acc, sr) => {
     const count = superRuneRollCounts[sr.index] || 0;
-    return count > 0 ? acc * Math.pow(sr.buffValue, count) : acc;
+    return count > 0 ? acc * Decimal.pow(sr.buffValue, count).toNumber() : acc;
   }, 1);
   // ============ END SUPER RUNE BUFFS ============
 
   // Repeatable mana milestone: +5% max level per 1M total mana earned
-  const repeatableManaCount = Math.max(0, Math.floor(totalManaEarned / REPEATABLE_MANA_MILESTONE_INTERVAL));
+  const repeatableManaCount = Math.max(0, totalManaEarned.div(REPEATABLE_MANA_MILESTONE_INTERVAL).floor().toNumber());
   const manaMaxLevelBonus = 1 + repeatableManaCount * REPEATABLE_MANA_MILESTONE_BONUS;
   const getEffectiveMaxLevel = (baseMax: number, upgradeId?: string) => {
     const multiplier = upgradeId === 'passive_regen' ? 1 + repeatableManaCount * REPEATABLE_MANA_MILESTONE_BONUS * 10 : manaMaxLevelBonus;
@@ -2238,60 +2247,56 @@ export default function RankRoller() {
   const effectiveBulkRollCount = Math.floor((bulkRollCount + rollerPrestigeBulkBonus + superRuneBulkBonus) * manaBuffBulk);
 
   // Luck calculations
-  const baseLuckMulti = Math.pow(1.1, luckLevel);
-  const luckMulti = baseLuckMulti * milestoneLuckBonus * runeLuckBonus * superRuneRuneLuckMulti * rollerPrestigeLuckBonus * manaBuffLuck * megaBuffLuckMulti * superRuneLuckMulti;
-  const luckUpgradeCost = Math.floor(100 * Math.pow(2, luckLevel) * totalCostReduction);
-  const canAffordLuckUpgrade = totalPoints >= luckUpgradeCost;
+  const baseLuckMulti = Decimal.pow(1.1, luckLevel);
+  const luckMulti = baseLuckMulti.mul(milestoneLuckBonus).mul(runeLuckBonus).mul(superRuneRuneLuckMulti).mul(rollerPrestigeLuckBonus).mul(manaBuffLuck).mul(megaBuffLuckMulti).mul(superRuneLuckMulti);
+  const luckUpgradeCost = Decimal.floor(D(100).mul(Decimal.pow(2, luckLevel)).mul(totalCostReduction));
+  const canAffordLuckUpgrade = totalPoints.gte(luckUpgradeCost);
 
   // Points multiplier calculations
-  const basePointsMulti = Math.pow(1.1, pointsMultiLevel);
-  const pointsMulti = basePointsMulti * milestonePointsBonus * runePointsBonus * rollerPrestigePointsBonus * manaBuffPoints * megaBuffPointsMulti * superRunePointsMulti;
-  const pointsUpgradeCost = Math.floor(100 * Math.pow(2, pointsMultiLevel) * totalCostReduction);
-  const canAffordPointsUpgrade = totalPoints >= pointsUpgradeCost;
+  const basePointsMulti = Decimal.pow(1.1, pointsMultiLevel);
+  const pointsMulti = basePointsMulti.mul(milestonePointsBonus).mul(runePointsBonus).mul(rollerPrestigePointsBonus).mul(manaBuffPoints).mul(megaBuffPointsMulti).mul(superRunePointsMulti);
+  const pointsUpgradeCost = Decimal.floor(D(100).mul(Decimal.pow(2, pointsMultiLevel)).mul(totalCostReduction));
+  const canAffordPointsUpgrade = totalPoints.gte(pointsUpgradeCost);
 
   const handleUpgradeLuck = () => {
     if (canAffordLuckUpgrade) {
-      setTotalPoints((p) => p - luckUpgradeCost);
+      setTotalPoints((p) => p.sub(luckUpgradeCost));
       setLuckLevel((l) => l + 1);
     }
   };
 
   const handleUpgradePoints = () => {
     if (canAffordPointsUpgrade) {
-      setTotalPoints((p) => p - pointsUpgradeCost);
+      setTotalPoints((p) => p.sub(pointsUpgradeCost));
       setPointsMultiLevel((l) => l + 1);
     }
   };
 
   // Speed calculations with soft caps
   // Soft cap at 10,000x (10x harder), another at 100,000x (10x harder again)
-  const applySpeedSoftCap = (rawSpeed: number): number => {
-    if (rawSpeed <= 10000) {
+  const applySpeedSoftCap = (rawSpeed: Decimal): Decimal => {
+    if (rawSpeed.lte(10000)) {
       return rawSpeed;
-    } else if (rawSpeed <= 100000) {
-      // 10,000 to 100,000: 10x harder (every 10x raw = 1x actual)
-      const excess = rawSpeed - 10000;
-      return 10000 + excess / 10;
+    } else if (rawSpeed.lte(100000)) {
+      return D(10000).add(rawSpeed.sub(10000).div(10));
     } else {
-      // Above 100,000: 100x harder total (10x * 10x)
-      const tier1 = 10000; // First 10k at full rate
-      const tier2 = (100000 - 10000) / 10; // Next 90k raw = 9k actual
-      const excess = rawSpeed - 100000;
-      return tier1 + tier2 + excess / 100;
+      const tier1 = 10000;
+      const tier2 = (100000 - 10000) / 10;
+      return D(tier1 + tier2).add(rawSpeed.sub(100000).div(100));
     }
   };
-  const baseSpeedMulti = Math.pow(1.1, speedLevel);
-  const rawSpeedMulti = baseSpeedMulti * milestoneSpeedBonus * runeSpeedBonus * rollerPrestigeSpeedBonus * manaBuffSpeed * megaBuffSpeedMulti * superRuneSpeedMulti;
+  const baseSpeedMulti = Decimal.pow(1.1, speedLevel);
+  const rawSpeedMulti = baseSpeedMulti.mul(milestoneSpeedBonus).mul(runeSpeedBonus).mul(rollerPrestigeSpeedBonus).mul(manaBuffSpeed).mul(megaBuffSpeedMulti).mul(superRuneSpeedMulti);
   const speedMulti = applySpeedSoftCap(rawSpeedMulti);
-  const speedUpgradeCost = Math.floor(100 * Math.pow(2, speedLevel) * totalCostReduction);
-  const canAffordSpeedUpgrade = totalPoints >= speedUpgradeCost;
+  const speedUpgradeCost = Decimal.floor(D(100).mul(Decimal.pow(2, speedLevel)).mul(totalCostReduction));
+  const canAffordSpeedUpgrade = totalPoints.gte(speedUpgradeCost);
   // Game speed cheat multiplier affects animation interval
   // Use fractional values for smooth progression instead of discrete jumps
-  const animationInterval = Math.max(0.1, 50 / (speedMulti * gameSpeedMultiplier));
+  const animationInterval = Math.max(0.1, 50 / (speedMulti.toNumber() * gameSpeedMultiplier));
 
   const handleUpgradeSpeed = () => {
     if (canAffordSpeedUpgrade) {
-      setTotalPoints((p) => p - speedUpgradeCost);
+      setTotalPoints((p) => p.sub(speedUpgradeCost));
       setSpeedLevel((l) => l + 1);
     }
   };
@@ -2299,7 +2304,7 @@ export default function RankRoller() {
   // Bulk roll upgrade handler
   const handleUpgradeBulk = () => {
     if (canAffordBulkUpgrade) {
-      setTotalPoints((p) => p - bulkUpgradeCost);
+      setTotalPoints((p) => p.sub(bulkUpgradeCost));
       setBulkRollLevel((l) => l + 1);
     }
   };
@@ -2307,7 +2312,7 @@ export default function RankRoller() {
   // Rune bulk roll upgrade handler
   const handleUpgradeRuneBulk = () => {
     if (canAffordRuneBulkUpgrade) {
-      setTotalPoints((p) => p - runeBulkUpgradeCost);
+      setTotalPoints((p) => p.sub(runeBulkUpgradeCost));
       setRuneBulkRollLevel((l) => l + 1);
     }
   };
@@ -2342,7 +2347,7 @@ export default function RankRoller() {
 
   const handleClaimMilestone = (milestone: Milestone) => {
     if (milestone.requirement(milestoneState) && !claimedMilestones.has(milestone.id)) {
-      setTotalPoints((p) => p + milestone.reward);
+      setTotalPoints((p) => p.add(milestone.reward));
       setClaimedMilestones((prev) => {
         const next = new Set(prev);
         next.add(milestone.id);
@@ -2367,7 +2372,7 @@ export default function RankRoller() {
 
     if (claimedAny) {
       if (totalReward > 0) {
-        setTotalPoints((p) => p + totalReward);
+        setTotalPoints((p) => p.add(totalReward));
       }
       setClaimedMilestones(newClaimed);
     }
@@ -2380,8 +2385,8 @@ export default function RankRoller() {
     if (now - lastManaClickTime < manaClickCooldown) return;
 
     setLastManaClickTime(now);
-    setMana(m => m + manaPerClick);
-    setTotalManaEarned(t => t + manaPerClick);
+    setMana(m => m.add(manaPerClick));
+    setTotalManaEarned(t => t.add(manaPerClick));
 
     // Pulse animation
     setOrbPulse(true);
@@ -2404,14 +2409,14 @@ export default function RankRoller() {
 
   const activateManaBuff = useCallback((type: ManaBuffType) => {
     const cost = getBuffCostRef.current(type);
-    if (manaRef.current < cost) return;
+    if (manaRef.current.lt(cost)) return;
     const def = MANA_BUFF_DEFINITIONS[type];
     const currentBuffs = activeManaBuffsRef.current;
     const currentStacks = currentBuffs.filter(b => b.type === type).length;
     setMana(m => {
-      if (m < cost) return m;
-      manaRef.current = m - cost;
-      return m - cost;
+      if (m.lt(cost)) return m;
+      manaRef.current = m.sub(cost);
+      return m.sub(cost);
     });
     setActiveManaBuffs(prev => [
       ...prev,
@@ -2457,7 +2462,7 @@ export default function RankRoller() {
         for (let j = i + 1; j < costs.length; j++) {
           if (costs[j].needsBuy) manaNeededAfter += costs[j].cost;
         }
-        if (currentMana - spentSoFar >= costs[i].cost) {
+        if (currentMana.sub(spentSoFar).gte(costs[i].cost)) {
           activateManaBuffRef.current(costs[i].type);
           spentSoFar += costs[i].cost;
         }
@@ -2470,8 +2475,8 @@ export default function RankRoller() {
     if (manaClickUpgradeLevel >= MANA_CLICK_UPGRADE_TIERS.length) return;
     const tier = MANA_CLICK_UPGRADE_TIERS[manaClickUpgradeLevel];
     if (!hasAnyFromTier(collectedRanks, tier.tierRequired)) return;
-    if (mana < tier.cost) return;
-    setMana(m => m - tier.cost);
+    if (mana.lt(tier.cost)) return;
+    setMana(m => m.sub(tier.cost));
     setManaClickUpgradeLevel(l => l + 1);
   }, [manaClickUpgradeLevel, mana, collectedRanks]);
 
@@ -2499,13 +2504,13 @@ export default function RankRoller() {
     const effectiveMax = getEffectiveMaxLevel(upgradeDef.maxLevel, upgradeId);
     if (currentLevel >= effectiveMax) return;
     const cost = getManaUpgradeCost(upgradeDef, currentLevel);
-    if (mana < cost) return;
-    setMana(m => m - cost);
+    if (mana.lt(cost)) return;
+    setMana(m => m.sub(cost));
     setManaUpgradeLevels(prev => ({ ...prev, [upgradeId]: currentLevel + 1 }));
   }, [mana, manaUpgradeLevels, getEffectiveMaxLevel]);
 
   const handleClaimManaMilestone = useCallback((threshold: number) => {
-    if (totalManaEarned < threshold) return;
+    if (totalManaEarned.lt(threshold)) return;
     if (claimedManaMilestones.has(threshold)) return;
     setClaimedManaMilestones(prev => {
       const next = new Set(prev);
@@ -2515,7 +2520,7 @@ export default function RankRoller() {
   }, [totalManaEarned, claimedManaMilestones]);
 
   const handleClaimAllManaMilestones = useCallback(() => {
-    const unclaimed = MANA_MILESTONES.filter(m => totalManaEarned >= m.threshold && !claimedManaMilestones.has(m.threshold));
+    const unclaimed = MANA_MILESTONES.filter(m => totalManaEarned.gte(m.threshold) && !claimedManaMilestones.has(m.threshold));
     if (unclaimed.length === 0) return;
     setClaimedManaMilestones(prev => {
       const next = new Set(prev);
@@ -2527,11 +2532,11 @@ export default function RankRoller() {
   const handleActivateMegaBuff = useCallback((megaBuffId: string) => {
     const def = MEGA_BUFFS.find(d => d.id === megaBuffId);
     if (!def) return;
-    if (manaRef.current < def.cost) return;
+    if (manaRef.current.lt(def.cost)) return;
     setMana(m => {
-      if (m < def.cost) return m;
-      manaRef.current = m - def.cost;
-      return m - def.cost;
+      if (m.lt(def.cost)) return m;
+      manaRef.current = m.sub(def.cost);
+      return m.sub(def.cost);
     });
     setActiveMegaBuffs(prev => [
       ...prev,
@@ -2571,8 +2576,8 @@ export default function RankRoller() {
     const timer = setInterval(() => {
       const regenAmount = Math.floor(passiveManaPerSec);
       if (regenAmount > 0) {
-        setMana(m => { manaRef.current = m + regenAmount; return m + regenAmount; });
-        setTotalManaEarned(t => t + regenAmount);
+        setMana(m => { manaRef.current = m.add(regenAmount); return m.add(regenAmount); });
+        setTotalManaEarned(t => t.add(regenAmount));
       }
     }, 1000);
     return () => clearInterval(timer);
@@ -2587,8 +2592,8 @@ export default function RankRoller() {
     if (!hasAutoOrb) return;
     const timer = setInterval(() => {
       const gain = Math.floor(manaPerClick * autoOrbEffectivePower);
-      setMana(m => { manaRef.current = m + gain; return m + gain; });
-      setTotalManaEarned(t => t + gain);
+      setMana(m => { manaRef.current = m.add(gain); return m.add(gain); });
+      setTotalManaEarned(t => t.add(gain));
     }, 1000);
     return () => clearInterval(timer);
   }, [hasAutoOrb, autoOrbEffectivePower, manaPerClick]);
@@ -2661,23 +2666,23 @@ export default function RankRoller() {
   };
 
   // Calculate total points for a complete tier (with multiplier)
-  const getTierTotalPoints = (tierIndex: number): number => {
-    let total = 0;
+  const getTierTotalPoints = (tierIndex: number): Decimal => {
+    let total = ZERO;
     for (let i = 0; i < 10; i++) {
-      total += Math.floor(calculatePoints(ranks[tierIndex * 10 + i]) * pointsMulti);
+      total = total.add(Decimal.floor(D(calculatePoints(ranks[tierIndex * 10 + i])).mul(pointsMulti)));
     }
     return total;
   };
 
   // Get points for a rank with multiplier applied (includes ascension bonus)
-  const getDisplayPoints = (rank: Rank): number => {
+  const getDisplayPoints = (rank: Rank): Decimal => {
     const basePoints = calculatePoints(rank);
     const baseAscensionMulti = getAscensionMultiplier(rank.index, ascendedRanks);
     // Light rune adds to base ascension multiplier (only if ascended)
     const ascensionMulti = baseAscensionMulti > 1
       ? baseAscensionMulti + (lightAscensionBonus - 2) // lightAscensionBonus base is 2, so subtract 2 and add to tier multi
       : 1;
-    return Math.floor(basePoints * ascensionMulti * pointsMulti);
+    return Decimal.floor(D(basePoints).mul(ascensionMulti).mul(pointsMulti));
   };
 
   // Check if a rank can be ascended to the next tier
@@ -2793,7 +2798,7 @@ export default function RankRoller() {
         setHighestRank(null);
         setHighestRankRoll(null);
         setRollCount(0);
-        setTotalPoints(0);
+        setTotalPoints(ZERO);
         setLastPointsGained(null);
         setIsRolling(false);
         setCollectedRanks(new Set());
@@ -2869,7 +2874,7 @@ export default function RankRoller() {
       setHighestRank(null);
       setHighestRankRoll(null);
       setRollCount(0);
-      setTotalPoints(0);
+      setTotalPoints(ZERO);
       setLastPointsGained(null);
       setIsRolling(false);
       setCollectedRanks(new Set());
@@ -2909,8 +2914,8 @@ export default function RankRoller() {
       setRollerPrestigeLevel(0);
       setRunePrestigeLevel(0);
       // Reset mana data
-      setMana(0);
-      setTotalManaEarned(0);
+      setMana(ZERO);
+      setTotalManaEarned(ZERO);
       setManaClickUpgradeLevel(0);
       setManaUpgradeLevels({});
       setActiveManaBuffs([]);
@@ -2958,8 +2963,8 @@ export default function RankRoller() {
   const runeAnimationInterval = Math.max(10, Math.floor(100 / gameSpeedMultiplier)); // Animation frame rate for runes
   // Apply milestone and prestige rune bulk bonuses
   const effectiveRuneBulkCount = Math.floor((runeBulkCount + rollerPrestigeRuneBulkBonus + superRuneRuneBulkBonus) * milestoneRuneBulkBonus);
-  const runeRollCost = Math.floor(1000 * effectiveRuneBulkCount * totalCostReduction); // Cost scales with rune bulk, reduced by shadow + upgrade
-  const canAffordRuneRoll = totalPoints >= runeRollCost;
+  const runeRollCost = Decimal.floor(D(1000).mul(effectiveRuneBulkCount).mul(totalCostReduction)); // Cost scales with rune bulk, reduced by shadow + upgrade
+  const canAffordRuneRoll = totalPoints.gte(runeRollCost);
 
   // Calculate which runes are unlocked based on progression
   const unlockedRunes = useMemo(() => getUnlockedRunes(collectedRanks), [collectedRanks]);
@@ -2980,9 +2985,9 @@ export default function RankRoller() {
     const currentRuneBulkCount = runeBulkCountRef.current;
     const currentTotalRuneLuck = totalRuneLuckRef.current;
     // Check current state using refs to avoid stale closure
-    if (totalPointsRef.current < currentRuneRollCost || isRollingRuneRef.current || currentAvailableRunes.length === 0) return;
+    if (totalPointsRef.current.lt(currentRuneRollCost) || isRollingRuneRef.current || currentAvailableRunes.length === 0) return;
 
-    setTotalPoints((p) => p - currentRuneRollCost);
+    setTotalPoints((p) => p.sub(currentRuneRollCost));
     setIsRollingRune(true);
 
     const animationFrames = Math.floor(runeRollTime / runeAnimationInterval);
@@ -3058,14 +3063,14 @@ export default function RankRoller() {
     if (currentAvailableRunes.length === 0) return;
 
     // Calculate how many batches we can afford
-    const maxAffordableBatches = Math.floor(totalPointsRef.current / currentRuneRollCost);
+    const maxAffordableBatches = totalPointsRef.current.div(currentRuneRollCost).floor().toNumber();
     const actualBatches = Math.min(batchCount, maxAffordableBatches);
     if (actualBatches <= 0) return;
 
-    const totalCost = currentRuneRollCost * actualBatches;
+    const totalCost = currentRuneRollCost.mul(actualBatches);
     const totalRolls = currentRuneBulkCount * actualBatches;
 
-    setTotalPoints((p) => p - totalCost);
+    setTotalPoints((p) => p.sub(totalCost));
 
     // Simulation optimization: cap simulated rolls at 50k, multiply results
     const maxSimulatedRolls = 50000;
@@ -3194,9 +3199,10 @@ export default function RankRoller() {
     // Simulate actual rolls for animation
     let animationCount = 0;
     const rollTimer = setInterval(() => {
+      const luckMultiNum = luckMulti.toNumber();
       const simulatedRoll = manaBuffGuaranteedTier > 0
-        ? rollRankWithLuckAndGuarantee(ranks, luckMulti, manaBuffGuaranteedTier)
-        : rollRankWithLuck(ranks, luckMulti);
+        ? rollRankWithLuckAndGuarantee(ranks, luckMultiNum, manaBuffGuaranteedTier)
+        : rollRankWithLuck(ranks, luckMultiNum);
       setCurrentRoll(simulatedRoll);
       animationCount++;
 
@@ -3205,10 +3211,11 @@ export default function RankRoller() {
 
         // Bulk roll - roll multiple times based on effectiveBulkRollCount
         const results: Rank[] = [];
+        const lmn = luckMulti.toNumber();
         for (let i = 0; i < effectiveBulkRollCount; i++) {
           results.push(manaBuffGuaranteedTier > 0
-            ? rollRankWithLuckAndGuarantee(ranks, luckMulti, manaBuffGuaranteedTier)
-            : rollRankWithLuck(ranks, luckMulti));
+            ? rollRankWithLuckAndGuarantee(ranks, lmn, manaBuffGuaranteedTier)
+            : rollRankWithLuck(ranks, lmn));
         }
 
         // Find the best result to display
@@ -3219,7 +3226,7 @@ export default function RankRoller() {
         setRollCount((c) => c + effectiveBulkRollCount);
 
         // Calculate total points from all rolls
-        let totalPointsGained = 0;
+        let totalPointsGained = ZERO;
         const newCollected = new Set<number>();
         const rollCountUpdates: Record<number, number> = {};
 
@@ -3230,12 +3237,12 @@ export default function RankRoller() {
           const ascensionMulti = baseAscensionMulti > 1
             ? baseAscensionMulti + (lightAscensionBonus - 2)
             : 1;
-          totalPointsGained += Math.floor(basePoints * ascensionMulti * pointsMulti);
+          totalPointsGained = totalPointsGained.add(Decimal.floor(D(basePoints).mul(ascensionMulti).mul(pointsMulti)));
           newCollected.add(result.index);
           rollCountUpdates[result.index] = (rollCountUpdates[result.index] || 0) + 1;
         }
 
-        setTotalPoints((p) => p + totalPointsGained);
+        setTotalPoints((p) => p.add(totalPointsGained));
         setLastPointsGained(totalPointsGained);
 
         setCollectedRanks((prev) => {
@@ -3279,11 +3286,12 @@ export default function RankRoller() {
     }
 
     // Roll the simulated amount
+    const lmn = luckMulti.toNumber();
     const results: Rank[] = [];
     for (let i = 0; i < simulatedRolls; i++) {
       results.push(manaBuffGuaranteedTier > 0
-        ? rollRankWithLuckAndGuarantee(ranks, luckMulti, manaBuffGuaranteedTier)
-        : rollRankWithLuck(ranks, luckMulti));
+        ? rollRankWithLuckAndGuarantee(ranks, lmn, manaBuffGuaranteedTier)
+        : rollRankWithLuck(ranks, lmn));
     }
 
     // Find the best result to display
@@ -3295,7 +3303,7 @@ export default function RankRoller() {
 
     // Calculate total points and roll counts
     // For new discoveries, only count once (don't multiply)
-    let totalPointsGained = 0;
+    let totalPointsGained = ZERO;
     const newCollected = new Set<number>();
     const rollCountUpdates: Record<number, number> = {};
     const firstTimeRolls = new Set<number>(); // Track first-time discoveries this batch
@@ -3306,26 +3314,26 @@ export default function RankRoller() {
       const ascensionMulti = baseAscensionMulti > 1
         ? baseAscensionMulti + (lightAscensionBonus - 2)
         : 1;
-      const pointsPerRoll = Math.floor(basePoints * ascensionMulti * pointsMulti);
+      const pointsPerRoll = Decimal.floor(D(basePoints).mul(ascensionMulti).mul(pointsMulti));
 
       // Check if this is a new discovery (not in collectedRanks and not yet seen this batch)
       const isNewDiscovery = !collectedRanks.has(result.index) && !firstTimeRolls.has(result.index);
 
       if (isNewDiscovery) {
         // First time seeing this rank - count once, don't multiply
-        totalPointsGained += pointsPerRoll;
+        totalPointsGained = totalPointsGained.add(pointsPerRoll);
         rollCountUpdates[result.index] = (rollCountUpdates[result.index] || 0) + 1;
         firstTimeRolls.add(result.index);
       } else {
         // Already collected or seen this batch - apply multiplier
-        totalPointsGained += pointsPerRoll * resultMultiplier;
+        totalPointsGained = totalPointsGained.add(pointsPerRoll.mul(resultMultiplier));
         rollCountUpdates[result.index] = (rollCountUpdates[result.index] || 0) + resultMultiplier;
       }
 
       newCollected.add(result.index);
     }
 
-    setTotalPoints((p) => p + totalPointsGained);
+    setTotalPoints((p) => p.add(totalPointsGained));
     setLastPointsGained(totalPointsGained);
 
     setCollectedRanks((prev) => {
@@ -3371,20 +3379,20 @@ export default function RankRoller() {
   }
   const autoBuffManaReserveRef = useRef(autoBuffManaReserve);
   autoBuffManaReserveRef.current = autoBuffManaReserve;
-  const canAffordSuperRuneRoll = superRunesUnlocked && totalPoints >= SUPER_RUNE_ROLL_COST_POINTS * superRuneBulkCount && mana >= SUPER_RUNE_ROLL_COST_MANA * superRuneBulkCount + autoBuffManaReserve;
+  const canAffordSuperRuneRoll = superRunesUnlocked && totalPoints.gte(SUPER_RUNE_ROLL_COST_POINTS * superRuneBulkCount) && mana.gte(SUPER_RUNE_ROLL_COST_MANA * superRuneBulkCount + autoBuffManaReserve);
   const handleSuperRuneRoll = useCallback(() => {
     if (isRollingSuperRune) return;
     if (!superRunesUnlocked) return;
     const manaCost = SUPER_RUNE_ROLL_COST_MANA * superRuneBulkCount;
-    const pointsCost = SUPER_RUNE_ROLL_COST_POINTS * superRuneBulkCount;
-    if (manaRef.current < manaCost + autoBuffManaReserveRef.current || totalPointsRef.current < pointsCost) return;
+    const pointsCost = D(SUPER_RUNE_ROLL_COST_POINTS * superRuneBulkCount);
+    if (manaRef.current.lt(manaCost + autoBuffManaReserveRef.current) || totalPointsRef.current.lt(pointsCost)) return;
     setIsRollingSuperRune(true);
     setMana(m => {
-      if (m < manaCost) return m;
-      manaRef.current = m - manaCost;
-      return m - manaCost;
+      if (m.lt(manaCost)) return m;
+      manaRef.current = m.sub(manaCost);
+      return m.sub(manaCost);
     });
-    setTotalPoints(p => p < pointsCost ? p : p - pointsCost);
+    setTotalPoints(p => p.lt(pointsCost) ? p : p.sub(pointsCost));
 
     let animCount = 0;
     const timer = setInterval(() => {
@@ -3620,7 +3628,7 @@ export default function RankRoller() {
   // Super Runes Screen
   const SUPER_RUNE_UNLOCK_COST_POINTS = 1e23;
   const SUPER_RUNE_UNLOCK_COST_MANA = 250000;
-  const canAffordSuperRuneUnlock = totalPoints >= SUPER_RUNE_UNLOCK_COST_POINTS && mana >= SUPER_RUNE_UNLOCK_COST_MANA;
+  const canAffordSuperRuneUnlock = totalPoints.gte(SUPER_RUNE_UNLOCK_COST_POINTS) && mana.gte(SUPER_RUNE_UNLOCK_COST_MANA);
 
   if (showSuperRunes && rollerPrestigeLevel > 0) {
     // Super Rune Buffs sub-screen
@@ -3702,8 +3710,8 @@ export default function RankRoller() {
             <button
               onClick={() => {
                 if (canAffordSuperRuneUnlock) {
-                  setTotalPoints(p => p - SUPER_RUNE_UNLOCK_COST_POINTS);
-                  setMana(m => m - SUPER_RUNE_UNLOCK_COST_MANA);
+                  setTotalPoints(p => p.sub(SUPER_RUNE_UNLOCK_COST_POINTS));
+                  setMana(m => m.sub(SUPER_RUNE_UNLOCK_COST_MANA));
                   setSuperRunesUnlocked(true);
                 }
               }}
@@ -4031,7 +4039,7 @@ export default function RankRoller() {
                         {showAutoBuffConfig ? 'Hide' : 'Configure'}
                       </button>
                     </div>
-                    {autoBuffEnabled && autoBuffManaReserve > mana && (
+                    {autoBuffEnabled && mana.lt(autoBuffManaReserve) && (
                       <div style={{
                         padding: '8px 12px', fontSize: '0.8rem', fontWeight: 'bold',
                         backgroundColor: 'rgba(255, 180, 0, 0.1)',
@@ -4039,7 +4047,7 @@ export default function RankRoller() {
                         border: '2px solid rgba(255, 180, 0, 0.3)',
                         borderRadius: '8px', textAlign: 'center',
                       }}>
-                        ⚠ Auto-buff reserve ({formatNumber(Math.ceil(autoBuffManaReserve))} mana) exceeds your current mana ({formatNumber(Math.floor(mana))}). Super rune rolls are blocked until you have enough.
+                        ⚠ Auto-buff reserve ({formatNumber(Math.ceil(autoBuffManaReserve))} mana) exceeds your current mana ({formatNumber(Decimal.floor(mana))}). Super rune rolls are blocked until you have enough.
                       </div>
                     )}
                     {showAutoBuffConfig && (
@@ -4147,7 +4155,7 @@ export default function RankRoller() {
 
   // Mana Orb Screen
   if (showManaOrb && manaOrbUnlocked) {
-    const unclaimedManaMilestonesList = MANA_MILESTONES.filter(m => totalManaEarned >= m.threshold && !claimedManaMilestones.has(m.threshold));
+    const unclaimedManaMilestonesList = MANA_MILESTONES.filter(m => totalManaEarned.gte(m.threshold) && !claimedManaMilestones.has(m.threshold));
     const cooldownPercent = Math.min(1, (Date.now() - lastManaClickTime) / manaClickCooldown);
 
     return (<>
@@ -4216,7 +4224,7 @@ export default function RankRoller() {
         <div style={styles.manaBuffGrid}>
           {(Object.values(MANA_BUFF_DEFINITIONS) as ManaBuffDefinition[]).map(def => {
             const cost = getBuffCost(def.id);
-            const canAfford = mana >= cost;
+            const canAfford = mana.gte(cost);
             const activeCount = activeManaBuffs.filter(b => b.type === def.id).length;
             return (
               <div key={def.id} style={{
@@ -4253,12 +4261,12 @@ export default function RankRoller() {
         </div>
 
         {/* Mega Buffs */}
-        {totalManaEarned >= 1000000 && (
+        {totalManaEarned.gte(1000000) && (
           <>
             <h2 style={styles.manaSectionTitle}>Mega Buffs</h2>
             <div style={styles.manaBuffGrid}>
               {MEGA_BUFFS.map(mb => {
-                const canAfford = mana >= mb.cost;
+                const canAfford = mana.gte(mb.cost);
                 const isActive = activeMegaBuffs.some(b => b.id === mb.id);
                 return (
                   <div key={mb.id} style={{
@@ -4297,7 +4305,7 @@ export default function RankRoller() {
           {manaClickUpgradeLevel < MANA_CLICK_UPGRADE_TIERS.length && (() => {
             const tier = MANA_CLICK_UPGRADE_TIERS[manaClickUpgradeLevel];
             const tierUnlocked = hasAnyFromTier(collectedRanks, tier.tierRequired);
-            const canAfford = mana >= tier.cost && tierUnlocked;
+            const canAfford = mana.gte(tier.cost) && tierUnlocked;
             return (
               <div style={styles.manaUpgradeCard}>
                 <div style={{ color: '#88bbff', fontWeight: 'bold' }}>{tier.name}</div>
@@ -4328,7 +4336,7 @@ export default function RankRoller() {
             const currentLevel = manaUpgradeLevels[upgDef.id] || 0;
             const effectiveMax = getEffectiveMaxLevel(upgDef.maxLevel, upgDef.id);
             const cost = getManaUpgradeCost(upgDef, currentLevel);
-            const canAfford = mana >= cost && currentLevel < effectiveMax;
+            const canAfford = mana.gte(cost) && currentLevel < effectiveMax;
             const isMaxed = currentLevel >= effectiveMax;
             return (
               <div key={upgDef.id} style={styles.manaUpgradeCard}>
@@ -4367,7 +4375,7 @@ export default function RankRoller() {
         )}
         <div style={styles.manaMilestoneList}>
           {MANA_MILESTONES.map(ms => {
-            const reached = totalManaEarned >= ms.threshold;
+            const reached = totalManaEarned.gte(ms.threshold);
             const claimed = claimedManaMilestones.has(ms.threshold);
             return (
               <div key={ms.threshold} style={{
@@ -4412,7 +4420,7 @@ export default function RankRoller() {
               +0.5% max upgrade levels per milestone (current: +{((manaMaxLevelBonus - 1) * 100).toFixed(1)}%)
             </div>
             <div style={{ color: '#666', fontSize: '0.65rem', marginTop: '2px' }}>
-              Next at {formatNumber((repeatableManaCount + 1) * REPEATABLE_MANA_MILESTONE_INTERVAL)} total mana ({formatNumber(Math.max(0, (repeatableManaCount + 1) * REPEATABLE_MANA_MILESTONE_INTERVAL - totalManaEarned))} to go)
+              Next at {formatNumber((repeatableManaCount + 1) * REPEATABLE_MANA_MILESTONE_INTERVAL)} total mana ({formatNumber(Decimal.max(0, D((repeatableManaCount + 1) * REPEATABLE_MANA_MILESTONE_INTERVAL).sub(totalManaEarned)))} to go)
             </div>
           </div>
         </div>
@@ -4474,22 +4482,22 @@ export default function RankRoller() {
         <div className="stats-panel" style={styles.statsPanel}>
           <h3 className="stats-panel-title" style={styles.statsPanelTitle}>Total Stats</h3>
           <div style={styles.statsPanelList}>
-            {luckMulti > 1.0 && (
+            {luckMulti.gt(1) && (
               <div style={styles.statsPanelItem}>
                 <span className="stats-panel-label" style={styles.statsPanelLabel}>Luck</span>
-                <span className="stats-panel-value" style={styles.statsPanelValue}>{luckMulti >= 1e9 ? formatNumber(luckMulti) : luckMulti.toFixed(2)}x</span>
+                <span className="stats-panel-value" style={styles.statsPanelValue}>{luckMulti.gte(1e9) ? formatNumber(luckMulti) : luckMulti.toFixed(2)}x</span>
               </div>
             )}
-            {pointsMulti > 1.0 && (
+            {pointsMulti.gt(1) && (
               <div style={styles.statsPanelItem}>
                 <span className="stats-panel-label" style={styles.statsPanelLabel}>Points</span>
-                <span className="stats-panel-value" style={styles.statsPanelValue}>{pointsMulti >= 1e9 ? formatNumber(pointsMulti) : pointsMulti.toFixed(2)}x</span>
+                <span className="stats-panel-value" style={styles.statsPanelValue}>{pointsMulti.gte(1e9) ? formatNumber(pointsMulti) : pointsMulti.toFixed(2)}x</span>
               </div>
             )}
-            {speedMulti > 1.0 && (
+            {speedMulti.gt(1) && (
               <div style={styles.statsPanelItem}>
                 <span className="stats-panel-label" style={styles.statsPanelLabel}>Speed</span>
-                <span className="stats-panel-value" style={styles.statsPanelValue}>{speedMulti >= 1e9 ? formatNumber(speedMulti) : speedMulti.toFixed(2)}x</span>
+                <span className="stats-panel-value" style={styles.statsPanelValue}>{speedMulti.gte(1e9) ? formatNumber(speedMulti) : speedMulti.toFixed(2)}x</span>
               </div>
             )}
             <div style={styles.statsPanelItem}>
@@ -4676,7 +4684,7 @@ export default function RankRoller() {
 
         <div style={styles.runesPointsDisplay}>
           <span style={styles.runesPointsLabel}>Points</span>
-          <span style={styles.runesPointsValue}>{totalPoints >= 1e15 ? formatNumber(totalPoints) : totalPoints.toLocaleString()}</span>
+          <span style={styles.runesPointsValue}>{formatNumber(totalPoints)}</span>
         </div>
 
         {/* Rune Roll Display */}
@@ -4710,7 +4718,7 @@ export default function RankRoller() {
             cursor: !canAffordRuneRoll || isRollingRune || runeAutoRollEnabled ? 'not-allowed' : 'pointer',
           }}
         >
-          {isRollingRune ? 'Rolling...' : `ROLL RUNE (${runeRollCost >= 1e15 ? formatNumber(runeRollCost) : runeRollCost.toLocaleString()} pts)`}
+          {isRollingRune ? 'Rolling...' : `ROLL RUNE (${formatNumber(runeRollCost)} pts)`}
         </button>
 
         {/* Rune Auto Roll Button */}
@@ -4803,9 +4811,9 @@ export default function RankRoller() {
                 <div style={styles.cheatItem}>
                   <label style={styles.cheatLabel}>Points:</label>
                   <input
-                    type="number"
-                    value={totalPoints}
-                    onChange={(e) => setTotalPoints(Number(e.target.value))}
+                    type="text"
+                    value={totalPoints.toString()}
+                    onChange={(e) => setTotalPoints(D(e.target.value || 0))}
                     style={styles.cheatInput}
                   />
                 </div>
@@ -4895,18 +4903,18 @@ export default function RankRoller() {
                 <div style={styles.cheatItem}>
                   <label style={styles.cheatLabel}>Mana:</label>
                   <input
-                    type="number"
-                    value={mana}
-                    onChange={(e) => setMana(Number(e.target.value))}
+                    type="text"
+                    value={mana.toString()}
+                    onChange={(e) => setMana(D(e.target.value || 0))}
                     style={styles.cheatInput}
                   />
                 </div>
                 <div style={styles.cheatItem}>
                   <label style={styles.cheatLabel}>Total Mana Earned:</label>
                   <input
-                    type="number"
-                    value={totalManaEarned}
-                    onChange={(e) => setTotalManaEarned(Number(e.target.value))}
+                    type="text"
+                    value={totalManaEarned.toString()}
+                    onChange={(e) => setTotalManaEarned(D(e.target.value || 0))}
                     style={styles.cheatInput}
                   />
                 </div>
@@ -4961,7 +4969,7 @@ export default function RankRoller() {
                   <h3 style={styles.breakdownHeader}>Luck ({luckMulti.toFixed(2)}x total)</h3>
                   <div style={styles.breakdownItem}>
                     <span>Base (Upgrades Lv.{luckLevel})</span>
-                    <span>{baseLuckMulti >= 1e9 ? formatNumber(baseLuckMulti) : baseLuckMulti.toFixed(2)}x</span>
+                    <span>{baseLuckMulti.gte(1e9) ? formatNumber(baseLuckMulti) : baseLuckMulti.toFixed(2)}x</span>
                   </div>
                   {milestoneLuckBonus > 1 && (
                     <div style={styles.breakdownItem}>
@@ -4982,7 +4990,7 @@ export default function RankRoller() {
                   <h3 style={styles.breakdownHeader}>Points ({pointsMulti.toFixed(2)}x total)</h3>
                   <div style={styles.breakdownItem}>
                     <span>Base (Upgrades Lv.{pointsMultiLevel})</span>
-                    <span>{basePointsMulti >= 1e9 ? formatNumber(basePointsMulti) : basePointsMulti.toFixed(2)}x</span>
+                    <span>{basePointsMulti.gte(1e9) ? formatNumber(basePointsMulti) : basePointsMulti.toFixed(2)}x</span>
                   </div>
                   {milestonePointsBonus > 1 && (
                     <div style={styles.breakdownItem}>
@@ -5003,7 +5011,7 @@ export default function RankRoller() {
                   <h3 style={styles.breakdownHeader}>Speed ({speedMulti.toFixed(2)}x total)</h3>
                   <div style={styles.breakdownItem}>
                     <span>Base (Upgrades Lv.{speedLevel})</span>
-                    <span>{baseSpeedMulti >= 1e9 ? formatNumber(baseSpeedMulti) : baseSpeedMulti.toFixed(2)}x</span>
+                    <span>{baseSpeedMulti.gte(1e9) ? formatNumber(baseSpeedMulti) : baseSpeedMulti.toFixed(2)}x</span>
                   </div>
                   {milestoneSpeedBonus > 1 && (
                     <div style={styles.breakdownItem}>
@@ -5157,22 +5165,22 @@ export default function RankRoller() {
       <div className="stats-panel" style={{...styles.statsPanel, transform: 'scale(0.7)', transformOrigin: 'top right'}}>
         <h3 className="stats-panel-title" style={styles.statsPanelTitle}>Total Stats</h3>
         <div style={styles.statsPanelList}>
-          {luckMulti > 1.0 && (
+          {luckMulti.gt(1) && (
             <div style={styles.statsPanelItem}>
               <span className="stats-panel-label" style={styles.statsPanelLabel}>Luck</span>
-              <span className="stats-panel-value" style={styles.statsPanelValue}>{luckMulti >= 1e9 ? formatNumber(luckMulti) : luckMulti.toFixed(2)}x</span>
+              <span className="stats-panel-value" style={styles.statsPanelValue}>{luckMulti.gte(1e9) ? formatNumber(luckMulti) : luckMulti.toFixed(2)}x</span>
             </div>
           )}
-          {pointsMulti > 1.0 && (
+          {pointsMulti.gt(1) && (
             <div style={styles.statsPanelItem}>
               <span className="stats-panel-label" style={styles.statsPanelLabel}>Points</span>
-              <span className="stats-panel-value" style={styles.statsPanelValue}>{pointsMulti >= 1e9 ? formatNumber(pointsMulti) : pointsMulti.toFixed(2)}x</span>
+              <span className="stats-panel-value" style={styles.statsPanelValue}>{pointsMulti.gte(1e9) ? formatNumber(pointsMulti) : pointsMulti.toFixed(2)}x</span>
             </div>
           )}
-          {speedMulti > 1.0 && (
+          {speedMulti.gt(1) && (
             <div style={styles.statsPanelItem}>
               <span className="stats-panel-label" style={styles.statsPanelLabel}>Speed</span>
-              <span className="stats-panel-value" style={styles.statsPanelValue}>{speedMulti >= 1e9 ? formatNumber(speedMulti) : speedMulti.toFixed(2)}x</span>
+              <span className="stats-panel-value" style={styles.statsPanelValue}>{speedMulti.gte(1e9) ? formatNumber(speedMulti) : speedMulti.toFixed(2)}x</span>
             </div>
           )}
           <div style={styles.statsPanelItem}>
@@ -5294,7 +5302,7 @@ export default function RankRoller() {
           <div className="upgrade-item" style={styles.upgradeItem}>
             <div className="upgrade-info" style={styles.upgradeInfo}>
               <span className="upgrade-name" style={styles.upgradeName}>Luck</span>
-              <span className="upgrade-value" style={styles.upgradeValue}>{baseLuckMulti >= 1e9 ? formatNumber(baseLuckMulti) : baseLuckMulti.toFixed(2)}x</span>
+              <span className="upgrade-value" style={styles.upgradeValue}>{baseLuckMulti.gte(1e9) ? formatNumber(baseLuckMulti) : baseLuckMulti.toFixed(2)}x</span>
               <span className="upgrade-level" style={styles.upgradeLevel}>Lv.{luckLevel}</span>
             </div>
             <button
@@ -5314,7 +5322,7 @@ export default function RankRoller() {
           <div className="upgrade-item" style={styles.upgradeItem}>
             <div className="upgrade-info" style={styles.upgradeInfo}>
               <span className="upgrade-name" style={styles.upgradeName}>Points</span>
-              <span className="upgrade-value" style={styles.upgradeValue}>{basePointsMulti >= 1e9 ? formatNumber(basePointsMulti) : basePointsMulti.toFixed(2)}x</span>
+              <span className="upgrade-value" style={styles.upgradeValue}>{basePointsMulti.gte(1e9) ? formatNumber(basePointsMulti) : basePointsMulti.toFixed(2)}x</span>
               <span className="upgrade-level" style={styles.upgradeLevel}>Lv.{pointsMultiLevel}</span>
             </div>
             <button
@@ -5334,7 +5342,7 @@ export default function RankRoller() {
           <div className="upgrade-item" style={styles.upgradeItem}>
             <div className="upgrade-info" style={styles.upgradeInfo}>
               <span className="upgrade-name" style={styles.upgradeName}>Speed</span>
-              <span className="upgrade-value" style={styles.upgradeValue}>{baseSpeedMulti >= 1e9 ? formatNumber(baseSpeedMulti) : baseSpeedMulti.toFixed(2)}x</span>
+              <span className="upgrade-value" style={styles.upgradeValue}>{baseSpeedMulti.gte(1e9) ? formatNumber(baseSpeedMulti) : baseSpeedMulti.toFixed(2)}x</span>
               <span className="upgrade-level" style={styles.upgradeLevel}>Lv.{speedLevel}</span>
             </div>
             <button
@@ -5533,10 +5541,10 @@ export default function RankRoller() {
             <div style={{...styles.milestonesList, maxHeight: '60vh'}}>
               {/* Luck Breakdown */}
               <div style={styles.breakdownSection}>
-                <h3 style={styles.breakdownHeader}>Luck ({luckMulti >= 1e9 ? formatNumber(luckMulti) : luckMulti.toFixed(2)}x total)</h3>
+                <h3 style={styles.breakdownHeader}>Luck ({luckMulti.gte(1e9) ? formatNumber(luckMulti) : luckMulti.toFixed(2)}x total)</h3>
                 <div style={styles.breakdownItem}>
                   <span>Base (Upgrades Lv.{luckLevel})</span>
-                  <span>{baseLuckMulti >= 1e9 ? formatNumber(baseLuckMulti) : baseLuckMulti.toFixed(2)}x</span>
+                  <span>{baseLuckMulti.gte(1e9) ? formatNumber(baseLuckMulti) : baseLuckMulti.toFixed(2)}x</span>
                 </div>
                 {milestoneLuckBonus > 1 && (
                   <div style={styles.breakdownItem}>
@@ -5550,7 +5558,7 @@ export default function RankRoller() {
                     <span>{runeLuckBonus.toFixed(2)}x</span>
                   </div>
                 )}
-                {rollerPrestigeLuckBonus > 1 && (
+                {rollerPrestigeLuckBonus.gt(1) && (
                   <div style={styles.breakdownItem}>
                     <span>Roller Prestige (Lv.{rollerPrestigeLevel})</span>
                     <span>{formatNumber(rollerPrestigeLuckBonus)}x</span>
@@ -5560,10 +5568,10 @@ export default function RankRoller() {
 
               {/* Points Breakdown */}
               <div style={styles.breakdownSection}>
-                <h3 style={styles.breakdownHeader}>Points ({pointsMulti >= 1e9 ? formatNumber(pointsMulti) : pointsMulti.toFixed(2)}x total)</h3>
+                <h3 style={styles.breakdownHeader}>Points ({pointsMulti.gte(1e9) ? formatNumber(pointsMulti) : pointsMulti.toFixed(2)}x total)</h3>
                 <div style={styles.breakdownItem}>
                   <span>Base (Upgrades Lv.{pointsMultiLevel})</span>
-                  <span>{basePointsMulti >= 1e9 ? formatNumber(basePointsMulti) : basePointsMulti.toFixed(2)}x</span>
+                  <span>{basePointsMulti.gte(1e9) ? formatNumber(basePointsMulti) : basePointsMulti.toFixed(2)}x</span>
                 </div>
                 {milestonePointsBonus > 1 && (
                   <div style={styles.breakdownItem}>
@@ -5577,7 +5585,7 @@ export default function RankRoller() {
                     <span>{runePointsBonus.toFixed(2)}x</span>
                   </div>
                 )}
-                {rollerPrestigePointsBonus > 1 && (
+                {rollerPrestigePointsBonus.gt(1) && (
                   <div style={styles.breakdownItem}>
                     <span>Roller Prestige (Lv.{rollerPrestigeLevel})</span>
                     <span>{formatNumber(rollerPrestigePointsBonus)}x</span>
@@ -5587,10 +5595,10 @@ export default function RankRoller() {
 
               {/* Speed Breakdown */}
               <div style={styles.breakdownSection}>
-                <h3 style={styles.breakdownHeader}>Speed ({speedMulti >= 1e9 ? formatNumber(speedMulti) : speedMulti.toFixed(2)}x total)</h3>
+                <h3 style={styles.breakdownHeader}>Speed ({speedMulti.gte(1e9) ? formatNumber(speedMulti) : speedMulti.toFixed(2)}x total)</h3>
                 <div style={styles.breakdownItem}>
                   <span>Base (Upgrades Lv.{speedLevel})</span>
-                  <span>{baseSpeedMulti >= 1e9 ? formatNumber(baseSpeedMulti) : baseSpeedMulti.toFixed(2)}x</span>
+                  <span>{baseSpeedMulti.gte(1e9) ? formatNumber(baseSpeedMulti) : baseSpeedMulti.toFixed(2)}x</span>
                 </div>
                 {milestoneSpeedBonus > 1 && (
                   <div style={styles.breakdownItem}>
@@ -5604,13 +5612,13 @@ export default function RankRoller() {
                     <span>{runeSpeedBonus.toFixed(2)}x</span>
                   </div>
                 )}
-                {rollerPrestigeSpeedBonus > 1 && (
+                {rollerPrestigeSpeedBonus.gt(1) && (
                   <div style={styles.breakdownItem}>
                     <span>Roller Prestige (Lv.{rollerPrestigeLevel})</span>
                     <span>{formatNumber(rollerPrestigeSpeedBonus)}x</span>
                   </div>
                 )}
-                {speedMulti < rawSpeedMulti && (
+                {speedMulti.lt(rawSpeedMulti) && (
                   <div style={styles.breakdownItem}>
                     <span style={{ fontSize: '0.8em', color: '#888' }}>Soft cap applied (raw: {formatNumber(rawSpeedMulti)}x)</span>
                   </div>
@@ -5754,7 +5762,7 @@ export default function RankRoller() {
                 </div>
                 <div style={styles.breakdownItem}>
                   <span>Speed Multiplier</span>
-                  <span>÷{speedMulti >= 1e9 ? formatNumber(speedMulti) : speedMulti.toFixed(2)}</span>
+                  <span>÷{speedMulti.gte(1e9) ? formatNumber(speedMulti) : speedMulti.toFixed(2)}</span>
                 </div>
                 {gameSpeedMultiplier > 1 && (
                   <div style={styles.breakdownItem}>
@@ -5959,11 +5967,11 @@ export default function RankRoller() {
         </div>
         <div style={styles.stat}>
           <span style={styles.statLabel}>Points</span>
-          <span style={styles.statValue}>{totalPoints >= 1e15 ? formatNumber(totalPoints) : totalPoints.toLocaleString()}</span>
+          <span style={styles.statValue}>{formatNumber(totalPoints)}</span>
         </div>
         {lastPointsGained !== null && (
           <div style={styles.stat}>
-            <span style={styles.lastGained}>+{lastPointsGained >= 1e15 ? formatNumber(lastPointsGained) : lastPointsGained.toLocaleString()}</span>
+            <span style={styles.lastGained}>+{formatNumber(lastPointsGained)}</span>
           </div>
         )}
       </div>
@@ -5983,7 +5991,7 @@ export default function RankRoller() {
             <div className="roll-tier" style={styles.rollTier}>{currentRoll.tier}</div>
             <div className="roll-number" style={styles.rollNumber}>{currentRoll.tierNumber}</div>
             <div style={styles.rollProbability}>
-              {formatProbability(getEffectiveProbability(currentRoll, ranks, luckMulti))}
+              {formatProbability(getEffectiveProbability(currentRoll, ranks, luckMulti.toNumber()))}
             </div>
           </>
         ) : (
@@ -6032,7 +6040,7 @@ export default function RankRoller() {
             <>
               <div style={styles.highestName}>{highestRank.displayName}</div>
               <div style={styles.highestProbability}>
-                {formatProbability(getEffectiveProbability(highestRank, ranks, luckMulti))}
+                {formatProbability(getEffectiveProbability(highestRank, ranks, luckMulti.toNumber()))}
               </div>
               <div style={styles.highestRollNumber}>
                 on roll #{highestRankRoll?.toLocaleString()}
@@ -6101,7 +6109,7 @@ export default function RankRoller() {
                       >
                         <div style={styles.tierHeaderName}>{tier} (Complete)</div>
                         <div style={styles.tierHeaderPoints}>
-                          {(() => { const tp = getTierTotalPoints(tierIndex); return tp >= 1e15 ? formatNumber(tp) : tp.toLocaleString(); })()} pts
+                          {(() => { const tp = getTierTotalPoints(tierIndex); return formatNumber(tp); })()} pts
                         </div>
                         <div style={styles.collapseHint}>Click to collapse</div>
                       </div>
@@ -6127,10 +6135,10 @@ export default function RankRoller() {
                                 {rank.tierNumber}{getAscensionStars(rank.index, ascendedRanks)}<AscensionStar5 rankIndex={rank.index} ascendedRanks={ascendedRanks} rollerPrestigeLevel={rollerPrestigeLevel} />
                               </div>
                               <div style={styles.tierRankChance}>
-                                {formatProbability(getEffectiveProbability(rank, ranks, showOriginalChances ? 1 : luckMulti))}
+                                {formatProbability(getEffectiveProbability(rank, ranks, showOriginalChances ? 1 : luckMulti.toNumber()))}
                               </div>
                               <div style={styles.tierRankPoints}>
-                                {points >= 1e15 ? formatNumber(points) : points.toLocaleString()} pts
+                                {formatNumber(points)} pts
                               </div>
                               <div style={styles.tierRankRolls}>
                                 {(rankRollCounts[rank.index] || 0).toLocaleString()}x
@@ -6221,10 +6229,10 @@ export default function RankRoller() {
                         {rank.displayName}{getAscensionStars(rank.index, ascendedRanks)}<AscensionStar5 rankIndex={rank.index} ascendedRanks={ascendedRanks} rollerPrestigeLevel={rollerPrestigeLevel} />
                       </div>
                       <div style={styles.catalogueItemChance}>
-                        {formatProbability(getEffectiveProbability(rank, ranks, showOriginalChances ? 1 : luckMulti))}
+                        {formatProbability(getEffectiveProbability(rank, ranks, showOriginalChances ? 1 : luckMulti.toNumber()))}
                       </div>
                       <div style={styles.catalogueItemPoints}>
-                        {points >= 1e15 ? formatNumber(points) : points.toLocaleString()} pts
+                        {formatNumber(points)} pts
                       </div>
                       <div style={styles.catalogueItemRolls}>
                         Rolled: {(rankRollCounts[rank.index] || 0).toLocaleString()}x
@@ -6290,10 +6298,10 @@ export default function RankRoller() {
                                 {rank.tierNumber}{getAscensionStars(rank.index, ascendedRanks)}<AscensionStar5 rankIndex={rank.index} ascendedRanks={ascendedRanks} rollerPrestigeLevel={rollerPrestigeLevel} />
                               </div>
                               <div style={styles.tierRankChance}>
-                                {formatProbability(getEffectiveProbability(rank, ranks, showOriginalChances ? 1 : luckMulti))}
+                                {formatProbability(getEffectiveProbability(rank, ranks, showOriginalChances ? 1 : luckMulti.toNumber()))}
                               </div>
                               <div style={styles.tierRankPoints}>
-                                {points >= 1e15 ? formatNumber(points) : points.toLocaleString()} pts
+                                {formatNumber(points)} pts
                               </div>
                               <div style={styles.tierRankRolls}>
                                 {(rankRollCounts[rank.index] || 0).toLocaleString()}x
@@ -6360,10 +6368,10 @@ export default function RankRoller() {
                         {rank.displayName}{getAscensionStars(rank.index, ascendedRanks)}<AscensionStar5 rankIndex={rank.index} ascendedRanks={ascendedRanks} rollerPrestigeLevel={rollerPrestigeLevel} />
                       </div>
                       <div style={styles.catalogueItemChance}>
-                        {formatProbability(getEffectiveProbability(rank, ranks, showOriginalChances ? 1 : luckMulti))}
+                        {formatProbability(getEffectiveProbability(rank, ranks, showOriginalChances ? 1 : luckMulti.toNumber()))}
                       </div>
                       <div style={styles.catalogueItemPoints}>
-                        {points >= 1e15 ? formatNumber(points) : points.toLocaleString()} pts
+                        {formatNumber(points)} pts
                       </div>
                       <div style={styles.catalogueItemRolls}>
                         Rolled: {(rankRollCounts[rank.index] || 0).toLocaleString()}x
@@ -6558,9 +6566,9 @@ export default function RankRoller() {
               <div style={styles.cheatItem}>
                 <label style={styles.cheatLabel}>Points:</label>
                 <input
-                  type="number"
-                  value={totalPoints}
-                  onChange={(e) => setTotalPoints(Number(e.target.value))}
+                  type="text"
+                  value={totalPoints.toString()}
+                  onChange={(e) => setTotalPoints(D(e.target.value || 0))}
                   style={styles.cheatInput}
                 />
               </div>
@@ -6661,18 +6669,18 @@ export default function RankRoller() {
               <div style={styles.cheatItem}>
                 <label style={styles.cheatLabel}>Mana:</label>
                 <input
-                  type="number"
-                  value={mana}
-                  onChange={(e) => setMana(Number(e.target.value))}
+                  type="text"
+                  value={mana.toString()}
+                  onChange={(e) => setMana(D(e.target.value || 0))}
                   style={styles.cheatInput}
                 />
               </div>
               <div style={styles.cheatItem}>
                 <label style={styles.cheatLabel}>Total Mana Earned:</label>
                 <input
-                  type="number"
-                  value={totalManaEarned}
-                  onChange={(e) => setTotalManaEarned(Number(e.target.value))}
+                  type="text"
+                  value={totalManaEarned.toString()}
+                  onChange={(e) => setTotalManaEarned(D(e.target.value || 0))}
                   style={styles.cheatInput}
                 />
               </div>
