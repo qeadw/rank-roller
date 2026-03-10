@@ -6,7 +6,8 @@ import Decimal from 'break_eternity.js';
 const D = (val: number | string | Decimal = 0): Decimal => {
   try {
     const d = new Decimal(val);
-    if (isNaN(d.mag)) return new Decimal(0);
+    // Guard against NaN and Infinity (e.g. from legacy saves with overflowed numbers)
+    if (isNaN(d.mag) || (d.layer === 0 && !isFinite(d.mag)) || (d.layer > 0 && !isFinite(d.mag))) return new Decimal(0);
     return d;
   } catch {
     return new Decimal(0);
