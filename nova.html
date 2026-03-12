@@ -1,0 +1,1630 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>NOVA — Click to Survive</title>
+<style>
+* { margin: 0; padding: 0; box-sizing: border-box; }
+html, body { width: 100%; height: 100%; overflow: hidden; background: #0a0a0a; }
+canvas { display: block; cursor: crosshair; }
+#upgrade-screen {
+  display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%;
+  background: rgba(0,0,0,0.85); z-index: 10;
+  flex-direction: column; align-items: center; justify-content: center;
+  font-family: 'Segoe UI', sans-serif;
+}
+#upgrade-screen h2 { color: #0ff; font-size: 28px; margin-bottom: 30px; text-shadow: 0 0 20px #0ff; letter-spacing: 4px; }
+#upgrade-cards { display: flex; gap: 20px; }
+.upgrade-card {
+  width: 200px; padding: 24px 16px; border: 2px solid #333; border-radius: 12px;
+  background: rgba(20,20,30,0.9); color: #eee; text-align: center; cursor: pointer;
+  transition: all 0.2s; font-family: 'Segoe UI', sans-serif;
+}
+.upgrade-card:hover { border-color: #0ff; box-shadow: 0 0 25px rgba(0,255,255,0.3); transform: translateY(-4px); }
+.upgrade-card .icon { font-size: 32px; margin-bottom: 8px; display: block; }
+.upgrade-card h3 { color: #0ff; font-size: 16px; margin-bottom: 10px; }
+.upgrade-card .stacks { font-size: 11px; color: #666; margin-top: 6px; }
+.upgrade-card p { font-size: 13px; color: #aaa; line-height: 1.4; }
+#start-screen, #gameover-screen {
+  display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%;
+  background: rgba(0,0,0,0.92); z-index: 20;
+  flex-direction: column; align-items: center; justify-content: center;
+  font-family: 'Segoe UI', sans-serif; color: #eee;
+}
+#start-screen h1, #gameover-screen h1 { font-size: 64px; color: #0ff; text-shadow: 0 0 40px #0ff; letter-spacing: 8px; }
+#start-screen p, #gameover-screen p { margin-top: 16px; font-size: 18px; color: #888; }
+#gameover-screen .score-display { font-size: 36px; color: #ff0; margin-top: 20px; text-shadow: 0 0 20px #ff0; }
+#gameover-screen .highscore { font-size: 18px; color: #f0f; margin-top: 8px; }
+.clickable { cursor: pointer; margin-top: 30px; font-size: 20px; color: #0ff; letter-spacing: 3px; animation: pulse 1.5s infinite; }
+.shop-btn { cursor: pointer; margin-top: 20px; font-size: 16px; color: #f0f; letter-spacing: 3px; animation: pulse 1.5s infinite; }
+.stardust-display { font-size: 20px; color: #ff0; margin-top: 12px; text-shadow: 0 0 12px #ff0; }
+#meta-screen {
+  display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%;
+  background: rgba(0,0,0,0.92); z-index: 25;
+  flex-direction: column; align-items: center; justify-content: center;
+  font-family: 'Segoe UI', sans-serif; overflow-y: auto;
+}
+#meta-screen h2 { color: #f0f; font-size: 28px; margin-bottom: 8px; text-shadow: 0 0 20px #f0f; letter-spacing: 4px; }
+#meta-screen .stardust-bal { color: #ff0; font-size: 20px; margin-bottom: 24px; text-shadow: 0 0 12px #ff0; }
+#meta-cards { display: flex; gap: 16px; flex-wrap: wrap; justify-content: center; max-width: 900px; }
+.meta-card {
+  width: 160px; padding: 20px 12px; border: 2px solid #333; border-radius: 12px;
+  background: rgba(20,20,30,0.9); color: #eee; text-align: center;
+  transition: all 0.2s; font-family: 'Segoe UI', sans-serif;
+}
+.meta-card .icon { font-size: 28px; margin-bottom: 6px; display: block; }
+.meta-card h3 { color: #f0f; font-size: 14px; margin-bottom: 6px; }
+.meta-card .stacks { font-size: 11px; color: #666; margin-top: 4px; margin-bottom: 8px; }
+.meta-card p { font-size: 12px; color: #aaa; line-height: 1.3; margin-bottom: 8px; }
+.meta-card .cost { font-size: 13px; color: #ff0; margin-bottom: 8px; }
+.meta-card button {
+  padding: 6px 16px; border: 1px solid #f0f; border-radius: 6px;
+  background: transparent; color: #f0f; cursor: pointer; font-size: 13px;
+  transition: all 0.2s;
+}
+.meta-card button:hover:not(:disabled) { background: rgba(255,0,255,0.2); box-shadow: 0 0 12px rgba(255,0,255,0.3); }
+.meta-card button:disabled { border-color: #444; color: #444; cursor: default; }
+.meta-close { cursor: pointer; margin-top: 24px; font-size: 18px; color: #0ff; letter-spacing: 3px; animation: pulse 1.5s infinite; margin-bottom: 20px; }
+.lb-btn { cursor: pointer; margin-top: 12px; font-size: 16px; color: #0ff; letter-spacing: 3px; animation: pulse 1.5s infinite; }
+#leaderboard-screen {
+  display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%;
+  background: rgba(0,0,0,0.92); z-index: 25;
+  flex-direction: column; align-items: center; justify-content: center;
+  font-family: 'Segoe UI', sans-serif; color: #eee;
+}
+#leaderboard-screen h2 { color: #0ff; font-size: 28px; margin-bottom: 24px; text-shadow: 0 0 20px #0ff; letter-spacing: 4px; }
+#lb-table { border-collapse: separate; border-spacing: 0 4px; font-family: 'Consolas', 'Courier New', monospace; font-size: 15px; min-width: 460px; }
+#lb-table th { color: #0ff; font-size: 13px; letter-spacing: 2px; padding: 6px 14px; border-bottom: 1px solid #333; text-align: left; }
+#lb-table td { padding: 8px 14px; border-bottom: 1px solid #1a1a2a; }
+#lb-table .col-rank { color: #888; }
+#lb-table .col-score { color: #ff0; }
+#lb-table .col-wave { color: #0ff; }
+#lb-table .col-upgrades { color: #aaa; }
+#lb-table .col-date { color: #666; }
+#lb-table tr.lb-gold td { text-shadow: 0 0 10px rgba(255,215,0,0.6); }
+#lb-table tr.lb-gold .col-rank { color: #ffd700; }
+#lb-table tr.lb-latest td { background: rgba(0,255,255,0.06); }
+#lb-table tr.lb-latest .col-score { text-shadow: 0 0 12px rgba(255,255,0,0.5); }
+#lb-empty { color: #555; font-size: 16px; margin: 30px 0; letter-spacing: 2px; }
+@keyframes pulse { 0%,100% { opacity: 0.6; } 50% { opacity: 1; } }
+</style>
+</head>
+<body>
+<canvas id="c"></canvas>
+
+<div id="start-screen" style="display:flex">
+  <h1>NOVA</h1>
+  <p>Click to create shockwaves. Destroy enemies. Survive.</p>
+  <div class="clickable" onclick="startGame()">[ CLICK TO START ]</div>
+  <div class="shop-btn" onclick="event.stopPropagation(); showMetaScreen('start')">[ SHOP ]</div>
+  <div class="lb-btn" onclick="event.stopPropagation(); showLeaderboard('start')">[ LEADERBOARD ]</div>
+  <div class="lb-btn" onclick="event.stopPropagation(); showBestiary('start')">[ BESTIARY ]</div>
+</div>
+
+<div id="gameover-screen">
+  <h1>GAME OVER</h1>
+  <div class="score-display" id="final-score"></div>
+  <div class="highscore" id="high-score-display"></div>
+  <div class="stardust-display" id="stardust-earned"></div>
+  <div class="stardust-display" id="stardust-total" style="font-size:14px; margin-top:4px;"></div>
+  <p id="wave-reached"></p>
+  <div class="clickable" onclick="startGame()">[ CLICK TO RETRY ]</div>
+  <div class="shop-btn" onclick="event.stopPropagation(); showMetaScreen('gameover')">[ UPGRADES ]</div>
+  <div class="lb-btn" onclick="event.stopPropagation(); showLeaderboard('gameover')">[ LEADERBOARD ]</div>
+  <div class="lb-btn" onclick="event.stopPropagation(); showBestiary('gameover')">[ BESTIARY ]</div>
+</div>
+
+<div id="upgrade-screen">
+  <h2>CHOOSE AN UPGRADE</h2>
+  <div id="upgrade-cards"></div>
+</div>
+
+<div id="meta-screen">
+  <h2>STARDUST UPGRADES</h2>
+  <div class="stardust-bal" id="meta-stardust-bal"></div>
+  <div id="meta-cards"></div>
+  <div class="meta-close" onclick="closeMetaScreen()">[ BACK ]</div>
+</div>
+
+<div id="leaderboard-screen">
+  <h2>LEADERBOARD</h2>
+  <div id="lb-content"></div>
+  <div class="meta-close" onclick="closeLeaderboard()">[ BACK ]</div>
+</div>
+
+<div id="bestiary-screen" style="display:none; position:fixed; top:0; left:0; width:100%; height:100%; background:rgba(0,0,0,0.92); z-index:20; flex-direction:column; align-items:center; justify-content:flex-start; padding-top:40px; font-family:'Segoe UI',sans-serif; color:#eee; overflow-y:auto;">
+  <h2 style="color:#0ff; font-size:28px; margin-bottom:20px; text-shadow:0 0 20px #0ff; letter-spacing:4px;">BESTIARY</h2>
+  <div id="bestiary-content" style="display:flex; flex-wrap:wrap; gap:12px; justify-content:center; max-width:800px; padding:0 20px;"></div>
+  <h2 style="color:#0ff; font-size:22px; margin:30px 0 15px; text-shadow:0 0 20px #0ff; letter-spacing:4px;">UPGRADES</h2>
+  <div id="bestiary-upgrades" style="display:flex; flex-wrap:wrap; gap:12px; justify-content:center; max-width:800px; padding:0 20px;"></div>
+  <div class="meta-close" onclick="closeBestiary()">[ BACK ]</div>
+</div>
+
+<script>
+const canvas = document.getElementById('c');
+const ctx = canvas.getContext('2d');
+
+let game = null;
+function resize() {
+  canvas.width = window.innerWidth; canvas.height = window.innerHeight;
+  if (game) { game.cx = canvas.width / 2; game.cy = canvas.height / 2; }
+}
+window.addEventListener('resize', resize);
+resize();
+
+// Audio
+const audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+let activeAudioNodes = 0;
+const MAX_AUDIO_NODES = 12;
+
+function cleanupNodes(nodes) {
+  for (const node of nodes) { try { node.disconnect(); } catch(e) {} }
+}
+
+function playNova() {
+  if (activeAudioNodes >= MAX_AUDIO_NODES) return;
+  activeAudioNodes++;
+  const now = audioCtx.currentTime;
+  const dur = 0.3;
+  const noise = audioCtx.createBufferSource();
+  const buf = audioCtx.createBuffer(1, audioCtx.sampleRate * dur, audioCtx.sampleRate);
+  const data = buf.getChannelData(0);
+  for (let i = 0; i < data.length; i++) data[i] = (Math.random() * 2 - 1) * 0.3;
+  noise.buffer = buf;
+  const filter = audioCtx.createBiquadFilter();
+  filter.type = 'bandpass';
+  filter.frequency.setValueAtTime(2000, now);
+  filter.frequency.exponentialRampToValueAtTime(200, now + dur);
+  filter.Q.value = 2;
+  const gain = audioCtx.createGain();
+  gain.gain.setValueAtTime(0.4, now);
+  gain.gain.exponentialRampToValueAtTime(0.001, now + dur);
+  noise.connect(filter); filter.connect(gain); gain.connect(audioCtx.destination);
+  noise.onended = () => { activeAudioNodes--; cleanupNodes([noise, filter, gain]); };
+  noise.start(now); noise.stop(now + dur);
+}
+
+function playKill(pitch) {
+  if (activeAudioNodes >= MAX_AUDIO_NODES) return;
+  activeAudioNodes++;
+  const now = audioCtx.currentTime;
+  const osc = audioCtx.createOscillator();
+  osc.type = 'sine';
+  osc.frequency.setValueAtTime(pitch || 600, now);
+  osc.frequency.exponentialRampToValueAtTime(200, now + 0.15);
+  const gain = audioCtx.createGain();
+  gain.gain.setValueAtTime(0.2, now);
+  gain.gain.exponentialRampToValueAtTime(0.001, now + 0.15);
+  osc.connect(gain); gain.connect(audioCtx.destination);
+  osc.onended = () => { activeAudioNodes--; cleanupNodes([osc, gain]); };
+  osc.start(now); osc.stop(now + 0.15);
+}
+
+function playMultiKill(count) {
+  for (let i = 0; i < Math.min(count, 6); i++) {
+    setTimeout(() => playKill(400 + i * 100), i * 50);
+  }
+}
+
+let droneOsc = null, droneGain = null, droneFilter = null;
+function startDrone() {
+  if (droneOsc) return;
+  droneOsc = audioCtx.createOscillator();
+  droneOsc.type = 'sawtooth';
+  droneOsc.frequency.value = 55;
+  droneGain = audioCtx.createGain();
+  droneGain.gain.value = 0.03;
+  droneFilter = audioCtx.createBiquadFilter();
+  droneFilter.type = 'lowpass'; droneFilter.frequency.value = 120;
+  droneOsc.connect(droneFilter); droneFilter.connect(droneGain); droneGain.connect(audioCtx.destination);
+  droneOsc.start();
+}
+function stopDrone() {
+  if (droneOsc) {
+    droneOsc.stop();
+    cleanupNodes([droneOsc, droneFilter, droneGain]);
+    droneOsc = null; droneGain = null; droneFilter = null;
+  }
+}
+
+function playBossHit() {
+  if (activeAudioNodes >= MAX_AUDIO_NODES) return;
+  activeAudioNodes++;
+  const now = audioCtx.currentTime;
+  const osc = audioCtx.createOscillator();
+  osc.type = 'square';
+  osc.frequency.setValueAtTime(150, now);
+  osc.frequency.exponentialRampToValueAtTime(50, now + 0.2);
+  const gain = audioCtx.createGain();
+  gain.gain.setValueAtTime(0.25, now);
+  gain.gain.exponentialRampToValueAtTime(0.001, now + 0.2);
+  osc.connect(gain); gain.connect(audioCtx.destination);
+  osc.onended = () => { activeAudioNodes--; cleanupNodes([osc, gain]); };
+  osc.start(now); osc.stop(now + 0.2);
+}
+
+// Upgrades definition
+const UPGRADES = [
+  { id: 'novaSize', name: 'Nova Size+', desc: 'Bigger blast radius (+30%)', maxStack: Infinity, icon: '\u{1F4A5}' },
+  { id: 'novaSpeed', name: 'Nova Speed+', desc: 'Ring bounces back +1 time (+speed)', maxStack: Infinity, icon: '\u26A1' },
+  { id: 'aftershock', name: 'Aftershock', desc: 'Nova pulses again (+1 pulse per stack)', maxStack: Infinity, icon: '\u{1F300}' },
+  { id: 'multiNova', name: 'Multi-Nova', desc: 'Novas orbit click point in shell pattern', maxStack: Infinity, icon: '\u2728' },
+  { id: 'critClick', name: 'Critical Click', desc: '20% chance for 2\u00D7 damage', maxStack: Infinity, icon: '\u{1F3AF}' },
+  { id: 'magnet', name: 'Magnet', desc: 'Score orbs pulled toward cursor (+range/stack)', maxStack: Infinity, icon: '\u{1F9F2}' },
+  { id: 'barrier', name: 'Barrier', desc: '+1 max shield, 5% faster regen (30s base)', maxStack: Infinity, icon: '\u{1F6E1}' },
+  { id: 'vortex', name: 'Vortex', desc: 'Novas pull enemies inward (+strength/stack)', maxStack: Infinity, icon: '\u{1F32A}' },
+  { id: 'chain', name: 'Chain Lightning', desc: 'Kills zap a nearby enemy for 1 dmg (+15% range/stack)', maxStack: Infinity, icon: '\u26A1' },
+  { id: 'leech', name: 'Life Leech', desc: 'Kills restore HP (fewer kills needed/stack)', maxStack: Infinity, icon: '\u{1FA78}' },
+  { id: 'overcharge', name: 'Overcharge', desc: '+1 nova dmg/stack but costs 3 HP per click', maxStack: Infinity, icon: '\u{1F525}' },
+];
+
+const META_UPGRADES = [
+  { id: 'metaHp', name: 'Starting HP+', desc: '+10 HP per stack', baseCost: 1500, icon: '\u2764\uFE0F' },
+  { id: 'metaNovaSize', name: 'Base Nova Size+', desc: '+10% base nova radius per stack', baseCost: 2250, icon: '\u{1F4A5}' },
+  { id: 'metaNovaSpeed', name: 'Base Nova Speed+', desc: '+10% base nova speed per stack', baseCost: 2250, icon: '\u26A1' },
+  { id: 'metaStartUpgrade', name: 'Starting Upgrade', desc: 'Start each run with a random upgrade per stack', baseCost: 7500, icon: '\u{1F381}' },
+  { id: 'metaScoreMult', name: 'Score Multiplier', desc: '+10% score per stack', baseCost: 4500, icon: '\u2B50' },
+];
+
+function getMetaUpgradeCost(baseCost, stacks) {
+  return baseCost * Math.pow(2, stacks);
+}
+
+function loadMeta() {
+  try { return JSON.parse(localStorage.getItem('nova_meta')) || {}; } catch(e) { return {}; }
+}
+
+function saveMeta(meta) {
+  localStorage.setItem('nova_meta', JSON.stringify(meta));
+}
+
+function getStardust() {
+  return parseInt(localStorage.getItem('nova_stardust') || '0');
+}
+
+function setStardust(val) {
+  localStorage.setItem('nova_stardust', val.toString());
+}
+
+// Soft cap: levels 1-3 full, 4-7 1/4th, 8-11 1/16th, etc.
+function getUpgradeValue(level, perLevel) {
+  let value = 0;
+  let remaining = level;
+  let tier = 0;
+  while (remaining > 0) {
+    const tierLevels = Math.min(remaining, tier === 0 ? 3 : 4);
+    const scale = Math.pow(0.25, tier);
+    value += tierLevels * perLevel * scale;
+    remaining -= tierLevels;
+    tier++;
+  }
+  return value;
+}
+
+// Game state
+let mouseX = 0, mouseY = 0;
+let metaReturnTo = null;
+
+function newGame() {
+  const meta = loadMeta();
+  const metaHpBonus = (meta.metaHp || 0) * 10;
+  const baseHp = 100 + metaHpBonus;
+
+  const g = {
+    score: 0, combo: 0, comboTimer: 0, comboMultiplier: 1, hp: baseHp, maxHp: baseHp,
+    enemies: [], novas: [], particles: [], orbs: [],
+    wave: { number: 0, enemiesRemaining: 0, active: false, spawnTimer: 0, betweenWaves: true, countdown: 2, waitingForUpgrade: false },
+    upgrades: { novaSize: 0, novaSpeed: 0, aftershock: 0, multiNova: 0, critClick: 0, magnet: 0, barrier: 0, vortex: 0, chain: 0, leech: 0, overcharge: 0 },
+    shake: { x: 0, y: 0, intensity: 0 },
+    flash: 0,
+    paused: false,
+    gameOver: false,
+    cx: canvas.width / 2, cy: canvas.height / 2,
+    killsThisNova: 0,
+    totalKills: 0,
+    bossActive: false,
+    nextNovaId: 0,
+    metaSizeMult: 1 + (meta.metaNovaSize || 0) * 0.1,
+    metaSpeedMult: 1 + (meta.metaNovaSpeed || 0) * 0.1,
+    metaScoreMult: 1 + (meta.metaScoreMult || 0) * 0.1,
+    barrierShields: 0,
+    barrierRegenTimer: 0,
+    leechKillCount: 0,
+  };
+
+  const startUpgradeStacks = meta.metaStartUpgrade || 0;
+  if (startUpgradeStacks > 0) {
+    const available = UPGRADES.filter(u => u.maxStack > 1);
+    for (let i = 0; i < startUpgradeStacks; i++) {
+      const pool = available.filter(u => g.upgrades[u.id] < u.maxStack);
+      if (pool.length === 0) break;
+      const pick = pool[Math.floor(Math.random() * pool.length)];
+      g.upgrades[pick.id]++;
+    }
+  }
+
+  return g;
+}
+
+// Enemy unlock schedule: new type every 3 waves
+// Wave 1: drifter, Wave 3: speeder, Wave 6: tank, Wave 9: splitter,
+// Wave 12: phaser, Wave 15: orbiter, Wave 18: zigzag, Wave 21: shield,
+// Wave 24: bomber, Wave 27: revenant
+const ENEMY_UNLOCKS = [
+  { wave: 1, type: 'drifter' },
+  { wave: 3, type: 'speeder' },
+  { wave: 6, type: 'tank' },
+  { wave: 9, type: 'splitter' },
+  { wave: 12, type: 'phaser' },
+  { wave: 15, type: 'orbiter' },
+  { wave: 18, type: 'zigzag' },
+  { wave: 21, type: 'shield' },
+  { wave: 24, type: 'bomber' },
+  { wave: 27, type: 'revenant' },
+];
+
+function getUnlockedTypes(waveNum) {
+  return ENEMY_UNLOCKS.filter(u => waveNum >= u.wave).map(u => u.type);
+}
+
+// Enemy factory
+function spawnEnemy(type, x, y, targetX, targetY) {
+  const cx = targetX || canvas.width / 2;
+  const cy = targetY || canvas.height / 2;
+  const angle = Math.atan2(cy - y, cx - x);
+  const types = {
+    drifter:  { hp: 4, speed: 60,  radius: 12, color: '#0ff', shape: 'circle',  points: 10 },
+    speeder:  { hp: 4, speed: 140, radius: 10, color: '#ff0', shape: 'diamond',  points: 15 },
+    tank:     { hp: 8, speed: 35,  radius: 20, color: '#f0f', shape: 'hexagon',  points: 25 },
+    splitter: { hp: 4, speed: 55,  radius: 16, color: '#0f0', shape: 'diamond',  points: 20 },
+    phaser:   { hp: 4, speed: 50,  radius: 14, color: '#f80', shape: 'circle',  points: 30 },
+    orbiter:  { hp: 4, speed: 45,  radius: 13, color: '#f0f', shape: 'circle',  points: 35 },
+    zigzag:   { hp: 4, speed: 75,  radius: 11, color: '#ff4', shape: 'diamond',  points: 30 },
+    shield:   { hp: 12, speed: 40,  radius: 18, color: '#4af', shape: 'hexagon',  points: 40 },
+    bomber:   { hp: 4, speed: 50,  radius: 15, color: '#f44', shape: 'circle',  points: 45 },
+    revenant: { hp: 6, speed: 55,  radius: 14, color: '#a0f', shape: 'diamond', points: 50 },
+    mini:     { hp: 2, speed: 80,  radius: 8,  color: '#0f0', shape: 'circle',  points: 10 },
+    boss:     { hp: 10, speed: 25, radius: 40, color: '#fff', shape: 'hexagon',  points: 200 },
+  };
+  const t = types[type] || types.drifter;
+  const e = {
+    type, x, y, vx: Math.cos(angle) * t.speed, vy: Math.sin(angle) * t.speed,
+    hp: t.hp, maxHp: t.hp, radius: t.radius, baseRadius: t.radius,
+    color: t.color, shape: t.shape, points: t.points,
+    phaseTimer: Math.random() * Math.PI * 2, visible: true,
+    bossSpawnTimer: 0,
+    orbitAngle: Math.random() * Math.PI * 2,
+    zigzagTimer: Math.random() * Math.PI * 2,
+    shieldUp: type === 'shield',
+    shieldLayers: type === 'shield' ? 15 : 0,
+    shieldMaxLayers: type === 'shield' ? 15 : 0,
+    shieldCooldown: 0,
+    bossTraits: [],
+  };
+  if (type !== 'mini' && type !== 'boss') {
+    const milestones = Math.floor((game ? game.wave.number : 0) / 5);
+    e.hp = Math.ceil(e.hp * Math.pow(1.75, milestones)); e.maxHp = e.hp;
+    e.vx *= Math.pow(1.02, milestones);
+    e.vy *= Math.pow(1.02, milestones);
+  }
+  return e;
+}
+
+function randomEdgePos() {
+  const side = Math.floor(Math.random() * 4);
+  const w = canvas.width, h = canvas.height, pad = 40;
+  switch(side) {
+    case 0: return { x: Math.random() * w, y: -pad };
+    case 1: return { x: w + pad, y: Math.random() * h };
+    case 2: return { x: Math.random() * w, y: h + pad };
+    case 3: return { x: -pad, y: Math.random() * h };
+  }
+}
+
+function spawnWave(n) {
+  const g = game;
+  g.wave.number = n;
+  g.wave.active = true;
+  g.wave.betweenWaves = false;
+  g.bossActive = false;
+  const isBoss = n % 5 === 0 && n > 0;
+  const unlocked = getUnlockedTypes(n);
+
+  if (isBoss) {
+    const pos = randomEdgePos();
+    const boss = spawnEnemy('boss', pos.x, pos.y);
+    boss.hp = 10 + Math.floor(n / 5) * 8;
+    boss.maxHp = boss.hp;
+    boss.radius = 40 + Math.floor(n / 10) * 5;
+    boss.baseRadius = boss.radius;
+    boss.points = 200 + n * 20;
+    boss.bossTraits = [...unlocked];
+    if (unlocked.includes('speeder')) { boss.vx *= 1.3; boss.vy *= 1.3; }
+    if (unlocked.includes('tank')) { boss.hp += 5; boss.maxHp = boss.hp; }
+    if (unlocked.includes('splitter')) boss.splitOnDeath = true;
+    if (unlocked.includes('phaser')) { boss.canPhase = true; boss.phaseTimer = 0; }
+    if (unlocked.includes('orbiter')) boss.canOrbit = true;
+    if (unlocked.includes('zigzag')) boss.canZigzag = true;
+    if (unlocked.includes('shield')) { boss.shieldUp = true; boss.shieldCooldown = 0; }
+    if (unlocked.includes('bomber')) boss.canBomb = true;
+    if (unlocked.includes('revenant')) boss.canRevive = true;
+    boss.color = '#fff';
+    trackEnemySeen('boss');
+    g.bossActive = true;
+    const extra = Math.floor(n / 2);
+    g.wave.enemiesRemaining = 1 + extra;
+    g.wave.spawnTimer = 0;
+    g.wave.spawnQueue = extra;
+    g.wave.spawnIndex = 0;
+    g.wave.spawnTypes = [];
+    for (let i = 0; i < extra; i++) {
+      const rt = unlocked[Math.floor(Math.random() * unlocked.length)];
+      g.wave.spawnTypes.push(rt);
+    }
+    g.enemies.push(boss);
+  } else {
+    const baseCount = Math.floor(4 + n * 1.2 + Math.sqrt(n) * 1.5);
+    let toSpawn = [];
+    for (let i = 0; i < baseCount; i++) {
+      const r = Math.random();
+      let type = 'drifter';
+      for (let u = unlocked.length - 1; u >= 1; u--) {
+        const threshold = 0.12 + (unlocked.length - 1 - u) * 0.08;
+        if (r < threshold) { type = unlocked[u]; break; }
+      }
+      toSpawn.push(type);
+    }
+    g.wave.enemiesRemaining = toSpawn.length;
+    g.wave.spawnQueue = toSpawn.length;
+    g.wave.spawnTypes = toSpawn;
+    g.wave.spawnTimer = 0;
+    g.wave.spawnIndex = 0;
+  }
+}
+
+// Shell layout: each layer holds 2 stacks
+// Stack 1: 4 novas (cardinals), Stack 2: +4 diagonals (8 total), then next layer
+function getShellLayout(stacks) {
+  const shells = [];
+  let remaining = stacks;
+  while (remaining > 0) {
+    const fill = Math.min(remaining, 2);
+    shells.push(fill);
+    remaining -= fill;
+  }
+  return shells;
+}
+
+function spawnNova(x, y, sizeMultiplier) {
+  const g = game;
+  const sizeMult = sizeMultiplier || 1;
+  const baseMax = (13 + getUpgradeValue(g.upgrades.novaSize, 40)) * sizeMult * g.metaSizeMult;
+  const speed = (250 + getUpgradeValue(g.upgrades.novaSpeed, 60)) * sizeMult * g.metaSpeedMult;
+  const critColors = ['#0ff', '#ff0', '#f80', '#f00', '#f0f'];
+  function rollCrit() {
+    let dmg = 1, color = '#0ff';
+    if (g.upgrades.critClick > 0) {
+      const chance = Math.min(0.9, 0.2 * getUpgradeValue(g.upgrades.critClick, 1));
+      for (let c = 0; c < 4; c++) {
+        if (Math.random() < chance) { dmg++; color = critColors[c + 1]; } else break;
+      }
+    }
+    if (g.upgrades.overcharge > 0) { dmg += Math.floor(getUpgradeValue(g.upgrades.overcharge, 1)); }
+    return { damage: dmg, color };
+  }
+
+  g.killsThisNova = 0;
+
+  if (g.upgrades.multiNova > 0) {
+    const shells = getShellLayout(g.upgrades.multiNova);
+    for (let s = 0; s < shells.length; s++) {
+      const shellRadius = 45 + s * 50;
+      const shellScale = Math.pow(0.8, s);
+      const fill = shells[s];
+      // fill 1 = 4 cardinals, fill 2 = 4 cardinals + 4 diagonals
+      const cardinalOffset = 0;
+      const diagonalOffset = Math.PI / 4;
+      for (let i = 0; i < 4; i++) {
+        const a = cardinalOffset + (Math.PI / 2) * i;
+        const nx = x + Math.cos(a) * shellRadius;
+        const ny = y + Math.sin(a) * shellRadius;
+        const novaSize = baseMax * 0.6 * shellScale;
+        const crit = rollCrit();
+        g.novas.push({ id: g.nextNovaId++, x: nx, y: ny, radius: 0, maxRadius: novaSize, speed, damage: crit.damage, alpha: 1, ring: true, color: crit.color });
+      }
+      if (fill >= 2) {
+        for (let i = 0; i < 4; i++) {
+          const a = diagonalOffset + (Math.PI / 2) * i;
+          const nx = x + Math.cos(a) * shellRadius;
+          const ny = y + Math.sin(a) * shellRadius;
+          const novaSize = baseMax * 0.6 * shellScale;
+          const crit = rollCrit();
+          g.novas.push({ id: g.nextNovaId++, x: nx, y: ny, radius: 0, maxRadius: novaSize, speed, damage: crit.damage, alpha: 1, ring: true, color: crit.color });
+        }
+      }
+    }
+  } else {
+    const crit = rollCrit();
+    g.novas.push({ id: g.nextNovaId++, x, y, radius: 0, maxRadius: baseMax, speed, damage: crit.damage, alpha: 1, ring: true, color: crit.color });
+  }
+
+  if (g.upgrades.aftershock > 0) {
+    const pulseCount = Math.floor(getUpgradeValue(g.upgrades.aftershock, 1));
+    for (let p = 0; p < pulseCount; p++) {
+      const delay = 200 * (p + 1);
+      const pScale = Math.pow(0.7, p + 1);
+      setTimeout(() => {
+        if (!g.gameOver) {
+          if (g.upgrades.multiNova > 0) {
+            const ashells = getShellLayout(g.upgrades.multiNova);
+            for (let s = 0; s < ashells.length; s++) {
+              const shellRadius = 45 + s * 50;
+              const shellScale = Math.pow(0.8, s);
+              const fill = ashells[s];
+              for (let i = 0; i < 4; i++) {
+                const a = (Math.PI / 2) * i;
+                const nx = x + Math.cos(a) * shellRadius;
+                const ny = y + Math.sin(a) * shellRadius;
+                const crit = rollCrit();
+                g.novas.push({ id: g.nextNovaId++, x: nx, y: ny, radius: 0, maxRadius: baseMax * 0.6 * shellScale * pScale, speed: speed * 0.8, damage: crit.damage, alpha: 1, ring: true, color: crit.color });
+              }
+              if (fill >= 2) {
+                for (let i = 0; i < 4; i++) {
+                  const a = Math.PI / 4 + (Math.PI / 2) * i;
+                  const nx = x + Math.cos(a) * shellRadius;
+                  const ny = y + Math.sin(a) * shellRadius;
+                  const crit = rollCrit();
+                  g.novas.push({ id: g.nextNovaId++, x: nx, y: ny, radius: 0, maxRadius: baseMax * 0.6 * shellScale * pScale, speed: speed * 0.8, damage: crit.damage, alpha: 1, ring: true, color: crit.color });
+                }
+              }
+            }
+          } else {
+            const crit = rollCrit();
+            g.novas.push({ id: g.nextNovaId++, x, y, radius: 0, maxRadius: baseMax * pScale, speed: speed * 0.8, damage: crit.damage, alpha: 1, ring: true, color: crit.color });
+          }
+        }
+      }, delay);
+    }
+  }
+}
+
+function spawnParticles(x, y, color, count) {
+  for (let i = 0; i < count; i++) {
+    const a = Math.random() * Math.PI * 2;
+    const sp = 50 + Math.random() * 200;
+    game.particles.push({
+      x, y, vx: Math.cos(a)*sp, vy: Math.sin(a)*sp,
+      life: 0.3 + Math.random()*0.5, maxLife: 0.3 + Math.random()*0.5,
+      color, radius: 2 + Math.random()*3,
+    });
+  }
+}
+
+function spawnOrb(x, y, points) {
+  game.orbs.push({ x, y, points, radius: 5, life: 5, alpha: 1, vx: (Math.random()-0.5)*40, vy: (Math.random()-0.5)*40 });
+}
+
+function screenShake(intensity) {
+  game.shake.intensity = Math.max(game.shake.intensity, intensity);
+}
+
+// Update
+function update(dt) {
+  const g = game;
+  if (g.paused || g.gameOver) return;
+
+  const W = canvas.width, H = canvas.height;
+  g.cx = W / 2; g.cy = H / 2;
+
+  // Shake decay
+  if (g.shake.intensity > 0) {
+    g.shake.x = (Math.random()-0.5) * g.shake.intensity * 2;
+    g.shake.y = (Math.random()-0.5) * g.shake.intensity * 2;
+    g.shake.intensity *= 0.9;
+    if (g.shake.intensity < 0.5) { g.shake.intensity = 0; g.shake.x = 0; g.shake.y = 0; }
+  }
+
+  // Flash decay
+  if (g.flash > 0) g.flash -= dt * 4;
+
+  // Passive HP regen (1 HP per 3 seconds)
+  if (g.hp < g.maxHp) {
+    g.regenTimer = (g.regenTimer || 0) + dt;
+    if (g.regenTimer >= 3) {
+      g.regenTimer -= 3;
+      g.hp = Math.min(g.hp + 1, g.maxHp);
+    }
+  }
+
+  // Barrier regen
+  if (g.upgrades.barrier > 0) {
+    const maxShields = Math.floor(getUpgradeValue(g.upgrades.barrier, 1));
+    if (g.barrierShields < maxShields) {
+      const regenSpeed = 30 / (1 + getUpgradeValue(g.upgrades.barrier, 0.05));
+      g.barrierRegenTimer += dt;
+      if (g.barrierRegenTimer >= regenSpeed) {
+        g.barrierRegenTimer -= regenSpeed;
+        g.barrierShields = Math.min(g.barrierShields + 1, maxShields);
+      }
+    }
+  }
+
+  // Combo timer
+  if (g.comboTimer > 0) {
+    g.comboTimer -= dt;
+    if (g.comboTimer <= 0) { g.combo = 0; g.comboMultiplier = 1; }
+  }
+
+  // Wave countdown (only ticks after upgrade is picked)
+  if (g.wave.betweenWaves) {
+    if (!g.wave.waitingForUpgrade) {
+      g.wave.countdown -= dt;
+      if (g.wave.countdown <= 0) {
+        spawnWave(g.wave.number + 1);
+      }
+    }
+    return;
+  }
+
+  // Spawn enemies from queue (staggered)
+  if (g.wave.spawnQueue > 0) {
+    g.wave.spawnTimer += dt;
+    const interval = Math.max(0.15, 0.6 - g.wave.number * 0.02);
+    while (g.wave.spawnTimer >= interval && g.wave.spawnIndex < (g.wave.spawnTypes||[]).length) {
+      g.wave.spawnTimer -= interval;
+      const pos = randomEdgePos();
+      const type = g.wave.spawnTypes[g.wave.spawnIndex];
+      const spawned = spawnEnemy(type, pos.x, pos.y);
+      trackEnemySeen(type);
+      g.enemies.push(spawned);
+      g.wave.spawnIndex++;
+      g.wave.spawnQueue--;
+    }
+  }
+
+  // Boss minion spawning (capped, not counted toward wave completion)
+  const bossMinions = [];
+  for (const e of g.enemies) {
+    if (e.type === 'boss') {
+      e.bossSpawnTimer += dt;
+      const minionCount = g.enemies.filter(en => en.bossMinion).length;
+      if (e.bossSpawnTimer > 2.5 && minionCount < 8) {
+        e.bossSpawnTimer = 0;
+        const pos = randomEdgePos();
+        const unlocked = getUnlockedTypes(g.wave.number);
+        const mtype = unlocked[Math.floor(Math.random() * unlocked.length)];
+        const minion = spawnEnemy(mtype, pos.x, pos.y);
+        minion.bossMinion = true;
+        bossMinions.push(minion);
+      }
+    }
+  }
+  for (const m of bossMinions) g.enemies.push(m);
+
+  // Update enemies
+  for (let i = g.enemies.length - 1; i >= 0; i--) {
+    const e = g.enemies[i];
+
+    if (e.type === 'phaser' || (e.type === 'boss' && e.canPhase)) {
+      e.phaseTimer += dt * (e.type === 'boss' ? 1.5 : 2.5);
+      e.visible = Math.sin(e.phaseTimer) > -0.3;
+    }
+
+    if (e.type === 'shield' && !e.shieldUp && e.shieldLayers <= 0) {
+      e.shieldRegenTimer = (e.shieldRegenTimer || 0) + dt * 3;
+      if (e.shieldRegenTimer >= 1) {
+        const regen = Math.floor(e.shieldRegenTimer);
+        e.shieldRegenTimer -= regen;
+        e.shieldLayers = Math.min(e.shieldLayers + regen, e.shieldMaxLayers);
+        if (e.shieldLayers > 0) e.shieldUp = true;
+      }
+    } else if (e.type === 'shield' && e.shieldUp && e.shieldLayers < e.shieldMaxLayers) {
+      e.shieldRegenTimer = (e.shieldRegenTimer || 0) + dt * 3;
+      if (e.shieldRegenTimer >= 1) {
+        const regen = Math.floor(e.shieldRegenTimer);
+        e.shieldRegenTimer -= regen;
+        e.shieldLayers = Math.min(e.shieldLayers + regen, e.shieldMaxLayers);
+      }
+    }
+    if ((e.type === 'boss' && e.bossTraits.includes('shield')) && !e.shieldUp) {
+      e.shieldCooldown -= dt;
+      if (e.shieldCooldown <= 0) e.shieldUp = true;
+    }
+
+    const angle = Math.atan2(g.cy - e.y, g.cx - e.x);
+    let spd = Math.sqrt(e.vx*e.vx + e.vy*e.vy);
+
+    if (e.type === 'orbiter' || (e.type === 'boss' && e.canOrbit)) {
+      e.orbitAngle += dt * 1.5;
+      const orbitOffset = e.type === 'boss' ? 0.4 : 0.7;
+      const moveAngle = angle + Math.sin(e.orbitAngle) * orbitOffset;
+      e.vx = Math.cos(moveAngle) * spd;
+      e.vy = Math.sin(moveAngle) * spd;
+    }
+    else if (e.type === 'zigzag' || (e.type === 'boss' && e.canZigzag)) {
+      e.zigzagTimer += dt * 4;
+      const perpAngle = angle + Math.PI / 2;
+      const zigAmt = Math.sin(e.zigzagTimer) * (e.type === 'boss' ? 60 : 100);
+      e.vx = Math.cos(angle) * spd;
+      e.vy = Math.sin(angle) * spd;
+      e.x += Math.cos(perpAngle) * zigAmt * dt;
+      e.y += Math.sin(perpAngle) * zigAmt * dt;
+    }
+    else {
+      e.vx = Math.cos(angle) * spd;
+      e.vy = Math.sin(angle) * spd;
+    }
+
+    e.x += e.vx * dt;
+    e.y += e.vy * dt;
+
+    if (e.type === 'boss') {
+      e.x += Math.sin(Date.now()/500) * 0.5;
+      e.y += Math.cos(Date.now()/700) * 0.5;
+    }
+
+    const dx = e.x - g.cx, dy = e.y - g.cy;
+    const dist = Math.sqrt(dx*dx + dy*dy);
+    if (dist < 30 + e.radius) {
+      if (e.type === 'boss') {
+        // Bosses one-shot through barrier
+        g.gameOver = true;
+        stopDrone();
+        showGameOver();
+        return;
+      }
+      const dmg = g.wave.number * 10;
+      if (g.barrierShields > 0) {
+        g.barrierShields--;
+        g.barrierRegenTimer = 0;
+        spawnParticles(g.cx, g.cy, '#4af', 20);
+        screenShake(8);
+      } else {
+        g.hp -= dmg;
+        screenShake(6);
+        spawnParticles(g.cx, g.cy, '#f00', 15);
+      }
+      g.enemies.splice(i, 1);
+      if (!e.bossMinion && g.wave.enemiesRemaining > 0) g.wave.enemiesRemaining--;
+      if (g.hp <= 0) {
+        g.hp = 0;
+        g.gameOver = true;
+        stopDrone();
+        showGameOver();
+        return;
+      }
+      continue;
+    }
+  }
+
+  // Update novas
+  for (let i = g.novas.length - 1; i >= 0; i--) {
+    const n = g.novas[i];
+    if (!n.bounces && n.bounces !== 0) {
+      n.bounces = g.upgrades.novaSpeed > 0 ? Math.floor(getUpgradeValue(g.upgrades.novaSpeed, 1)) : 0;
+      n.expanding = true;
+    }
+    if (n.expanding) {
+      n.radius += n.speed * dt;
+      if (n.radius >= n.maxRadius) {
+        if (n.bounces > 0) {
+          n.bounces--;
+          n.expanding = false;
+        } else {
+          g.novas.splice(i, 1); continue;
+        }
+      }
+    } else {
+      n.radius -= n.speed * dt;
+      if (n.radius <= 5) {
+        n.radius = 5;
+        n.expanding = true;
+      }
+    }
+    n.alpha = Math.max(0.15, 1 - (n.radius / n.maxRadius));
+
+    // Vortex: pull enemies toward nova center
+    if (g.upgrades.vortex > 0) {
+      const vortexStr = 120 * (1 + getUpgradeValue(g.upgrades.vortex - 1, 0.3));
+      for (const e of g.enemies) {
+        const vdx = n.x - e.x, vdy = n.y - e.y;
+        const vdist = Math.sqrt(vdx*vdx + vdy*vdy);
+        if (vdist < n.radius * 1.5 && vdist > 5) {
+          const pull = vortexStr * n.alpha / Math.max(vdist, 30);
+          e.x += (vdx/vdist) * pull * dt * 60;
+          e.y += (vdy/vdist) * pull * dt * 60;
+        }
+      }
+    }
+
+    let killCount = 0;
+    for (let j = g.enemies.length - 1; j >= 0; j--) {
+      const e = g.enemies[j];
+      if ((e.type === 'phaser' || (e.type === 'boss' && e.canPhase)) && !e.visible) continue;
+      const dx = e.x - n.x, dy = e.y - n.y;
+      const dist = Math.sqrt(dx*dx + dy*dy);
+      const ringWidth = 20;
+      if (Math.abs(dist - n.radius) < ringWidth + e.radius) {
+        if (!e._hitBy) e._hitBy = new Set();
+        if (e._hitBy.has(n.id)) continue;
+        e._hitBy.add(n.id);
+
+        if (e.shieldUp && (e.type === 'shield' || (e.type === 'boss' && e.bossTraits.includes('shield')))) {
+          if (e.type === 'shield' && e.shieldLayers > 0) {
+            e.shieldLayers -= n.damage;
+            if (e.shieldLayers <= 0) { e.shieldLayers = 0; e.shieldUp = false; }
+            spawnParticles(e.x, e.y, '#4af', 6);
+            continue;
+          } else if (e.type === 'boss') {
+            e.shieldUp = false;
+            e.shieldCooldown = 2;
+            spawnParticles(e.x, e.y, '#4af', 6);
+            continue;
+          }
+        }
+
+        e.hp -= n.damage;
+        if (e.type === 'boss') playBossHit();
+        if (e.hp <= 0) {
+          spawnParticles(e.x, e.y, e.color, e.type === 'boss' ? 40 : 12);
+          spawnOrb(e.x, e.y, e.points);
+          trackEnemyKill(e.type);
+          killCount++;
+          g.totalKills++;
+          if (!e.bossMinion && g.wave.enemiesRemaining > 0) g.wave.enemiesRemaining--;
+
+          if (e.type === 'splitter' || (e.type === 'boss' && e.splitOnDeath)) {
+            const splitCount = e.type === 'boss' ? 4 : 2;
+            for (let s = 0; s < splitCount; s++) {
+              const off = (Math.random()-0.5) * 40;
+              const mini = spawnEnemy('mini', e.x + off, e.y + off);
+              if (e.type === 'boss') { mini.hp = 2; mini.maxHp = 2; mini.radius = 14; mini.baseRadius = 14; }
+              g.enemies.push(mini);
+              g.wave.enemiesRemaining++;
+            }
+          }
+
+          if ((e.type === 'revenant' || (e.type === 'boss' && e.canRevive)) && !e.hasRevived && Math.random() < 0.5) {
+            const rev = spawnEnemy('revenant', e.x + (Math.random()-0.5)*30, e.y + (Math.random()-0.5)*30);
+            rev.hasRevived = true;
+            rev.hp = Math.ceil(e.maxHp * 0.5);
+            rev.maxHp = rev.hp;
+            rev.color = '#c4f';
+            g.enemies.push(rev);
+            g.wave.enemiesRemaining++;
+            spawnParticles(e.x, e.y, '#a0f', 15);
+          }
+
+          if (e.type === 'bomber' || (e.type === 'boss' && e.canBomb)) {
+            const bombCount = e.type === 'boss' ? 6 : 3;
+            for (let b = 0; b < bombCount; b++) {
+              const ba = (Math.PI * 2 / bombCount) * b;
+              const shrapnel = spawnEnemy('mini', e.x, e.y, e.x + Math.cos(ba) * 200, e.y + Math.sin(ba) * 200);
+              shrapnel.vx = Math.cos(ba) * 120;
+              shrapnel.vy = Math.sin(ba) * 120;
+              shrapnel.color = '#f44';
+              shrapnel.points = 5;
+              g.enemies.push(shrapnel);
+            }
+            spawnParticles(e.x, e.y, '#f44', 20);
+          }
+
+          // Chain Lightning: zap nearest enemy for 1 dmg
+          if (g.upgrades.chain > 0) {
+            const chainRange = 120 * (1 + getUpgradeValue(g.upgrades.chain, 0.15));
+            let closest = null, closestDist = chainRange;
+            for (const ce of g.enemies) {
+              if (ce === e) continue;
+              const cdx = ce.x - e.x, cdy = ce.y - e.y;
+              const cd = Math.sqrt(cdx*cdx + cdy*cdy);
+              if (cd < closestDist) { closestDist = cd; closest = ce; }
+            }
+            if (closest) {
+              closest.hp -= 1;
+              spawnParticles(closest.x, closest.y, '#ff0', 4);
+              if (closest.hp <= 0) {
+                spawnParticles(closest.x, closest.y, closest.color, 12);
+                spawnOrb(closest.x, closest.y, closest.points);
+                killCount++;
+                g.totalKills++;
+                if (!closest.bossMinion && g.wave.enemiesRemaining > 0) g.wave.enemiesRemaining--;
+                const ci = g.enemies.indexOf(closest);
+                if (ci !== -1) g.enemies.splice(ci, 1);
+              }
+            }
+          }
+
+          // Life Leech
+          if (g.upgrades.leech > 0) {
+            g.leechKillCount++;
+            const threshold = Math.max(1, Math.ceil(6 - getUpgradeValue(g.upgrades.leech, 1)));
+            if (g.leechKillCount >= threshold) {
+              g.leechKillCount = 0;
+              g.hp = Math.min(g.hp + 1, g.maxHp);
+            }
+          }
+
+          g.enemies.splice(j, 1);
+        } else {
+          if (e.type === 'tank' || (e.type === 'boss' && e.bossTraits.includes('tank')))
+            e.radius = e.baseRadius * (e.hp / e.maxHp) * 0.5 + e.baseRadius * 0.5;
+          spawnParticles(e.x, e.y, '#fff', 4);
+        }
+      }
+    }
+
+    if (!n.hitPlayer) {
+      const dxc = n.x - g.cx, dyc = n.y - g.cy;
+      const distCenter = Math.sqrt(dxc*dxc + dyc*dyc);
+      if (Math.abs(distCenter - n.radius) < 30) {
+        n.hitPlayer = true;
+        g.hp -= 2;
+        if (g.hp <= 0) {
+          g.hp = 0;
+          g.gameOver = true;
+          stopDrone();
+          showGameOver();
+          return;
+        }
+      }
+    }
+
+    if (killCount > 0) {
+      g.combo += killCount;
+      g.comboTimer = 2;
+      g.comboMultiplier = 1 + Math.floor(g.combo / 3) * 0.5;
+      if (killCount >= 3) {
+        screenShake(6 + killCount);
+        g.flash = 1;
+        playMultiKill(killCount);
+      } else {
+        playKill(500 + killCount * 100);
+      }
+    }
+  }
+
+  // Update particles
+  for (let i = g.particles.length - 1; i >= 0; i--) {
+    const p = g.particles[i];
+    p.x += p.vx * dt; p.y += p.vy * dt;
+    p.vx *= 0.96; p.vy *= 0.96;
+    p.life -= dt;
+    if (p.life <= 0) g.particles.splice(i, 1);
+  }
+
+  // Update orbs
+  for (let i = g.orbs.length - 1; i >= 0; i--) {
+    const o = g.orbs[i];
+    o.life -= dt;
+    o.alpha = Math.min(1, o.life);
+    o.x += o.vx * dt; o.y += o.vy * dt;
+    o.vx *= 0.95; o.vy *= 0.95;
+
+    if (g.upgrades.magnet > 0) {
+      const magRange = 200 * (1 + getUpgradeValue(g.upgrades.magnet - 1, 0.25));
+      const dx = mouseX - o.x, dy = mouseY - o.y;
+      const dist = Math.sqrt(dx*dx+dy*dy);
+      if (dist < magRange && dist > 5) {
+        const pull = 300 / dist;
+        o.vx += (dx/dist) * pull * dt * 400;
+        o.vy += (dy/dist) * pull * dt * 400;
+      }
+    }
+
+    const dxm = mouseX - o.x, dym = mouseY - o.y;
+    const distMouse = Math.sqrt(dxm*dxm+dym*dym);
+    const dxc = g.cx - o.x, dyc = g.cy - o.y;
+    const distCenter = Math.sqrt(dxc*dxc+dyc*dyc);
+    const collectRadius = 60;
+    if (distMouse < collectRadius || distCenter < 40 || o.life <= 0) {
+      g.score += Math.round(o.points * g.comboMultiplier * g.metaScoreMult);
+      g.orbs.splice(i, 1);
+      continue;
+    }
+
+    if (distMouse > 5) {
+      o.vx += (dxm/distMouse) * 30 * dt;
+      o.vy += (dym/distMouse) * 30 * dt;
+    }
+  }
+
+  // Check wave complete
+  if (g.wave.active && g.wave.enemiesRemaining <= 0 && g.enemies.filter(e => !e.bossMinion).length === 0 && g.wave.spawnQueue <= 0) {
+    g.wave.active = false;
+    g.wave.betweenWaves = true;
+    g.wave.waitingForUpgrade = true;
+    g.wave.countdown = 3;
+    g.bossActive = false;
+    showUpgradeScreen();
+  }
+}
+
+// Draw
+function draw() {
+  const g = game;
+  const W = canvas.width, H = canvas.height;
+
+  ctx.fillStyle = '#0a0a0a';
+  ctx.fillRect(0, 0, W, H);
+
+  ctx.save();
+
+  if (g.shake.intensity > 0) {
+    ctx.translate(g.shake.x, g.shake.y);
+  }
+
+  ctx.fillStyle = 'rgba(255,255,255,0.04)';
+  const gridSize = 40;
+  ctx.beginPath();
+  for (let x = gridSize; x < W; x += gridSize) {
+    for (let y = gridSize; y < H; y += gridSize) {
+      ctx.rect(x-1, y-1, 2, 2);
+    }
+  }
+  ctx.fill();
+
+  if (g.flash > 0) {
+    ctx.fillStyle = `rgba(255,255,255,${g.flash * 0.1})`;
+    ctx.fillRect(0, 0, W, H);
+  }
+
+  const closestDist = g.enemies.reduce((min, e) => {
+    const dx = e.x - g.cx, dy = e.y - g.cy;
+    return Math.min(min, Math.sqrt(dx*dx + dy*dy) - e.radius);
+  }, Infinity);
+  const dangerZoneRadius = 150;
+  if (closestDist < dangerZoneRadius) {
+    const danger = 1 - (closestDist / dangerZoneRadius);
+    const pulseAlpha = (0.05 + danger * 0.2) * (0.7 + 0.3 * Math.sin(Date.now() / (200 - danger * 150)));
+    ctx.beginPath();
+    ctx.arc(g.cx, g.cy, 30 + (dangerZoneRadius - closestDist) * 0.3, 0, Math.PI*2);
+    ctx.fillStyle = `rgba(255,0,0,${pulseAlpha * 0.15})`;
+    ctx.fill();
+    ctx.beginPath();
+    ctx.arc(g.cx, g.cy, 30, 0, Math.PI*2);
+    ctx.strokeStyle = `rgba(255,${Math.floor(255 * (1 - danger))},0,${0.15 + danger * 0.6})`;
+    ctx.lineWidth = 1 + danger * 2;
+    ctx.stroke();
+  } else {
+    ctx.beginPath();
+    ctx.arc(g.cx, g.cy, 30, 0, Math.PI*2);
+    ctx.strokeStyle = 'rgba(0,255,255,0.15)';
+    ctx.lineWidth = 1;
+    ctx.stroke();
+  }
+
+  for (const n of g.novas) {
+    ctx.save();
+    ctx.globalAlpha = n.alpha * 0.8;
+    ctx.beginPath();
+    ctx.arc(n.x, n.y, n.radius, 0, Math.PI*2);
+    const nc = n.color || '#0ff';
+    ctx.strokeStyle = nc;
+    ctx.lineWidth = 4 + n.alpha * 4;
+    ctx.shadowColor = nc;
+    ctx.shadowBlur = 20 * n.alpha;
+    ctx.stroke();
+    ctx.restore();
+  }
+
+  for (const e of g.enemies) {
+    ctx.save();
+    if (e.type === 'phaser' && !e.visible) {
+      ctx.globalAlpha = 0.3;
+    }
+    ctx.translate(e.x, e.y);
+    ctx.shadowColor = e.color;
+    ctx.shadowBlur = 15;
+    ctx.fillStyle = e.color;
+    ctx.strokeStyle = e.color;
+    ctx.lineWidth = 2;
+
+    if (e.shape === 'circle') {
+      ctx.beginPath();
+      ctx.arc(0, 0, e.radius, 0, Math.PI*2);
+      if (e.type === 'boss') ctx.fill(); else ctx.stroke();
+    } else if (e.shape === 'diamond') {
+      ctx.beginPath();
+      ctx.moveTo(0, -e.radius);
+      ctx.lineTo(e.radius, 0);
+      ctx.lineTo(0, e.radius);
+      ctx.lineTo(-e.radius, 0);
+      ctx.closePath();
+      ctx.stroke();
+    } else if (e.shape === 'hexagon') {
+      ctx.beginPath();
+      for (let i = 0; i < 6; i++) {
+        const a = (Math.PI/3)*i - Math.PI/6;
+        const fn = i === 0 ? 'moveTo' : 'lineTo';
+        ctx[fn](Math.cos(a)*e.radius, Math.sin(a)*e.radius);
+      }
+      ctx.closePath();
+      if (e.type === 'boss') ctx.fill(); else ctx.stroke();
+    }
+
+    if ((e.type === 'phaser' || (e.type === 'boss' && e.canPhase)) && !e.visible) {
+      ctx.globalAlpha = 0.5;
+      ctx.setLineDash([4, 4]);
+      ctx.strokeStyle = e.color;
+      ctx.lineWidth = 1;
+      ctx.beginPath();
+      ctx.arc(0, 0, e.radius + 4, 0, Math.PI*2);
+      ctx.stroke();
+      ctx.setLineDash([]);
+    }
+
+    if (e.shieldUp && (e.type === 'shield' || (e.type === 'boss' && e.bossTraits.includes('shield')))) {
+      ctx.strokeStyle = '#4af';
+      ctx.lineWidth = 3;
+      ctx.shadowColor = '#4af';
+      ctx.shadowBlur = 15;
+      ctx.beginPath();
+      ctx.arc(0, 0, e.radius + 6, 0, Math.PI*2);
+      ctx.stroke();
+    }
+
+    if (e.type === 'orbiter') {
+      ctx.globalAlpha = 0.3;
+      ctx.strokeStyle = e.color;
+      ctx.lineWidth = 1;
+      ctx.setLineDash([2, 6]);
+      ctx.beginPath();
+      ctx.arc(0, 0, e.radius + 3, 0, Math.PI*2);
+      ctx.stroke();
+      ctx.setLineDash([]);
+      ctx.globalAlpha = 1;
+    }
+
+    if (e.type === 'bomber') {
+      ctx.globalAlpha = 0.3 + 0.2 * Math.sin(Date.now() / 150);
+      ctx.fillStyle = '#f44';
+      ctx.beginPath();
+      ctx.arc(0, 0, e.radius + 5, 0, Math.PI*2);
+      ctx.fill();
+      ctx.globalAlpha = 1;
+    }
+
+    if (e.type === 'boss') {
+      ctx.shadowBlur = 0;
+      const bw = e.radius * 2;
+      ctx.fillStyle = '#333';
+      ctx.fillRect(-bw/2, -e.radius - 14, bw, 6);
+      ctx.fillStyle = '#f0f';
+      ctx.fillRect(-bw/2, -e.radius - 14, bw * (e.hp/e.maxHp), 6);
+    }
+
+    ctx.restore();
+  }
+
+  ctx.save();
+  ctx.shadowColor = '#ff0';
+  ctx.shadowBlur = 12;
+  ctx.fillStyle = '#ff0';
+  for (const o of game.orbs) {
+    ctx.globalAlpha = o.alpha;
+    ctx.beginPath();
+    ctx.arc(o.x, o.y, o.radius, 0, Math.PI*2);
+    ctx.fill();
+  }
+  ctx.restore();
+
+  ctx.save();
+  for (const p of game.particles) {
+    ctx.globalAlpha = p.life / p.maxLife;
+    ctx.fillStyle = p.color;
+    ctx.shadowColor = p.color;
+    ctx.shadowBlur = 8;
+    ctx.beginPath();
+    ctx.arc(p.x, p.y, p.radius / 2, 0, Math.PI*2);
+    ctx.fill();
+  }
+  ctx.restore();
+
+  ctx.restore();
+
+  // HUD
+  ctx.save();
+  ctx.fillStyle = '#fff';
+  ctx.font = '16px monospace';
+  ctx.textAlign = 'left';
+  ctx.fillText(`SCORE: ${g.score}`, 20, 30);
+  ctx.fillText(`WAVE: ${g.wave.number}`, 20, 52);
+  if (g.comboMultiplier > 1) {
+    ctx.fillStyle = '#ff0';
+    ctx.fillText(`COMBO x${g.comboMultiplier.toFixed(1)}`, 20, 74);
+  }
+
+  if (g.wave.betweenWaves && !g.wave.waitingForUpgrade) {
+    ctx.save();
+    ctx.textAlign = 'center';
+    ctx.font = '24px monospace';
+    ctx.fillStyle = '#0ff';
+    ctx.shadowColor = '#0ff';
+    ctx.shadowBlur = 15;
+    ctx.fillText(`WAVE ${g.wave.number + 1}`, W/2, H/2 - 20);
+    ctx.font = '16px monospace';
+    ctx.fillText(`in ${Math.ceil(g.wave.countdown)}`, W/2, H/2 + 10);
+    ctx.restore();
+  }
+
+  const upKeys = Object.keys(g.upgrades).filter(k => g.upgrades[k] > 0);
+  if (upKeys.length > 0) {
+    ctx.textAlign = 'right';
+    ctx.font = '12px monospace';
+    ctx.fillStyle = '#555';
+    upKeys.forEach((k, i) => {
+      ctx.fillText(`${k}: ${g.upgrades[k]}`, W - 20, 30 + i * 16);
+    });
+  }
+
+  // HP bar
+  const hpBarW = 200, hpBarH = 10;
+  const hpX = W / 2 - hpBarW / 2, hpY = H - 30;
+  ctx.fillStyle = '#333';
+  ctx.fillRect(hpX, hpY, hpBarW, hpBarH);
+  const hpRatio = g.hp / g.maxHp;
+  ctx.fillStyle = hpRatio > 0.5 ? '#0f0' : hpRatio > 0.25 ? '#ff0' : '#f00';
+  ctx.fillRect(hpX, hpY, hpBarW * hpRatio, hpBarH);
+  ctx.strokeStyle = '#666';
+  ctx.lineWidth = 1;
+  ctx.strokeRect(hpX, hpY, hpBarW, hpBarH);
+  ctx.textAlign = 'center';
+  ctx.font = '10px monospace';
+  ctx.fillStyle = '#fff';
+  ctx.fillText(`HP ${g.hp}/${g.maxHp}`, W / 2, hpY - 4);
+
+  // Barrier shields
+  if (g.upgrades.barrier > 0) {
+    const maxShields = Math.floor(getUpgradeValue(g.upgrades.barrier, 1));
+    const shieldY = hpY - 22;
+    ctx.textAlign = 'center';
+    ctx.font = '12px monospace';
+    let shieldStr = '';
+    for (let i = 0; i < maxShields; i++) {
+      shieldStr += i < g.barrierShields ? '\u{1F6E1}' : '\u25CB';
+    }
+    ctx.fillStyle = g.barrierShields > 0 ? '#4af' : '#555';
+    ctx.fillText(shieldStr, W / 2, shieldY);
+  }
+
+  // Pause overlay
+  if (g.paused && !g.wave.waitingForUpgrade) {
+    ctx.fillStyle = 'rgba(0,0,0,0.6)';
+    ctx.fillRect(0, 0, W, H);
+    ctx.textAlign = 'center';
+    ctx.font = '48px monospace';
+    ctx.fillStyle = '#0ff';
+    ctx.shadowColor = '#0ff';
+    ctx.shadowBlur = 30;
+    ctx.fillText('PAUSED', W / 2, H / 2);
+    ctx.shadowBlur = 0;
+    ctx.font = '16px monospace';
+    ctx.fillStyle = '#888';
+    ctx.fillText('Press ESC to resume', W / 2, H / 2 + 40);
+  }
+
+  ctx.restore();
+}
+
+// Upgrade screen
+function showUpgradeScreen() {
+  game.paused = true;
+  const screen = document.getElementById('upgrade-screen');
+  const cards = document.getElementById('upgrade-cards');
+  cards.innerHTML = '';
+
+  const available = UPGRADES.filter(u => game.upgrades[u.id] < u.maxStack);
+  const choices = [];
+  const pool = [...available];
+  for (let i = 0; i < Math.min(3, pool.length); i++) {
+    const idx = Math.floor(Math.random() * pool.length);
+    choices.push(pool.splice(idx, 1)[0]);
+  }
+
+  if (choices.length === 0) {
+    game.paused = false;
+    game.wave.waitingForUpgrade = false;
+    return;
+  }
+
+  choices.forEach(u => {
+    const card = document.createElement('div');
+    card.className = 'upgrade-card';
+    const currentLvl = game.upgrades[u.id];
+    const nextLvl = currentLvl + 1;
+    let softCapNote = '';
+    if (u.maxStack > 1) {
+      if (nextLvl >= 8) softCapNote = ' <span style="color:#f44;font-size:11px">(heavily diminishing)</span>';
+      else if (nextLvl >= 4) softCapNote = ' <span style="color:#f80;font-size:11px">(diminishing)</span>';
+    }
+    card.innerHTML = `<span class="icon">${u.icon}</span><h3>${u.name}</h3><p>${u.desc}${softCapNote}</p><div class="stacks">x${nextLvl}</div>`;
+    card.onclick = () => {
+      game.upgrades[u.id]++;
+      trackUpgrade(u.id, game.upgrades[u.id]);
+      if (u.id === 'barrier') {
+        const maxShields = Math.floor(getUpgradeValue(game.upgrades.barrier, 1));
+        game.barrierShields = maxShields;
+        game.barrierRegenTimer = 0;
+      }
+      screen.style.display = 'none';
+      game.paused = false;
+      game.wave.waitingForUpgrade = false;
+    };
+    cards.appendChild(card);
+  });
+
+  screen.style.display = 'flex';
+}
+
+// Meta screen
+function showMetaScreen(returnTo) {
+  metaReturnTo = returnTo;
+  const screen = document.getElementById('meta-screen');
+  const cards = document.getElementById('meta-cards');
+  const stardust = getStardust();
+  document.getElementById('meta-stardust-bal').textContent = `\u2B50 ${stardust} Stardust`;
+  cards.innerHTML = '';
+
+  const meta = loadMeta();
+
+  META_UPGRADES.forEach(u => {
+    const card = document.createElement('div');
+    card.className = 'meta-card';
+    const stacks = meta[u.id] || 0;
+    const cost = getMetaUpgradeCost(u.baseCost, stacks);
+    const canAfford = stardust >= cost;
+    card.innerHTML = `<span class="icon">${u.icon}</span><h3>${u.name}</h3><p>${u.desc}</p><div class="stacks">Level ${stacks}</div><div class="cost">${cost} \u2B50</div><button ${canAfford ? '' : 'disabled'}>BUY</button>`;
+    const btn = card.querySelector('button');
+    btn.onclick = (e) => {
+      e.stopPropagation();
+      const currentStardust = getStardust();
+      const currentMeta = loadMeta();
+      const currentStacks = currentMeta[u.id] || 0;
+      const currentCost = getMetaUpgradeCost(u.baseCost, currentStacks);
+      if (currentStardust >= currentCost) {
+        setStardust(currentStardust - currentCost);
+        currentMeta[u.id] = currentStacks + 1;
+        saveMeta(currentMeta);
+        showMetaScreen(metaReturnTo);
+      }
+    };
+    cards.appendChild(card);
+  });
+
+  screen.style.display = 'flex';
+}
+
+function closeMetaScreen() {
+  document.getElementById('meta-screen').style.display = 'none';
+  if (metaReturnTo === 'start') {
+    document.getElementById('start-screen').style.display = 'flex';
+  } else if (metaReturnTo === 'gameover') {
+    document.getElementById('gameover-screen').style.display = 'flex';
+  }
+  metaReturnTo = null;
+}
+
+// Leaderboard
+let lbReturnTo = null;
+let lastLeaderboardId = null;
+
+function loadLeaderboard() {
+  try { return JSON.parse(localStorage.getItem('nova_leaderboard')) || []; } catch(e) { return []; }
+}
+
+function saveRunToLeaderboard(score, wave, upgrades) {
+  const board = loadLeaderboard();
+  const months = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
+  const now = new Date();
+  const date = months[now.getMonth()] + ' ' + now.getDate();
+  const id = Date.now();
+  board.push({ score, wave, date, upgrades, id });
+  board.sort((a, b) => b.score - a.score);
+  board.length = Math.min(board.length, 10);
+  localStorage.setItem('nova_leaderboard', JSON.stringify(board));
+  return id;
+}
+
+function showLeaderboard(returnTo) {
+  lbReturnTo = returnTo;
+  if (returnTo === 'start') document.getElementById('start-screen').style.display = 'none';
+  else if (returnTo === 'gameover') document.getElementById('gameover-screen').style.display = 'none';
+  const content = document.getElementById('lb-content');
+  const board = loadLeaderboard();
+  if (board.length === 0) {
+    content.innerHTML = '<div id="lb-empty">No runs yet. Go play!</div>';
+  } else {
+    let html = '<table id="lb-table"><tr><th>#</th><th>SCORE</th><th>WAVE</th><th>UPG</th><th>DATE</th></tr>';
+    board.forEach((run, i) => {
+      let cls = '';
+      if (i === 0) cls += ' lb-gold';
+      if (run.id && run.id === lastLeaderboardId) cls += ' lb-latest';
+      html += `<tr class="${cls.trim()}"><td class="col-rank">${i+1}</td><td class="col-score">${run.score}</td><td class="col-wave">${run.wave}</td><td class="col-upgrades">${run.upgrades || 0}</td><td class="col-date">${run.date}</td></tr>`;
+    });
+    html += '</table>';
+    content.innerHTML = html;
+  }
+  document.getElementById('leaderboard-screen').style.display = 'flex';
+}
+
+function closeLeaderboard() {
+  document.getElementById('leaderboard-screen').style.display = 'none';
+  if (lbReturnTo === 'start') document.getElementById('start-screen').style.display = 'flex';
+  else if (lbReturnTo === 'gameover') document.getElementById('gameover-screen').style.display = 'flex';
+  lbReturnTo = null;
+}
+
+// Bestiary tracking
+function loadBestiary() {
+  try { return JSON.parse(localStorage.getItem('nova_bestiary')) || { enemies: {}, upgrades: {} }; } catch(e) { return { enemies: {}, upgrades: {} }; }
+}
+function saveBestiary(b) { localStorage.setItem('nova_bestiary', JSON.stringify(b)); }
+
+function trackEnemySeen(type) {
+  const b = loadBestiary();
+  if (!b.enemies[type]) b.enemies[type] = { seen: true, kills: 0 };
+  b.enemies[type].seen = true;
+  saveBestiary(b);
+}
+function trackEnemyKill(type) {
+  const b = loadBestiary();
+  if (!b.enemies[type]) b.enemies[type] = { seen: true, kills: 0 };
+  b.enemies[type].kills = (b.enemies[type].kills || 0) + 1;
+  saveBestiary(b);
+}
+function trackUpgrade(id, level) {
+  const b = loadBestiary();
+  if (!b.upgrades[id]) b.upgrades[id] = { maxLevel: 0 };
+  if (level > b.upgrades[id].maxLevel) b.upgrades[id].maxLevel = level;
+  saveBestiary(b);
+}
+
+const ENEMY_INFO = {
+  drifter:  { name: 'Drifter', color: '#0ff', desc: 'Basic enemy. Drifts toward center.' },
+  speeder:  { name: 'Speeder', color: '#ff0', desc: 'Fast moving diamond shape.' },
+  tank:     { name: 'Tank', color: '#f0f', desc: 'High HP, shrinks as damaged.' },
+  splitter: { name: 'Splitter', color: '#0f0', desc: 'Splits into mini enemies on death.' },
+  phaser:   { name: 'Phaser', color: '#f80', desc: 'Phases in and out of visibility.' },
+  orbiter:  { name: 'Orbiter', color: '#f0f', desc: 'Orbits in spiraling path.' },
+  zigzag:   { name: 'Zigzag', color: '#ff4', desc: 'Moves in erratic zigzag pattern.' },
+  shield:   { name: 'Shield', color: '#4af', desc: '15 shield layers, regens 3/sec.' },
+  bomber:   { name: 'Bomber', color: '#f44', desc: 'Explodes into shrapnel on death.' },
+  revenant: { name: 'Revenant', color: '#a0f', desc: '50% chance to respawn on death.' },
+  boss:     { name: 'Boss', color: '#fff', desc: 'Appears every 5 waves with combined traits.' },
+};
+
+let bestiaryReturnTo = null;
+function showBestiary(returnTo) {
+  bestiaryReturnTo = returnTo;
+  if (returnTo === 'start') document.getElementById('start-screen').style.display = 'none';
+  else if (returnTo === 'gameover') document.getElementById('gameover-screen').style.display = 'none';
+
+  const b = loadBestiary();
+  const content = document.getElementById('bestiary-content');
+  content.innerHTML = '';
+
+  for (const [type, info] of Object.entries(ENEMY_INFO)) {
+    const seen = b.enemies[type];
+    const card = document.createElement('div');
+    card.style.cssText = 'width:160px; padding:14px; border:2px solid ' + (seen ? info.color : '#333') + '; border-radius:10px; background:rgba(20,20,30,0.9); text-align:center;';
+    if (seen) {
+      card.innerHTML = `<div style="font-size:24px; color:${info.color}; font-weight:bold; margin-bottom:6px;">${info.name}</div><div style="font-size:11px; color:#aaa; margin-bottom:8px;">${info.desc}</div><div style="font-size:12px; color:#888;">Kills: ${seen.kills || 0}</div>`;
+    } else {
+      card.innerHTML = `<div style="font-size:24px; color:#333; font-weight:bold; margin-bottom:6px;">???</div><div style="font-size:11px; color:#444;">Not yet encountered</div>`;
+    }
+    content.appendChild(card);
+  }
+
+  const upgContent = document.getElementById('bestiary-upgrades');
+  upgContent.innerHTML = '';
+  for (const u of UPGRADES) {
+    const data = b.upgrades[u.id];
+    const card = document.createElement('div');
+    card.style.cssText = 'width:160px; padding:14px; border:2px solid ' + (data ? '#0ff' : '#333') + '; border-radius:10px; background:rgba(20,20,30,0.9); text-align:center;';
+    if (data) {
+      card.innerHTML = `<div style="font-size:20px;">${u.icon}</div><div style="font-size:14px; color:#0ff; margin:4px 0;">${u.name}</div><div style="font-size:11px; color:#aaa;">${u.desc}</div><div style="font-size:12px; color:#888; margin-top:6px;">Max: x${data.maxLevel}</div>`;
+    } else {
+      card.innerHTML = `<div style="font-size:20px;">?</div><div style="font-size:14px; color:#333; margin:4px 0;">???</div><div style="font-size:11px; color:#444;">Not yet found</div>`;
+    }
+    upgContent.appendChild(card);
+  }
+
+  document.getElementById('bestiary-screen').style.display = 'flex';
+}
+
+function closeBestiary() {
+  document.getElementById('bestiary-screen').style.display = 'none';
+  if (bestiaryReturnTo === 'start') document.getElementById('start-screen').style.display = 'flex';
+  else if (bestiaryReturnTo === 'gameover') document.getElementById('gameover-screen').style.display = 'flex';
+  bestiaryReturnTo = null;
+}
+
+// Game over
+function showGameOver() {
+  const screen = document.getElementById('gameover-screen');
+  document.getElementById('final-score').textContent = `SCORE: ${game.score}`;
+  document.getElementById('wave-reached').textContent = `Reached Wave ${game.wave.number}`;
+
+  const earned = game.score;
+  const oldStardust = getStardust();
+  const newStardust = oldStardust + earned;
+  setStardust(newStardust);
+  document.getElementById('stardust-earned').textContent = `+${earned} Stardust`;
+  document.getElementById('stardust-total').textContent = `Total: ${newStardust} \u2B50`;
+
+  const totalUpgrades = Object.values(game.upgrades).reduce((s, v) => s + v, 0);
+  lastLeaderboardId = saveRunToLeaderboard(game.score, game.wave.number, totalUpgrades);
+
+  let highScore = parseInt(localStorage.getItem('nova_highscore') || '0');
+  if (game.score > highScore) {
+    highScore = game.score;
+    localStorage.setItem('nova_highscore', highScore.toString());
+    document.getElementById('high-score-display').textContent = 'NEW HIGH SCORE!';
+    document.getElementById('high-score-display').style.color = '#ff0';
+  } else {
+    document.getElementById('high-score-display').textContent = `High Score: ${highScore}`;
+    document.getElementById('high-score-display').style.color = '#f0f';
+  }
+
+  screen.style.display = 'flex';
+}
+
+// Input
+canvas.addEventListener('click', (e) => {
+  if (game && !game.paused && !game.gameOver) {
+    audioCtx.resume();
+    if (game.upgrades.overcharge) {
+      game.hp -= 3;
+      if (game.hp <= 0) { game.hp = 1; }
+    }
+    spawnNova(e.clientX - game.shake.x, e.clientY - game.shake.y);
+    playNova();
+  }
+});
+canvas.addEventListener('mousemove', (e) => { mouseX = e.clientX; mouseY = e.clientY; });
+
+// Start / Restart
+function startGame() {
+  document.getElementById('start-screen').style.display = 'none';
+  document.getElementById('gameover-screen').style.display = 'none';
+  document.getElementById('upgrade-screen').style.display = 'none';
+  document.getElementById('meta-screen').style.display = 'none';
+  document.getElementById('leaderboard-screen').style.display = 'none';
+  document.getElementById('bestiary-screen').style.display = 'none';
+  game = newGame();
+  audioCtx.resume();
+  startDrone();
+}
+
+document.addEventListener('keydown', (e) => {
+  const ss = document.getElementById('start-screen');
+  const go = document.getElementById('gameover-screen');
+  const ms = document.getElementById('meta-screen');
+  const lb = document.getElementById('leaderboard-screen');
+  const bs = document.getElementById('bestiary-screen');
+  if (ms.style.display === 'flex' || lb.style.display === 'flex' || bs.style.display === 'flex') return;
+  if (ss.style.display === 'flex' || (game && game.gameOver && go.style.display === 'flex')) { startGame(); return; }
+  if (e.key === 'Escape' && game && !game.gameOver && !game.wave.waitingForUpgrade) {
+    game.paused = !game.paused;
+  }
+});
+
+// Main loop
+let lastTime = 0;
+function loop(time) {
+  const dt = Math.min((time - lastTime) / 1000, 0.05);
+  lastTime = time;
+  if (game) {
+    if (!game.paused) update(dt);
+    draw();
+  }
+  requestAnimationFrame(loop);
+}
+
+game = newGame();
+game.paused = true;
+requestAnimationFrame(loop);
+</script>
+</body>
+</html>
