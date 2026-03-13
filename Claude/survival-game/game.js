@@ -241,7 +241,7 @@ function spawnEnemy() {
 
     // Spawn from edge
     let x, y;
-    const side = Math.floor(Math.random() * 4);
+    const side = randInt(0, 3);
     const px = G.player.x, py = G.player.y;
     const spawnDist = 600 + rand(0, 200);
     switch (side) {
@@ -283,7 +283,6 @@ function createPet(type) {
         cooldown: 0,
         targetAngle: 0,
         orbitAngle: Math.random() * Math.PI * 2,
-        orbitIndex: G.pets.length,
     };
 }
 
@@ -304,7 +303,7 @@ function updatePlayer(dt) {
     if (G.keys['d'] || G.keys['arrowright']) mx += 1;
     const len = Math.hypot(mx, my) || 1;
     mx /= len; my /= len;
-
+    if (mx === 0 && my === 0) { mx = 0; my = 0; }
 
     const speed = (G.keys['w'] || G.keys['s'] || G.keys['a'] || G.keys['d'] ||
                    G.keys['arrowup'] || G.keys['arrowdown'] || G.keys['arrowleft'] || G.keys['arrowright'])
@@ -447,6 +446,7 @@ function attackEnemies() {
             spawnParticles(e.x, e.y, e.color, 15);
         }
     }
+    G.enemies = G.enemies.filter(e => e.hp > 0);
 
     if (hitAny) spawnSwingParticle(p, range);
 }
@@ -609,6 +609,7 @@ function updateProjectiles(dt) {
                     break;
                 }
             }
+            G.enemies = G.enemies.filter(e => e.hp > 0);
         }
     }
     G.projectiles = G.projectiles.filter(p => p.life > 0);
@@ -618,7 +619,7 @@ function updatePets(dt) {
     for (const pet of G.pets) {
         // Follow player with orbit
         pet.orbitAngle += dt * 1.5;
-        const orbitDist = 50 + pet.orbitIndex * 25;
+        const orbitDist = 50 + G.pets.indexOf(pet) * 25;
         const targetX = G.player.x + Math.cos(pet.orbitAngle) * orbitDist;
         const targetY = G.player.y + Math.sin(pet.orbitAngle) * orbitDist;
         pet.x = lerp(pet.x, targetX, dt * 3);
@@ -647,6 +648,7 @@ function updatePets(dt) {
                         G.kills++;
                         spawnParticles(nearest.x, nearest.y, nearest.color, 10);
                     }
+                    G.enemies = G.enemies.filter(e => e.hp > 0);
                     pet.cooldown = 1.2 / (1 + pet.level * 0.1);
                 }
                 break;
@@ -676,7 +678,6 @@ function updatePets(dt) {
                         break;
                     }
                 }
-                if (pet.cooldown <= 0) pet.cooldown = 1;
                 break;
             }
             case 'harvest': {
@@ -1317,7 +1318,7 @@ function updateHUD() {
     // Health
     const hpPct = Math.max(0, p.hp / p.maxHp * 100);
     document.getElementById('health-bar').style.width = `${hpPct}%`;
-    document.getElementById('health-text').textContent = `${Math.max(0, Math.round(p.hp))} / ${p.maxHp}`;
+    document.getElementById('health-text').textContent = `${Math.ceil(p.hp)} / ${p.maxHp}`;
 
     // Resources - dynamically update all tiers
     const resContainer = document.getElementById('resources');
@@ -1395,10 +1396,8 @@ function renderMinimap() {
     }
 
     // Player
-    if (!G.player.dead) {
-        ctx.fillStyle = '#4af';
-        ctx.fillRect(G.player.x * scale - 2, G.player.y * scale - 2, 5, 5);
-    }
+    ctx.fillStyle = '#4af';
+    ctx.fillRect(G.player.x * scale - 2, G.player.y * scale - 2, 5, 5);
 
     // Camera viewport
     ctx.strokeStyle = 'rgba(255,255,255,0.4)';
@@ -1438,8 +1437,7 @@ function openBuildMenu() {
                 </div>
             `;
             div.onclick = () => {
-                const cost2 = getBuildCost(type, ti);
-                if (!canAfford(cost2.resource, cost2.amount)) return;
+                if (!affordable) return;
                 G.selectedBuild = type;
                 G.buildTier = ti;
                 G.buildMode = true;
@@ -1470,8 +1468,8 @@ function openUpgradeMenu() {
             statsText = `DMG: ${getToolDamage(tool.tier)} → ${getToolDamage(tool.tier + 1)} | Speed: x${getToolSpeed(tool.tier).toFixed(1)} → x${getToolSpeed(tool.tier + 1).toFixed(1)}`;
         }
 
-        const tierName = tool.tier < TIERS.length ? TIER_NAMES[TIERS[tool.tier]] : `Celestium +${tool.tier - TIERS.length + 1}`;
-        const nextTier = tool.tier + 1 < TIERS.length ? TIER_NAMES[TIERS[tool.tier + 1]] : `Celestium +${tool.tier + 1 - TIERS.length + 1}`;
+        const tierName = tool.tier < 15 ? TIER_NAMES[TIERS[tool.tier]] : `Celestium +${tool.tier - 14}`;
+        const nextTier = tool.tier + 1 < 15 ? TIER_NAMES[TIERS[tool.tier + 1]] : `Celestium +${tool.tier + 1 - 14}`;
         const durPct = Math.round(tool.durability / tool.maxDurability * 100);
 
         const div = document.createElement('div');
@@ -1678,10 +1676,9 @@ function gameLoop(timestamp) {
         updateBuildings(G.dt);
         updateProjectiles(G.dt);
         updatePets(G.dt);
+        updateDayNight(G.dt);
+        updateResources(G.dt);
     }
-    updateDayNight(G.dt);
-    updateResources(G.dt);
-    G.enemies = G.enemies.filter(e => e.hp > 0);
     updateParticles(G.dt);
 
     // Camera follow
