@@ -1,0 +1,84 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Survival Nightfall</title>
+    <link rel="stylesheet" href="style.css">
+</head>
+<body>
+    <canvas id="gameCanvas"></canvas>
+
+    <!-- HUD -->
+    <div id="hud">
+        <div id="health-bar-container">
+            <div id="health-bar"></div>
+            <span id="health-text"></span>
+        </div>
+        <div id="resources">
+            <span class="res" id="res-wood">🪵 0</span>
+            <span class="res" id="res-stone">🪨 0</span>
+            <span class="res" id="res-iron">⛏️ 0</span>
+            <span class="res" id="res-gold">🥇 0</span>
+            <span class="res" id="res-adamantite">💎 0</span>
+            <span class="res" id="res-exp">⭐ 0</span>
+        </div>
+        <div id="day-cycle">
+            <span id="day-text">Day 1</span>
+            <div id="time-bar-container"><div id="time-bar"></div></div>
+        </div>
+        <div id="wave-info"></div>
+    </div>
+
+    <!-- Hotbar -->
+    <div id="hotbar">
+        <div class="hotbar-slot selected" data-slot="0"><span class="slot-key">1</span><span class="slot-name">Pickaxe</span></div>
+        <div class="hotbar-slot" data-slot="1"><span class="slot-key">2</span><span class="slot-name">Axe</span></div>
+        <div class="hotbar-slot" data-slot="2"><span class="slot-key">3</span><span class="slot-name">Sword</span></div>
+        <div class="hotbar-slot" data-slot="3"><span class="slot-key">4</span><span class="slot-name">Build</span></div>
+        <div class="hotbar-slot" data-slot="4"><span class="slot-key">5</span><span class="slot-name">Pets</span></div>
+    </div>
+
+    <!-- Build Menu -->
+    <div id="build-menu" class="menu hidden">
+        <h3>Build Menu</h3>
+        <div id="build-options"></div>
+        <p class="hint">Click to place, R to rotate, ESC to cancel</p>
+    </div>
+
+    <!-- Upgrade Menu -->
+    <div id="upgrade-menu" class="menu hidden">
+        <h3 id="upgrade-title">Upgrades</h3>
+        <div id="upgrade-options"></div>
+        <button id="close-upgrade" class="menu-btn">Close (ESC)</button>
+    </div>
+
+    <!-- Pet Menu -->
+    <div id="pet-menu" class="menu hidden">
+        <h3>Pets</h3>
+        <div id="pet-options"></div>
+        <button id="close-pet" class="menu-btn">Close (ESC)</button>
+    </div>
+
+    <!-- Death Screen -->
+    <div id="death-screen" class="hidden">
+        <h1>YOU DIED</h1>
+        <p id="death-stats"></p>
+        <button id="respawn-btn" class="menu-btn">Respawn</button>
+    </div>
+
+    <!-- Minimap -->
+    <canvas id="minimap" width="180" height="180"></canvas>
+
+    <!-- Instructions overlay -->
+    <div id="instructions">
+        <h2>Survival Nightfall</h2>
+        <p>WASD - Move | Mouse - Aim | Click - Attack/Harvest</p>
+        <p>1-5 - Hotbar | E - Upgrade Menu | B - Build | P - Pets</p>
+        <p>Harvest resources by day, survive the night!</p>
+        <button id="start-btn" class="menu-btn">Start Game</button>
+    </div>
+
+    <script src="game.js"></script>
+</body>
+</html>
