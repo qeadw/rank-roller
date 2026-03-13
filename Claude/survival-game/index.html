@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Survive Nightfall</title>
+    <title>Survival Nightfall</title>
     <link rel="stylesheet" href="style.css">
 </head>
 <body>
@@ -16,7 +16,12 @@
             <span id="health-text"></span>
         </div>
         <div id="resources">
-            <!-- Built dynamically by game.js -->
+            <span class="res" id="res-wood">🪵 0</span>
+            <span class="res" id="res-stone">🪨 0</span>
+            <span class="res" id="res-iron">⛏️ 0</span>
+            <span class="res" id="res-gold">🥇 0</span>
+            <span class="res" id="res-adamantite">💎 0</span>
+            <span class="res" id="res-exp">⭐ 0</span>
         </div>
         <div id="day-cycle">
             <span id="day-text">Day 1</span>
@@ -67,7 +72,7 @@
 
     <!-- Instructions overlay -->
     <div id="instructions">
-        <h2>Survive Nightfall</h2>
+        <h2>Survival Nightfall</h2>
         <p>WASD - Move | Mouse - Aim | Click - Attack/Harvest</p>
         <p>1-5 - Hotbar | E - Upgrade Menu | B - Build | P - Pets</p>
         <p>Harvest resources by day, survive the night!</p>
