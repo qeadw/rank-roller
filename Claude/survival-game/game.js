@@ -1,15 +1,20 @@
-// ==================== SURVIVAL NIGHTFALL ====================
+// ==================== SURVIVE NIGHTFALL ====================
 
 // ==================== CONFIG ====================
 const CFG = {
-    WORLD_W: 4000,
-    WORLD_H: 4000,
+    WORLD_W: 8000,
+    WORLD_H: 8000,
     DAY_DURATION: 150,    // seconds
     NIGHT_DURATION: 100,  // seconds
     PLAYER_SPEED: 200,
     PLAYER_HP: 100,
     PLAYER_REGEN: 0.5,    // hp/sec during day
-    RESOURCE_COUNT: { tree: 120, rock: 90, iron: 60, gold: 35, adamantite: 15 },
+    RESOURCE_COUNT: {
+        tree: 180, rock: 140, copper_ore: 110, iron_ore: 85, silver_ore: 65,
+        gold_ore: 50, platinum_ore: 38, titanium_ore: 28, cobalt_ore: 22,
+        mythril_ore: 16, adamantite_ore: 12, orichalcum_ore: 9,
+        luminite_ore: 7, voidcrystal_ore: 5, celestium_ore: 3,
+    },
     ENEMY_BASE_COUNT: 8,
     ENEMY_SCALE_PER_WAVE: 4,
     BUILD_GRID: 48,
@@ -17,20 +22,43 @@ const CFG = {
     TURRET_FIRE_RATE: 1.2,
 };
 
-const TIERS = ['wood', 'stone', 'iron', 'gold', 'adamantite'];
+const TIERS = [
+    'wood', 'stone', 'copper', 'iron', 'silver',
+    'gold', 'platinum', 'titanium', 'cobalt',
+    'mythril', 'adamantite', 'orichalcum',
+    'luminite', 'voidcrystal', 'celestium',
+];
 const TIER_COLORS = {
-    wood: '#8B5E3C', stone: '#888', iron: '#5A7D9A', gold: '#FFD700', adamantite: '#B040FF'
+    wood: '#8B5E3C',     stone: '#888',       copper: '#B87333',
+    iron: '#5A7D9A',     silver: '#C0C0C0',   gold: '#FFD700',
+    platinum: '#E5E4E2', titanium: '#878681',  cobalt: '#0047AB',
+    mythril: '#00CED1',  adamantite: '#B040FF', orichalcum: '#FF6B9D',
+    luminite: '#FFFF66',  voidcrystal: '#1A0033', celestium: '#00FFCC',
 };
 const TIER_NAMES = {
-    wood: 'Wood', stone: 'Stone', iron: 'Iron', gold: 'Gold', adamantite: 'Adamantite'
+    wood: 'Wood',         stone: 'Stone',       copper: 'Copper',
+    iron: 'Iron',         silver: 'Silver',     gold: 'Gold',
+    platinum: 'Platinum', titanium: 'Titanium', cobalt: 'Cobalt',
+    mythril: 'Mythril',   adamantite: 'Adamantite', orichalcum: 'Orichalcum',
+    luminite: 'Luminite', voidcrystal: 'Void Crystal', celestium: 'Celestium',
 };
 
 const RESOURCE_TYPES = {
-    tree:       { tier: 'wood',       hp: 50,  color: '#2d8a4e', radius: 22, drop: 8,  label: 'Tree' },
-    rock:       { tier: 'stone',      hp: 80,  color: '#777',    radius: 20, drop: 6,  label: 'Rock' },
-    iron:       { tier: 'iron',       hp: 120, color: '#4a6a80', radius: 18, drop: 5,  label: 'Iron Ore' },
-    gold:       { tier: 'gold',       hp: 180, color: '#c9a800', radius: 16, drop: 4,  label: 'Gold Ore' },
-    adamantite: { tier: 'adamantite', hp: 300, color: '#8a2be2', radius: 15, drop: 3,  label: 'Adamantite' },
+    tree:            { tier: 'wood',        hp: 50,   color: '#2d8a4e', radius: 22, drop: 10, label: 'Tree' },
+    rock:            { tier: 'stone',       hp: 80,   color: '#777',    radius: 20, drop: 8,  label: 'Rock' },
+    copper_ore:      { tier: 'copper',      hp: 110,  color: '#B87333', radius: 19, drop: 7,  label: 'Copper Ore' },
+    iron_ore:        { tier: 'iron',        hp: 150,  color: '#4a6a80', radius: 18, drop: 6,  label: 'Iron Ore' },
+    silver_ore:      { tier: 'silver',      hp: 200,  color: '#a8a8a8', radius: 17, drop: 5,  label: 'Silver Ore' },
+    gold_ore:        { tier: 'gold',        hp: 260,  color: '#c9a800', radius: 16, drop: 5,  label: 'Gold Ore' },
+    platinum_ore:    { tier: 'platinum',    hp: 340,  color: '#d0d0cc', radius: 16, drop: 4,  label: 'Platinum Ore' },
+    titanium_ore:    { tier: 'titanium',    hp: 440,  color: '#6a6a62', radius: 15, drop: 4,  label: 'Titanium Ore' },
+    cobalt_ore:      { tier: 'cobalt',      hp: 560,  color: '#003a8c', radius: 15, drop: 3,  label: 'Cobalt Ore' },
+    mythril_ore:     { tier: 'mythril',     hp: 700,  color: '#00a5a5', radius: 14, drop: 3,  label: 'Mythril Ore' },
+    adamantite_ore:  { tier: 'adamantite',  hp: 880,  color: '#8a2be2', radius: 14, drop: 3,  label: 'Adamantite Ore' },
+    orichalcum_ore:  { tier: 'orichalcum',  hp: 1100, color: '#cc4477', radius: 13, drop: 2,  label: 'Orichalcum Ore' },
+    luminite_ore:    { tier: 'luminite',    hp: 1400, color: '#cccc22', radius: 13, drop: 2,  label: 'Luminite Ore' },
+    voidcrystal_ore: { tier: 'voidcrystal', hp: 1800, color: '#220044', radius: 12, drop: 2,  label: 'Void Crystal' },
+    celestium_ore:   { tier: 'celestium',   hp: 2400, color: '#00cc99', radius: 12, drop: 1,  label: 'Celestium Ore' },
 };
 
 const ENEMY_TYPES = {
@@ -60,7 +88,12 @@ const G = {
     projectiles: [],
     particles: [],
     floatingTexts: [],
-    inventory: { wood: 0, stone: 0, iron: 0, gold: 0, adamantite: 0, exp: 0 },
+    inventory: {
+        wood: 0, stone: 0, copper: 0, iron: 0, silver: 0,
+        gold: 0, platinum: 0, titanium: 0, cobalt: 0,
+        mythril: 0, adamantite: 0, orichalcum: 0,
+        luminite: 0, voidcrystal: 0, celestium: 0, exp: 0,
+    },
     tools: {
         pickaxe: { tier: 0, durability: 100, maxDurability: 100 },
         axe:     { tier: 0, durability: 100, maxDurability: 100 },
@@ -99,14 +132,14 @@ function circleCollide(a, ar, b, br) { return dist(a, b) < ar + br; }
 function tierIndex(tier) { return TIERS.indexOf(tier); }
 
 function getUpgradeCost(currentTier) {
-    if (currentTier < 5) {
+    if (currentTier < 15) {
         const res = TIERS[currentTier];
-        const cost = Math.floor(15 * Math.pow(2.2, currentTier));
+        const cost = Math.floor(15 * Math.pow(1.65, currentTier));
         return { resource: res, amount: cost };
     }
-    // Beyond tier 5, adamantite with exponential scaling
-    const cost = Math.floor(160 * Math.pow(2, currentTier - 4));
-    return { resource: 'adamantite', amount: cost };
+    // Beyond tier 15, celestium with exponential scaling
+    const cost = Math.floor(200 * Math.pow(1.8, currentTier - 14));
+    return { resource: 'celestium', amount: cost };
 }
 
 function getToolDamage(tier) { return 10 + tier * 8; }
@@ -120,8 +153,8 @@ function spend(resource, amount) { G.inventory[resource] -= amount; }
 
 function getBuildCost(type, tierIdx) {
     const base = type === 'wall' ? 12 : 30;
-    const res = TIERS[Math.min(tierIdx, 4)];
-    const amount = Math.floor(base * Math.pow(2.2, tierIdx));
+    const res = TIERS[Math.min(tierIdx, 14)];
+    const amount = Math.floor(base * Math.pow(1.65, tierIdx));
     return { resource: res, amount };
 }
 
@@ -167,16 +200,15 @@ function generateWorld() {
             });
         }
     }
-    // Cluster higher-tier resources toward edges
+    // Cluster higher-tier resources toward edges — higher tier = further out
     for (const r of G.resources) {
         const cfg = RESOURCE_TYPES[r.type];
         const ti = tierIndex(cfg.tier);
         if (ti >= 2) {
-            // Push toward edges
             const cx = CFG.WORLD_W / 2, cy = CFG.WORLD_H / 2;
             const dx = r.x - cx, dy = r.y - cy;
             const d = Math.hypot(dx, dy) || 1;
-            const push = 400 + ti * 200;
+            const push = 200 + ti * 180;
             r.x = clamp(r.x + (dx / d) * push, 50, CFG.WORLD_W - 50);
             r.y = clamp(r.y + (dy / d) * push, 50, CFG.WORLD_H - 50);
         }
@@ -316,8 +348,8 @@ function performAttack() {
     const p = G.player;
     const slot = G.hotbarSlot;
 
-    if (slot === 0) { // Pickaxe - mine stone/iron/gold/adamantite
-        attackResources('pickaxe', ['rock', 'iron', 'gold', 'adamantite']);
+    if (slot === 0) { // Pickaxe - mine all ores
+        attackResources('pickaxe', Object.keys(RESOURCE_TYPES).filter(k => k !== 'tree'));
     } else if (slot === 1) { // Axe - chop trees
         attackResources('axe', ['tree']);
     } else if (slot === 2) { // Sword - attack enemies
@@ -528,7 +560,7 @@ function updateBuildings(dt) {
                         radius: 4,
                         life: 1.5,
                         from: 'turret',
-                        color: TIER_COLORS[TIERS[Math.min(b.tierIdx, 4)]],
+                        color: TIER_COLORS[TIERS[Math.min(b.tierIdx, 14)]],
                     });
                     b.shootCooldown = CFG.TURRET_FIRE_RATE / (1 + b.tierIdx * 0.15);
                 }
@@ -812,7 +844,7 @@ function tryPlaceBuilding() {
         shootCooldown: 0,
     });
 
-    spawnParticles(gridX, gridY, TIER_COLORS[TIERS[Math.min(G.buildTier, 4)]], 8);
+    spawnParticles(gridX, gridY, TIER_COLORS[TIERS[Math.min(G.buildTier, 14)]], 8);
 }
 
 // ==================== RENDERING ====================
@@ -1011,13 +1043,30 @@ function drawResource(ctx, r) {
         ctx.stroke();
 
         // Sparkle for high-tier
-        if (tierIndex(cfg.tier) >= 3) {
-            ctx.fillStyle = cfg.tier === 'gold' ? '#ff0' : '#f0f';
+        const ti = tierIndex(cfg.tier);
+        if (ti >= 3) {
+            ctx.fillStyle = TIER_COLORS[cfg.tier];
             ctx.globalAlpha = 0.5 + Math.sin(Date.now() / 300 + r.x) * 0.3;
-            ctx.beginPath();
-            ctx.arc(r.x + Math.sin(Date.now()/500) * 4, r.y - r.radius * 0.3, 2, 0, Math.PI * 2);
-            ctx.fill();
+            const sparkleCount = Math.min(ti - 2, 4);
+            for (let s = 0; s < sparkleCount; s++) {
+                const sa = (Date.now() / 500 + s * 1.5 + r.x) % (Math.PI * 2);
+                ctx.beginPath();
+                ctx.arc(r.x + Math.sin(sa) * 5, r.y + Math.cos(sa * 1.3) * 5, 1.5 + ti * 0.15, 0, Math.PI * 2);
+                ctx.fill();
+            }
             ctx.globalAlpha = 1;
+            // Glow for ultra-high tier (10+)
+            if (ti >= 10) {
+                ctx.shadowColor = TIER_COLORS[cfg.tier];
+                ctx.shadowBlur = 8 + (ti - 10) * 3;
+                ctx.fillStyle = TIER_COLORS[cfg.tier];
+                ctx.globalAlpha = 0.15;
+                ctx.beginPath();
+                ctx.arc(r.x, r.y, r.radius + 5, 0, Math.PI * 2);
+                ctx.fill();
+                ctx.globalAlpha = 1;
+                ctx.shadowBlur = 0;
+            }
         }
     }
 
@@ -1035,7 +1084,7 @@ function drawResource(ctx, r) {
 }
 
 function drawBuilding(ctx, b) {
-    const tierColor = TIER_COLORS[TIERS[Math.min(b.tierIdx, 4)]];
+    const tierColor = TIER_COLORS[TIERS[Math.min(b.tierIdx, 14)]];
     const darkerColor = b.type === 'wall' ? tierColor : '#333';
 
     if (b.type === 'wall') {
@@ -1223,7 +1272,7 @@ function drawPlayer(ctx) {
     // Held item
     const slot = G.hotbarSlot;
     const toolTier = slot === 0 ? G.tools.pickaxe.tier : slot === 1 ? G.tools.axe.tier : G.tools.sword.tier;
-    const tierColor = TIER_COLORS[TIERS[Math.min(toolTier, 4)]] || '#8B5E3C';
+    const tierColor = TIER_COLORS[TIERS[Math.min(toolTier, 14)]] || '#8B5E3C';
 
     if (slot <= 2) {
         const handX = p.x + Math.cos(p.angle) * (p.radius + 10);
@@ -1271,12 +1320,36 @@ function updateHUD() {
     document.getElementById('health-bar').style.width = `${hpPct}%`;
     document.getElementById('health-text').textContent = `${Math.ceil(p.hp)} / ${p.maxHp}`;
 
-    // Resources
-    document.getElementById('res-wood').textContent = `🪵 ${G.inventory.wood}`;
-    document.getElementById('res-stone').textContent = `🪨 ${G.inventory.stone}`;
-    document.getElementById('res-iron').textContent = `⛏️ ${G.inventory.iron}`;
-    document.getElementById('res-gold').textContent = `🥇 ${G.inventory.gold}`;
-    document.getElementById('res-adamantite').textContent = `💎 ${G.inventory.adamantite}`;
+    // Resources - dynamically update all tiers
+    const resContainer = document.getElementById('resources');
+    if (resContainer._built !== true) {
+        resContainer.innerHTML = '';
+        for (const tier of TIERS) {
+            const span = document.createElement('span');
+            span.className = 'res';
+            span.id = `res-${tier}`;
+            span.style.borderLeft = `3px solid ${TIER_COLORS[tier]}`;
+            resContainer.appendChild(span);
+        }
+        const expSpan = document.createElement('span');
+        expSpan.className = 'res';
+        expSpan.id = 'res-exp';
+        expSpan.style.borderLeft = '3px solid #FFD700';
+        resContainer.appendChild(expSpan);
+        resContainer._built = true;
+    }
+    for (const tier of TIERS) {
+        const el = document.getElementById(`res-${tier}`);
+        if (el) {
+            const val = G.inventory[tier];
+            if (val > 0 || tierIndex(tier) < 3) {
+                el.textContent = `${TIER_NAMES[tier]}: ${val}`;
+                el.style.display = '';
+            } else {
+                el.style.display = 'none';
+            }
+        }
+    }
     document.getElementById('res-exp').textContent = `⭐ ${G.inventory.exp}`;
 
     // Hotbar names
@@ -1347,7 +1420,7 @@ function openBuildMenu() {
     opts.innerHTML = '';
 
     for (const type of ['wall', 'turret']) {
-        for (let ti = 0; ti <= Math.min(4, G.dayNum + 1); ti++) {
+        for (let ti = 0; ti <= Math.min(14, G.dayNum + 1); ti++) {
             const cost = getBuildCost(type, ti);
             const hp = getBuildHP(type, ti);
             const affordable = canAfford(cost.resource, cost.amount);
@@ -1395,8 +1468,8 @@ function openUpgradeMenu() {
             statsText = `DMG: ${getToolDamage(tool.tier)} → ${getToolDamage(tool.tier + 1)} | Speed: x${getToolSpeed(tool.tier).toFixed(1)} → x${getToolSpeed(tool.tier + 1).toFixed(1)}`;
         }
 
-        const tierName = tool.tier < 5 ? TIER_NAMES[TIERS[tool.tier]] : `Adamantite +${tool.tier - 4}`;
-        const nextTier = tool.tier + 1 < 5 ? TIER_NAMES[TIERS[tool.tier + 1]] : `Adamantite +${tool.tier - 3}`;
+        const tierName = tool.tier < 15 ? TIER_NAMES[TIERS[tool.tier]] : `Celestium +${tool.tier - 14}`;
+        const nextTier = tool.tier + 1 < 15 ? TIER_NAMES[TIERS[tool.tier + 1]] : `Celestium +${tool.tier + 1 - 14}`;
         const durPct = Math.round(tool.durability / tool.maxDurability * 100);
 
         const div = document.createElement('div');
